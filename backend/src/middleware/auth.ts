@@ -25,9 +25,16 @@ export const requireAdmin = async (
     // Verify token with Supabase
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
-    if (authError || !user) {
-      return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+    if (authError) {
+      console.error('Auth error:', authError.message);
+      return res.status(401).json({ error: `Unauthorized: ${authError.message}` });
     }
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized: No user found for token' });
+    }
+    
+    console.log('Authenticated user:', user.id, user.email);
 
     // Verify user exists in admin_users table
     const { data: adminUser, error: adminError } = await supabase

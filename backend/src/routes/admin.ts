@@ -6,14 +6,59 @@ import { sendMagicLinkEmail, sendRejectionEmail } from '../utils/email';
 
 const router = express.Router();
 
+// Get dashboard statistics (admin only)
+router.get('/stats', requireAdmin, async (req, res) => {
+  try {
+    // Get pending requests count
+    const { count: pendingCount } = await supabase
+      .from('document_requests')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'pending');
+
+    // Get total organizations count
+    const { count: totalOrgsCount } = await supabase
+      .from('organizations')
+      .select('*', { count: 'exact', head: true });
+
+    // Get organizations with approved documents
+    const { data: orgs } = await supabase
+      .from('organizations')
+      .select('approved_document_ids');
+    
+    const approvedOrgsCount = orgs?.filter(org => 
+      org.approved_document_ids && org.approved_document_ids.length > 0
+    ).length || 0;
+
+    // Get total published documents count
+    const { count: totalDocsCount } = await supabase
+      .from('documents')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'published')
+      .eq('is_current_version', true);
+
+    res.json({
+      pendingRequests: pendingCount || 0,
+      totalOrganizations: totalOrgsCount || 0,
+      approvedOrganizations: approvedOrgsCount,
+      totalDocuments: totalDocsCount || 0,
+    });
+  } catch (error: any) {
+    console.error('Stats endpoint error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get all document requests (admin only)
 router.get('/document-requests', requireAdmin, async (req, res) => {
   try {
     const { status, organization_id } = req.query;
+    
+    console.log('Fetching document requests...');
 
+    // First get document requests (without joining documents - no FK relationship)
     let query = supabase
       .from('document_requests')
-      .select('*, organizations(*), documents(*)')
+      .select('*, organizations(id, name, email_domain)')
       .order('created_at', { ascending: false });
 
     if (status) {
@@ -26,10 +71,34 @@ router.get('/document-requests', requireAdmin, async (req, res) => {
 
     const { data, error } = await query;
 
-    if (error) throw error;
+    console.log('Document requests query result:', { count: data?.length, error: error?.message });
 
-    res.json(data);
+    if (error) {
+      console.error('Document requests error:', error);
+      throw error;
+    }
+
+    // Fetch document details for each request separately
+    const requestsWithDocs = await Promise.all(
+      (data || []).map(async (request) => {
+        let documents: { id: string; title: string }[] = [];
+        
+        if (request.document_ids && request.document_ids.length > 0) {
+          const { data: docs } = await supabase
+            .from('documents')
+            .select('id, title')
+            .in('id', request.document_ids);
+          documents = docs || [];
+        }
+        
+        return { ...request, documents };
+      })
+    );
+
+    console.log('Returning', requestsWithDocs.length, 'requests');
+    res.json(requestsWithDocs);
   } catch (error: any) {
+    console.error('Document requests route error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -39,16 +108,26 @@ router.get('/document-requests/:id', requireAdmin, async (req, res) => {
   try {
     const { data: request, error } = await supabase
       .from('document_requests')
-      .select('*, organizations(*), documents(*)')
+      .select('*, organizations(id, name, email_domain)')
       .eq('id', req.params.id)
       .single();
 
     if (error) throw error;
 
+    // Fetch document details
+    let documents: { id: string; title: string }[] = [];
+    if (request.document_ids && request.document_ids.length > 0) {
+      const { data: docs } = await supabase
+        .from('documents')
+        .select('id, title')
+        .in('id', request.document_ids);
+      documents = docs || [];
+    }
+
     // Get request history from same email
     const { data: history } = await supabase
       .from('document_requests')
-      .select('id, status, created_at, document_ids, documents(title)')
+      .select('id, status, created_at, document_ids')
       .eq('requester_email', request.requester_email)
       .neq('id', request.id)
       .order('created_at', { ascending: false })
@@ -56,6 +135,7 @@ router.get('/document-requests/:id', requireAdmin, async (req, res) => {
 
     res.json({
       ...request,
+      documents,
       history: history || [],
     });
   } catch (error: any) {
@@ -134,17 +214,32 @@ router.patch('/document-requests/:id/approve', requireAdmin, async (req: AuthReq
       .select('title')
       .in('id', request.document_ids);
 
-    // Send magic link email
+    // Send magic link email (non-blocking - don't fail request if email fails)
     const magicLinkUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/access/${token}`;
-    await sendMagicLinkEmail({
-      requesterName: request.requester_name,
-      requesterEmail: request.requester_email,
-      documents: documents || [],
-      magicLinkUrl,
-      expirationDate: expiration.toLocaleDateString(),
-    });
+    let emailSent = false;
+    let emailError = null;
+    
+    try {
+      await sendMagicLinkEmail({
+        requesterName: request.requester_name,
+        requesterEmail: request.requester_email,
+        documents: documents || [],
+        magicLinkUrl,
+        expirationDate: expiration.toLocaleDateString(),
+      });
+      emailSent = true;
+      console.log(`Magic link email sent successfully to ${request.requester_email}`);
+    } catch (emailErr: any) {
+      emailError = emailErr.message;
+      console.error(`Failed to send magic link email to ${request.requester_email}:`, emailErr);
+      // Continue - don't fail the request if email fails
+    }
 
-    res.json(updatedRequest);
+    res.json({
+      ...updatedRequest,
+      emailSent,
+      emailError: emailError || undefined,
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -331,7 +426,15 @@ router.get('/users', requireAdmin, async (req, res) => {
 
     const adminMap = new Map(adminUsers?.map(au => [au.id, au]) || []);
 
-    const usersWithAdminStatus = authUsers?.map((user: any) => ({
+    interface AuthUser {
+      id: string;
+      email: string;
+      created_at: string;
+      email_confirmed_at: string | null;
+      user_metadata?: { full_name?: string };
+    }
+
+    const usersWithAdminStatus = authUsers?.map((user: AuthUser) => ({
       id: user.id,
       email: user.email,
       created_at: user.created_at,

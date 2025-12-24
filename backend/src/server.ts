@@ -8,24 +8,44 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-// Initialize Supabase client
+// Initialize Supabase client with service role key
 const supabaseUrl = process.env.SUPABASE_URL || 'http://supabase-kong:8000';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || process.env.ANON_KEY || '';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || '';
 
 export const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false,
   },
+  global: {
+    headers: {
+      'apikey': supabaseServiceKey,
+    },
+  },
 });
+
+console.log('Supabase client initialized with URL:', supabaseUrl);
+console.log('Using service key:', !!supabaseServiceKey);
 
 // Middleware
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'apikey'],
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Request logging
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  next();
+});
+
+// Serve uploaded files (with authentication check in route handler)
+const uploadsDir = process.env.UPLOADS_DIR || '/app/uploads';
+app.use('/uploads', express.static(uploadsDir));
 
 // Health check endpoint
 app.get('/health', (req, res) => {

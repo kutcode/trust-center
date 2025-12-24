@@ -1,8 +1,19 @@
 import express from 'express';
+import { createClient } from '@supabase/supabase-js';
 import { supabase } from '../server';
 import { requireAdmin, AuthRequest } from '../middleware/auth';
 import { upload } from '../middleware/upload';
 import { AppError } from '../middleware/errorHandler';
+import fs from 'fs';
+import path from 'path';
+
+// Local file storage configuration
+const UPLOADS_DIR = process.env.UPLOADS_DIR || '/app/uploads';
+
+// Ensure uploads directory exists
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
 
 const router = express.Router();
 
@@ -73,15 +84,17 @@ router.get('/:id/download', async (req, res) => {
 
     // Public documents can be downloaded directly
     if (document.access_level === 'public') {
-      // Generate signed URL from Supabase Storage
-      const { data: signedUrl, error: urlError } = await supabase
-        .storage
-        .from('compliance-documents')
-        .createSignedUrl(document.file_url, 3600); // 1 hour expiry
+      // Serve from local storage
+      const filePath = path.join(UPLOADS_DIR, document.file_url);
+      
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).json({ error: 'File not found on server' });
+      }
 
-      if (urlError) throw urlError;
-
-      return res.redirect(signedUrl.signedUrl);
+      res.setHeader('Content-Disposition', `attachment; filename="${document.file_name}"`);
+      res.setHeader('Content-Type', document.file_type || 'application/octet-stream');
+      
+      return res.sendFile(filePath);
     }
 
     // Restricted documents require magic link validation (handled in access route)
@@ -104,23 +117,26 @@ router.post('/', requireAdmin, upload.single('file'), async (req: AuthRequest, r
       return res.status(400).json({ error: 'Title and access_level are required' });
     }
 
-    // Upload file to Supabase Storage
+    // Use local file storage instead of Supabase Storage (more reliable for self-hosted)
     const fileExt = req.file.originalname.split('.').pop();
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-    const filePath = `${category_id || 'uncategorized'}/${fileName}`;
+    const folderName = category_id ? `category-${category_id.substring(0, 8)}` : 'uncategorized';
+    const filePath = `${folderName}/${fileName}`;
+    const fullPath = path.join(UPLOADS_DIR, filePath);
 
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('compliance-documents')
-      .upload(filePath, req.file.buffer, {
-        contentType: req.file.mimetype,
-      });
+    console.log('Saving file to:', fullPath);
+    console.log('File size:', req.file.size, 'bytes');
+    console.log('File type:', req.file.mimetype);
 
-    if (uploadError) throw uploadError;
+    // Ensure directory exists
+    const dirPath = path.dirname(fullPath);
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true });
+    }
 
-    // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('compliance-documents')
-      .getPublicUrl(filePath);
+    // Write file to local storage
+    fs.writeFileSync(fullPath, req.file.buffer);
+    console.log('File saved successfully:', filePath);
 
     // If replacing a document, mark old one as archived
     if (replaces_document_id) {
@@ -195,11 +211,13 @@ router.delete('/:id', requireAdmin, async (req: AuthRequest, res) => {
       .eq('id', req.params.id)
       .single();
 
-    if (document) {
-      // Delete file from storage
-      await supabase.storage
-        .from('compliance-documents')
-        .remove([document.file_url]);
+    if (document && document.file_url) {
+      // Delete file from local storage
+      const filePath = path.join(UPLOADS_DIR, document.file_url);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        console.log('Deleted file:', filePath);
+      }
     }
 
     const { error } = await supabase

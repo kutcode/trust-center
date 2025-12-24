@@ -36,7 +36,7 @@ services:
           hide_credentials: false
 
   - name: storage-v1
-    url: http://supabase-storage:5000/storage/v1/
+    url: http://supabase-storage:5000/
     routes:
       - name: storage-v1-route
         strip_path: true

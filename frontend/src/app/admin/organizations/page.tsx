@@ -30,30 +30,39 @@ export default function OrganizationsAdminPage() {
   }, []);
 
   if (loading) {
-    return <div className="container mx-auto px-4 py-12">Loading...</div>;
+    return <div className="text-gray-900">Loading...</div>;
   }
 
   return (
-    <div>
-      <h1 className="text-4xl font-bold mb-8">Organizations</h1>
+    <>
+      <h1 className="text-4xl font-bold mb-8 text-gray-900">Organizations</h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {organizations.map((org) => (
-          <div key={org.id} className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-xl font-semibold mb-2">{org.name}</h3>
-            <p className="text-gray-600 mb-2">Domain: {org.email_domain}</p>
-            <p className="text-sm text-gray-500 mb-4">
-              Approved Documents: {org.approved_document_ids?.length || 0}
-            </p>
-            {org.first_approved_at && (
-              <p className="text-xs text-gray-400">
-                First approved: {new Date(org.first_approved_at).toLocaleDateString()}
+      {organizations.length === 0 ? (
+        <div className="bg-white rounded-lg shadow p-8 text-center">
+          <p className="text-gray-600">No organizations found.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {organizations.map((org) => (
+            <div key={org.id} className="bg-white rounded-lg shadow p-6 border border-gray-200 hover:shadow-md transition-shadow">
+              <h3 className="text-xl font-semibold mb-3 text-gray-900 truncate" title={org.name}>{org.name}</h3>
+              <p className="text-gray-700 mb-2 break-words">
+                <span className="text-gray-600">Domain:</span>{' '}
+                <span className="font-medium text-gray-900">{org.email_domain}</span>
               </p>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
+              <p className="text-sm text-gray-600 mb-4">
+                Approved Documents: <span className="font-semibold text-gray-900">{org.approved_document_ids?.length || 0}</span>
+              </p>
+              {org.first_approved_at && (
+                <p className="text-xs text-gray-500">
+                  First approved: {new Date(org.first_approved_at).toLocaleDateString()}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 

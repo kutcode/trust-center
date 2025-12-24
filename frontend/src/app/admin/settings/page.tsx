@@ -53,12 +53,12 @@ export default function SettingsAdminPage() {
   };
 
   if (loading) {
-    return <div className="container mx-auto px-4 py-12">Loading...</div>;
+    return <div className="text-gray-900">Loading...</div>;
   }
 
   return (
-    <div>
-      <h1 className="text-4xl font-bold mb-8">Trust Center Settings</h1>
+    <>
+      <h1 className="text-4xl font-bold mb-8 text-gray-900">Trust Center Settings</h1>
 
       {success && (
         <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
@@ -66,9 +66,10 @@ export default function SettingsAdminPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl">
+      <div className="bg-white rounded-lg shadow p-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
         <div>
-          <label htmlFor="company_name" className="block text-sm font-medium mb-2">
+          <label htmlFor="company_name" className="block text-sm font-medium mb-2 text-gray-700">
             Company Name
           </label>
           <input
@@ -76,12 +77,12 @@ export default function SettingsAdminPage() {
             id="company_name"
             value={settings.company_name || ''}
             onChange={(e) => setSettings({ ...settings, company_name: e.target.value })}
-            className="w-full px-4 py-2 border rounded-lg"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
           />
         </div>
 
         <div>
-          <label htmlFor="hero_title" className="block text-sm font-medium mb-2">
+          <label htmlFor="hero_title" className="block text-sm font-medium mb-2 text-gray-700">
             Hero Title
           </label>
           <input
@@ -89,12 +90,12 @@ export default function SettingsAdminPage() {
             id="hero_title"
             value={settings.hero_title || ''}
             onChange={(e) => setSettings({ ...settings, hero_title: e.target.value })}
-            className="w-full px-4 py-2 border rounded-lg"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
           />
         </div>
 
         <div>
-          <label htmlFor="hero_subtitle" className="block text-sm font-medium mb-2">
+          <label htmlFor="hero_subtitle" className="block text-sm font-medium mb-2 text-gray-700">
             Hero Subtitle
           </label>
           <input
@@ -102,12 +103,12 @@ export default function SettingsAdminPage() {
             id="hero_subtitle"
             value={settings.hero_subtitle || ''}
             onChange={(e) => setSettings({ ...settings, hero_subtitle: e.target.value })}
-            className="w-full px-4 py-2 border rounded-lg"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
           />
         </div>
 
         <div>
-          <label htmlFor="primary_color" className="block text-sm font-medium mb-2">
+          <label htmlFor="primary_color" className="block text-sm font-medium mb-2 text-gray-700">
             Primary Color
           </label>
           <input
@@ -115,12 +116,12 @@ export default function SettingsAdminPage() {
             id="primary_color"
             value={settings.primary_color || '#007bff'}
             onChange={(e) => setSettings({ ...settings, primary_color: e.target.value })}
-            className="w-full h-10 border rounded-lg"
+            className="w-full h-10 border border-gray-300 rounded-lg"
           />
         </div>
 
         <div>
-          <label htmlFor="secondary_color" className="block text-sm font-medium mb-2">
+          <label htmlFor="secondary_color" className="block text-sm font-medium mb-2 text-gray-700">
             Secondary Color
           </label>
           <input
@@ -128,12 +129,12 @@ export default function SettingsAdminPage() {
             id="secondary_color"
             value={settings.secondary_color || '#6c757d'}
             onChange={(e) => setSettings({ ...settings, secondary_color: e.target.value })}
-            className="w-full h-10 border rounded-lg"
+            className="w-full h-10 border border-gray-300 rounded-lg"
           />
         </div>
 
         <div>
-          <label htmlFor="contact_email" className="block text-sm font-medium mb-2">
+          <label htmlFor="contact_email" className="block text-sm font-medium mb-2 text-gray-700">
             Contact Email
           </label>
           <input
@@ -141,12 +142,12 @@ export default function SettingsAdminPage() {
             id="contact_email"
             value={settings.contact_email || ''}
             onChange={(e) => setSettings({ ...settings, contact_email: e.target.value })}
-            className="w-full px-4 py-2 border rounded-lg"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
           />
         </div>
 
         <div>
-          <label htmlFor="about_section" className="block text-sm font-medium mb-2">
+          <label htmlFor="about_section" className="block text-sm font-medium mb-2 text-gray-700">
             About Section
           </label>
           <textarea
@@ -154,20 +155,21 @@ export default function SettingsAdminPage() {
             rows={6}
             value={settings.about_section || ''}
             onChange={(e) => setSettings({ ...settings, about_section: e.target.value })}
-            className="w-full px-4 py-2 border rounded-lg"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
             placeholder="HTML content for about section"
           />
         </div>
 
-        <button
-          type="submit"
-          disabled={saving}
-          className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-400"
-        >
-          {saving ? 'Saving...' : 'Save Settings'}
-        </button>
-      </form>
-    </div>
+          <button
+            type="submit"
+            disabled={saving}
+            className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
+          >
+            {saving ? 'Saving...' : 'Save Settings'}
+          </button>
+        </form>
+      </div>
+    </>
   );
 }
 

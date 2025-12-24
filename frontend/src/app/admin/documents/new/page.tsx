@@ -54,30 +54,48 @@ export default function UploadDocumentPage() {
       formDataToSend.append('category_id', formData.category_id);
       formDataToSend.append('access_level', formData.access_level);
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/documents`, {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      console.log('Uploading to:', `${apiUrl}/api/documents`);
+      console.log('File:', file.name, file.size, 'bytes');
+
+      const response = await fetch(`${apiUrl}/api/documents`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
+          // Don't set Content-Type - let browser set it with boundary for FormData
         },
         body: formDataToSend,
       });
 
+      console.log('Response status:', response.status);
+
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Upload failed');
+        let errorMessage = 'Upload failed';
+        try {
+          const error = await response.json();
+          errorMessage = error.error || error.message || 'Upload failed';
+          console.error('Upload error:', error);
+        } catch (e) {
+          errorMessage = `Upload failed: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
       }
+
+      const result = await response.json();
+      console.log('Upload successful:', result);
 
       router.push('/admin/documents');
     } catch (err: any) {
-      setError(err.message || 'Failed to upload document');
+      console.error('Upload error:', err);
+      setError(err.message || 'Failed to upload document. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div>
-      <h1 className="text-4xl font-bold mb-8">Upload New Document</h1>
+    <>
+      <h1 className="text-4xl font-bold mb-8 text-gray-900">Upload New Document</h1>
 
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
@@ -85,9 +103,10 @@ export default function UploadDocumentPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl">
+      <div className="bg-white rounded-lg shadow p-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
         <div>
-          <label htmlFor="file" className="block text-sm font-medium mb-2">
+          <label htmlFor="file" className="block text-sm font-medium mb-2 text-gray-700">
             File *
           </label>
           <input
@@ -96,13 +115,13 @@ export default function UploadDocumentPage() {
             required
             accept=".pdf,.docx,.png,.jpg,.jpeg"
             onChange={(e) => setFile(e.target.files?.[0] || null)}
-            className="w-full px-4 py-2 border rounded-lg"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
           />
-          <p className="text-sm text-gray-500 mt-1">Accepted formats: PDF, DOCX, PNG, JPG (max 50MB)</p>
+          <p className="text-sm text-gray-600 mt-1">Accepted formats: PDF, DOCX, PNG, JPG (max 50MB)</p>
         </div>
 
         <div>
-          <label htmlFor="title" className="block text-sm font-medium mb-2">
+          <label htmlFor="title" className="block text-sm font-medium mb-2 text-gray-700">
             Title *
           </label>
           <input
@@ -111,12 +130,12 @@ export default function UploadDocumentPage() {
             required
             value={formData.title}
             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            className="w-full px-4 py-2 border rounded-lg"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
           />
         </div>
 
         <div>
-          <label htmlFor="description" className="block text-sm font-medium mb-2">
+          <label htmlFor="description" className="block text-sm font-medium mb-2 text-gray-700">
             Description
           </label>
           <textarea
@@ -124,19 +143,19 @@ export default function UploadDocumentPage() {
             rows={4}
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            className="w-full px-4 py-2 border rounded-lg"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
           />
         </div>
 
         <div>
-          <label htmlFor="category_id" className="block text-sm font-medium mb-2">
+          <label htmlFor="category_id" className="block text-sm font-medium mb-2 text-gray-700">
             Category
           </label>
           <select
             id="category_id"
             value={formData.category_id}
             onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-            className="w-full px-4 py-2 border rounded-lg"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
           >
             <option value="">Select a category</option>
             {categories.map((cat) => (
@@ -148,7 +167,7 @@ export default function UploadDocumentPage() {
         </div>
 
         <div>
-          <label htmlFor="access_level" className="block text-sm font-medium mb-2">
+          <label htmlFor="access_level" className="block text-sm font-medium mb-2 text-gray-700">
             Access Level *
           </label>
           <select
@@ -156,7 +175,7 @@ export default function UploadDocumentPage() {
             required
             value={formData.access_level}
             onChange={(e) => setFormData({ ...formData, access_level: e.target.value as 'public' | 'restricted' })}
-            className="w-full px-4 py-2 border rounded-lg"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
           >
             <option value="public">Public (anyone can download)</option>
             <option value="restricted">Restricted (requires approval)</option>
@@ -173,13 +192,14 @@ export default function UploadDocumentPage() {
           </button>
           <Link
             href="/admin/documents"
-            className="bg-gray-200 text-gray-800 px-6 py-3 rounded-lg font-semibold hover:bg-gray-300"
+            className="bg-gray-200 text-gray-900 px-6 py-3 rounded-lg font-semibold hover:bg-gray-300"
           >
             Cancel
           </Link>
         </div>
-      </form>
-    </div>
+        </form>
+      </div>
+    </>
   );
 }
 
