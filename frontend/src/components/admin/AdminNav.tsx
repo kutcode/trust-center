@@ -14,14 +14,14 @@ export default function AdminNav() {
     async function loadUser() {
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (session) {
         const { data: adminUser } = await supabase
           .from('admin_users')
           .select('email, full_name')
           .eq('id', session.user.id)
           .single();
-        
+
         if (adminUser) {
           setUser(adminUser);
         }
@@ -40,6 +40,7 @@ export default function AdminNav() {
     { href: '/admin', label: 'Dashboard' },
     { href: '/admin/documents', label: 'Documents' },
     { href: '/admin/requests', label: 'Requests' },
+    { href: '/admin/tickets', label: 'Tickets' },
     { href: '/admin/organizations', label: 'Organizations' },
     { href: '/admin/users', label: 'Users' },
     { href: '/admin/settings', label: 'Settings' },
@@ -58,11 +59,10 @@ export default function AdminNav() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    pathname === link.href
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${pathname === link.href
                       ? 'bg-blue-100 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-                  }`}
+                    }`}
                 >
                   {link.label}
                 </Link>

@@ -26,8 +26,8 @@ router.get('/stats', requireAdmin, async (req, res) => {
       .from('organizations')
       .select('approved_document_ids, status')
       .eq('is_active', true);
-    
-    const approvedOrgsCount = orgs?.filter(org => 
+
+    const approvedOrgsCount = orgs?.filter(org =>
       org.approved_document_ids && org.approved_document_ids.length > 0
     ).length || 0;
 
@@ -64,7 +64,7 @@ router.get('/stats', requireAdmin, async (req, res) => {
 router.get('/document-requests', requireAdmin, async (req, res) => {
   try {
     const { status, organization_id } = req.query;
-    
+
     console.log('Fetching document requests...');
 
     // First get document requests (without joining documents - no FK relationship)
@@ -94,7 +94,7 @@ router.get('/document-requests', requireAdmin, async (req, res) => {
     const requestsWithDocs = await Promise.all(
       (data || []).map(async (request) => {
         let documents: { id: string; title: string }[] = [];
-        
+
         if (request.document_ids && request.document_ids.length > 0) {
           const { data: docs } = await supabase
             .from('documents')
@@ -102,7 +102,7 @@ router.get('/document-requests', requireAdmin, async (req, res) => {
             .in('id', request.document_ids);
           documents = docs || [];
         }
-        
+
         return { ...request, documents };
       })
     );
@@ -198,9 +198,9 @@ router.patch('/document-requests/:id/approve', requireAdmin, async (req: AuthReq
       // Check if organization has access (not blocked)
       const org = request.organizations as any;
       if (org.status === 'no_access' || !org.is_active) {
-        return res.status(403).json({ 
+        return res.status(403).json({
           error: 'Cannot approve request. Organization access has been revoked.',
-          organization_status: org.status 
+          organization_status: org.status
         });
       }
 
@@ -255,7 +255,7 @@ router.patch('/document-requests/:id/approve', requireAdmin, async (req: AuthReq
     const magicLinkUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/access/${token}`;
     let emailSent = false;
     let emailError = null;
-    
+
     try {
       await sendMagicLinkEmail({
         requesterName: request.requester_name,
@@ -704,11 +704,230 @@ router.delete('/organizations/:id', requireAdmin, async (req: AuthRequest, res) 
 
     if (error) throw error;
 
-    res.json({ 
+    res.json({
       message: 'Organization revoked successfully. Future access blocked.',
-      organization: data 
+      organization: data
     });
   } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// =====================
+// TICKET MANAGEMENT ROUTES
+// =====================
+
+// Get all tickets (contact submissions)
+router.get('/tickets', requireAdmin, async (req, res) => {
+  try {
+    const { status } = req.query;
+
+    let query = supabase
+      .from('contact_submissions')
+      .select(`
+        *,
+        assigned_admin:assigned_to(id, email, full_name)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (status && status !== 'all') {
+      query = query.eq('status', status);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    // Get message counts for each ticket
+    const ticketsWithCounts = await Promise.all(
+      (data || []).map(async (ticket) => {
+        const { count } = await supabase
+          .from('ticket_messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('ticket_id', ticket.id);
+
+        return {
+          ...ticket,
+          message_count: count || 0,
+        };
+      })
+    );
+
+    res.json(ticketsWithCounts);
+  } catch (error: any) {
+    console.error('Get tickets error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get single ticket with messages
+router.get('/tickets/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get ticket details
+    const { data: ticket, error: ticketError } = await supabase
+      .from('contact_submissions')
+      .select(`
+        *,
+        assigned_admin:assigned_to(id, email, full_name)
+      `)
+      .eq('id', id)
+      .single();
+
+    if (ticketError) throw ticketError;
+
+    // Get messages
+    const { data: messages, error: messagesError } = await supabase
+      .from('ticket_messages')
+      .select(`
+        *,
+        sender:sender_id(id, email, full_name)
+      `)
+      .eq('ticket_id', id)
+      .order('created_at', { ascending: true });
+
+    if (messagesError) throw messagesError;
+
+    res.json({
+      ...ticket,
+      messages: messages || [],
+    });
+  } catch (error: any) {
+    console.error('Get ticket error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Add message to ticket (sends email to user)
+router.post('/tickets/:id/messages', requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { message } = req.body;
+
+    if (!message || !message.trim()) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+
+    // Get ticket info
+    const { data: ticket, error: ticketError } = await supabase
+      .from('contact_submissions')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (ticketError || !ticket) {
+      return res.status(404).json({ error: 'Ticket not found' });
+    }
+
+    // Get admin info
+    const { data: admin } = await supabase
+      .from('admin_users')
+      .select('full_name, email')
+      .eq('id', req.admin!.id)
+      .single();
+
+    // Insert message
+    const { data: newMessage, error: insertError } = await supabase
+      .from('ticket_messages')
+      .insert({
+        ticket_id: id,
+        sender_type: 'admin',
+        sender_id: req.admin!.id,
+        sender_name: admin?.full_name || admin?.email || 'Support',
+        message: message.trim(),
+      })
+      .select()
+      .single();
+
+    if (insertError) throw insertError;
+
+    // Update ticket status to in_progress if it was new
+    if (ticket.status === 'new') {
+      await supabase
+        .from('contact_submissions')
+        .update({ status: 'in_progress', assigned_to: req.admin!.id })
+        .eq('id', id);
+    }
+
+    // Send email notification to user
+    try {
+      const { sendEmail } = require('../services/emailService');
+      await sendEmail({
+        to: ticket.email,
+        from: process.env.SMTP_FROM || 'noreply@trustcenter.com',
+        subject: `Re: ${ticket.subject}`,
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+              .message { background: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0; }
+              .footer { margin-top: 30px; font-size: 12px; color: #666; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h2>Response to Your Inquiry</h2>
+              <p>Hi ${ticket.name},</p>
+              <p>We've responded to your inquiry regarding: <strong>${ticket.subject}</strong></p>
+              <div class="message">
+                ${message.trim().replace(/\n/g, '<br>')}
+              </div>
+              <p>If you have any further questions, please reply to this ticket or submit a new contact form.</p>
+              <div class="footer">
+                <p><small>This is an automated response from our support team.</small></p>
+              </div>
+            </div>
+          </body>
+          </html>
+        `,
+      });
+      console.log(`Ticket reply email sent to ${ticket.email}`);
+    } catch (emailError: any) {
+      console.error('Failed to send ticket reply email:', emailError.message);
+      // Don't fail the request if email fails
+    }
+
+    res.json(newMessage);
+  } catch (error: any) {
+    console.error('Add ticket message error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update ticket status
+router.patch('/tickets/:id/status', requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status || !['new', 'in_progress', 'resolved'].includes(status)) {
+      return res.status(400).json({ error: 'Valid status is required (new, in_progress, resolved)' });
+    }
+
+    const updateData: any = { status };
+
+    // Auto-assign to admin who changes status
+    if (status === 'in_progress') {
+      updateData.assigned_to = req.admin!.id;
+    }
+
+    const { data, error } = await supabase
+      .from('contact_submissions')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json(data);
+  } catch (error: any) {
+    console.error('Update ticket status error:', error);
     res.status(500).json({ error: error.message });
   }
 });
