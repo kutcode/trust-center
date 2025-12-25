@@ -21,7 +21,7 @@ An open-source security trust center platform similar to Plaid's trust center. B
 - **Auth**: Supabase Auth (admin-only), Magic links for document access
 - **Storage**: Supabase Storage
 - **Containerization**: Docker + Docker Compose
-- **Email**: Nodemailer for magic link delivery
+- **Email**: Resend API (production) / Mailpit (development) for secure email delivery with attachments
 
 ## Prerequisites
 
@@ -58,6 +58,30 @@ An open-source security trust center platform similar to Plaid's trust center. B
    - Frontend: http://localhost:3000
    - Backend API: http://localhost:4000
    - Supabase Studio: http://localhost:54323
+   - Mailpit (email testing): http://localhost:8025
+
+## Email Configuration
+
+The Trust Center uses **Resend** for secure, production-ready email delivery with high deliverability to Gmail, Hotmail, Yahoo, and other major providers.
+
+### Quick Setup
+
+1. **For Development** (emails captured locally):
+   - No configuration needed! Emails are automatically captured by Mailpit
+   - View emails at http://localhost:8025
+
+2. **For Production** (real email delivery):
+   - Sign up at [Resend.com](https://resend.com) (free tier: 3,000 emails/month)
+   - Get your API key from the dashboard
+   - Add to `.env`:
+     ```env
+     EMAIL_PROVIDER=resend
+     RESEND_API_KEY=re_your_api_key_here
+     SMTP_FROM=noreply@yourdomain.com
+     ```
+   - Restart backend: `docker-compose up -d --force-recreate backend`
+
+📖 **Full Email Setup Guide**: See [docs/EMAIL_SETUP.md](docs/EMAIL_SETUP.md) for detailed instructions, custom domain setup, security best practices, and troubleshooting.
 
 ## Initial Setup
 

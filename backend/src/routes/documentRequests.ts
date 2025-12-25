@@ -1,7 +1,7 @@
 import express from 'express';
 import { supabase } from '../server';
 import { requireAdmin, AuthRequest } from '../middleware/auth';
-import { extractEmailDomain, isPersonalEmailDomain, getOrCreateOrganization } from '../utils/organization';
+import { extractEmailDomain, isPersonalEmailDomain, getOrCreateOrganization, checkOrganizationAccess, canAutoApproveDocument } from '../utils/organization';
 import { generateMagicLinkToken, getMagicLinkExpiration } from '../utils/magicLink';
 import { sendMagicLinkEmail, sendRejectionEmail } from '../utils/email';
 import { AppError } from '../middleware/errorHandler';
@@ -30,28 +30,38 @@ router.post('/', async (req, res) => {
       organizationId = org.id;
     }
 
-    // Check organization's approved documents
+    // Check organization access status
     let approvedDocs: string[] = [];
     let pendingDocs: string[] = [];
 
     if (organizationId) {
-      const { data: org } = await supabase
-        .from('organizations')
-        .select('approved_document_ids')
-        .eq('id', organizationId)
-        .single();
+      const accessCheck = await checkOrganizationAccess(organizationId);
 
-      if (org) {
-        approvedDocs = document_ids.filter((docId: string) => 
-          org.approved_document_ids.includes(docId)
-        );
-        pendingDocs = document_ids.filter((docId: string) => 
-          !org.approved_document_ids.includes(docId)
-        );
+      // Block if organization has no access
+      if (!accessCheck.hasAccess) {
+        return res.status(403).json({ 
+          error: 'Access denied. Your organization does not have permission to request documents.',
+          status: accessCheck.status
+        });
+      }
+
+      // Whitelisted organizations: auto-approve ALL documents (including future ones)
+      if (accessCheck.autoApproveAll) {
+        approvedDocs = document_ids;
+        pendingDocs = [];
       } else {
-        pendingDocs = document_ids;
+        // Conditional organizations: only approve documents in approved_document_ids
+        for (const docId of document_ids) {
+          const canApprove = await canAutoApproveDocument(organizationId, docId);
+          if (canApprove) {
+            approvedDocs.push(docId);
+          } else {
+            pendingDocs.push(docId);
+          }
+        }
       }
     } else {
+      // Personal email domains: all documents pending
       pendingDocs = document_ids;
     }
 
@@ -78,21 +88,35 @@ router.post('/', async (req, res) => {
         .single();
 
       if (!approvedError && approvedRequest) {
-        // Get document titles
+        // Get full document details including file paths
         const { data: documents } = await supabase
           .from('documents')
-          .select('title')
+          .select('id, title, file_url, file_name, file_type')
           .in('id', approvedDocs);
 
-        // Send magic link email
+        // Prepare document data with file paths for email attachments
+        const documentsForEmail = (documents || []).map(doc => ({
+          title: doc.title,
+          filePath: doc.file_url || undefined,
+          fileName: doc.file_name || undefined,
+          fileType: doc.file_type || undefined,
+        }));
+
+        // Send magic link email with attachments
         const magicLinkUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/access/${token}`;
-        await sendMagicLinkEmail({
-          requesterName: name,
-          requesterEmail: email,
-          documents: documents || [],
-          magicLinkUrl,
-          expirationDate: expiration.toLocaleDateString(),
-        });
+        try {
+          await sendMagicLinkEmail({
+            requesterName: name,
+            requesterEmail: email,
+            documents: documentsForEmail,
+            magicLinkUrl,
+            expirationDate: expiration.toLocaleDateString(),
+          });
+          console.log(`Auto-approval email with attachments sent to ${email}`);
+        } catch (emailErr: any) {
+          console.error(`Failed to send auto-approval email to ${email}:`, emailErr);
+          // Continue - don't fail the request if email fails
+        }
       }
     }
 

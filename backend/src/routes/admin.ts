@@ -15,19 +15,26 @@ router.get('/stats', requireAdmin, async (req, res) => {
       .select('*', { count: 'exact', head: true })
       .eq('status', 'pending');
 
-    // Get total organizations count
+    // Get total organizations count (active only)
     const { count: totalOrgsCount } = await supabase
       .from('organizations')
-      .select('*', { count: 'exact', head: true });
+      .select('*', { count: 'exact', head: true })
+      .eq('is_active', true);
 
     // Get organizations with approved documents
     const { data: orgs } = await supabase
       .from('organizations')
-      .select('approved_document_ids');
+      .select('approved_document_ids, status')
+      .eq('is_active', true);
     
     const approvedOrgsCount = orgs?.filter(org => 
       org.approved_document_ids && org.approved_document_ids.length > 0
     ).length || 0;
+
+    // Get organization status counts
+    const whitelistedCount = orgs?.filter(org => org.status === 'whitelisted').length || 0;
+    const conditionalCount = orgs?.filter(org => org.status === 'conditional').length || 0;
+    const noAccessCount = orgs?.filter(org => org.status === 'no_access').length || 0;
 
     // Get total published documents count
     const { count: totalDocsCount } = await supabase
@@ -41,6 +48,11 @@ router.get('/stats', requireAdmin, async (req, res) => {
       totalOrganizations: totalOrgsCount || 0,
       approvedOrganizations: approvedOrgsCount,
       totalDocuments: totalDocsCount || 0,
+      organizationsByStatus: {
+        whitelisted: whitelistedCount,
+        conditional: conditionalCount,
+        noAccess: noAccessCount,
+      },
     });
   } catch (error: any) {
     console.error('Stats endpoint error:', error);
@@ -183,16 +195,33 @@ router.patch('/document-requests/:id/approve', requireAdmin, async (req: AuthReq
 
     // If organization exists, add documents to approved list
     if (request.organization_id && request.organizations) {
-      const currentApproved = request.organizations.approved_document_ids || [];
+      // Check if organization has access (not blocked)
+      const org = request.organizations as any;
+      if (org.status === 'no_access' || !org.is_active) {
+        return res.status(403).json({ 
+          error: 'Cannot approve request. Organization access has been revoked.',
+          organization_status: org.status 
+        });
+      }
+
+      const currentApproved = org.approved_document_ids || [];
       const newApproved = [...new Set([...currentApproved, ...request.document_ids])];
+
+      // Set status to 'conditional' if this is the first approval (status not yet set)
+      const updateData: any = {
+        approved_document_ids: newApproved,
+        last_approved_at: new Date().toISOString(),
+        first_approved_at: org.first_approved_at || new Date().toISOString(),
+      };
+
+      // Set status to conditional if not already set (first approval)
+      if (!org.status || org.status === 'no_access') {
+        updateData.status = 'conditional';
+      }
 
       await supabase
         .from('organizations')
-        .update({
-          approved_document_ids: newApproved,
-          last_approved_at: new Date().toISOString(),
-          first_approved_at: request.organizations.first_approved_at || new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', request.organization_id);
 
       // Create audit records
@@ -208,13 +237,21 @@ router.patch('/document-requests/:id/approve', requireAdmin, async (req: AuthReq
       }
     }
 
-    // Get document titles
+    // Get full document details including file paths
     const { data: documents } = await supabase
       .from('documents')
-      .select('title')
+      .select('id, title, file_url, file_name, file_type')
       .in('id', request.document_ids);
 
-    // Send magic link email (non-blocking - don't fail request if email fails)
+    // Prepare document data with file paths for email attachments
+    const documentsForEmail = (documents || []).map(doc => ({
+      title: doc.title,
+      filePath: doc.file_url || undefined,
+      fileName: doc.file_name || undefined,
+      fileType: doc.file_type || undefined,
+    }));
+
+    // Send magic link email with attachments (non-blocking - don't fail request if email fails)
     const magicLinkUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/access/${token}`;
     let emailSent = false;
     let emailError = null;
@@ -223,15 +260,15 @@ router.patch('/document-requests/:id/approve', requireAdmin, async (req: AuthReq
       await sendMagicLinkEmail({
         requesterName: request.requester_name,
         requesterEmail: request.requester_email,
-        documents: documents || [],
+        documents: documentsForEmail,
         magicLinkUrl,
         expirationDate: expiration.toLocaleDateString(),
       });
       emailSent = true;
-      console.log(`Magic link email sent successfully to ${request.requester_email}`);
+      console.log(`Email with attachments sent successfully to ${request.requester_email}`);
     } catch (emailErr: any) {
       emailError = emailErr.message;
-      console.error(`Failed to send magic link email to ${request.requester_email}:`, emailErr);
+      console.error(`Failed to send email to ${request.requester_email}:`, emailErr);
       // Continue - don't fail the request if email fails
     }
 
@@ -607,6 +644,70 @@ router.delete('/users/:id', requireAdmin, async (req: AuthRequest, res) => {
     if (error) throw error;
 
     res.json({ success: true, message: 'User deleted successfully' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Change organization status (admin only)
+router.patch('/organizations/:id/status', requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status || !['whitelisted', 'conditional', 'no_access'].includes(status)) {
+      return res.status(400).json({ error: 'Status is required and must be whitelisted, conditional, or no_access' });
+    }
+
+    const updateData: any = {
+      status,
+    };
+
+    // Set revoked_at when status changes to no_access
+    if (status === 'no_access') {
+      updateData.revoked_at = new Date().toISOString();
+    } else {
+      // Clear revoked_at when status changes away from no_access
+      updateData.revoked_at = null;
+    }
+
+    const { data, error } = await supabase
+      .from('organizations')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json(data);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Soft-delete organization (admin only)
+router.delete('/organizations/:id', requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from('organizations')
+      .update({
+        is_active: false,
+        status: 'no_access',
+        revoked_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({ 
+      message: 'Organization revoked successfully. Future access blocked.',
+      organization: data 
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

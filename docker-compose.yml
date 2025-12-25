@@ -178,6 +178,20 @@ services:
       DATABASE_URL: postgres://postgres:postgres@supabase-db:5432/postgres
       JWT_SECRET: ${JWT_SECRET:-super-secret-jwt-token-with-at-least-32-characters-long}
       UPLOADS_DIR: /app/uploads
+      # Email configuration
+      # For local dev (Mailpit): EMAIL_PROVIDER=mailpit (default)
+      # For production (SendGrid - RECOMMENDED): EMAIL_PROVIDER=sendgrid, SENDGRID_API_KEY=SG.xxxxx
+      # Alternative (Resend): EMAIL_PROVIDER=resend, RESEND_API_KEY=re_xxxxx
+      # Alternative (SMTP): EMAIL_PROVIDER=smtp, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-mailpit}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      # SMTP settings (for Mailpit compatibility)
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-noreply@trustcenter.local}
     volumes:
       - ./backend:/app
       - /app/node_modules
@@ -227,6 +241,17 @@ services:
       PGADMIN_CONFIG_SERVER_MODE: 'False'
     depends_on:
       - supabase-db
+    networks:
+      - trust-center-network
+    restart: unless-stopped
+
+  # Mailpit - Local mail server for development (captures all emails)
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: trust-center-mailpit
+    ports:
+      - "8025:8025"  # Web UI
+      - "1025:1025"  # SMTP
     networks:
       - trust-center-network
     restart: unless-stopped

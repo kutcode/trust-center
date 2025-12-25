@@ -44,7 +44,11 @@ export interface Organization {
   id: string;
   name: string;
   email_domain: string;
+  status: 'whitelisted' | 'conditional' | 'no_access';
+  is_active: boolean;
   approved_document_ids: string[];
+  notes?: string;
+  revoked_at?: string;
   first_approved_at?: string;
   last_approved_at?: string;
 }

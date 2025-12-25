@@ -52,6 +52,73 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Test email endpoint (for verifying email configuration)
+import { sendEmail, getEmailProvider } from './services/emailService';
+import path from 'path';
+import fs from 'fs';
+
+app.post('/api/test-email', async (req, res) => {
+  try {
+    const { to, withAttachment } = req.body;
+    
+    if (!to) {
+      return res.status(400).json({ error: 'Email address required' });
+    }
+    
+    const provider = getEmailProvider();
+    console.log(`Testing email to ${to} via ${provider}...`);
+    
+    // Check for attachment
+    let attachments;
+    if (withAttachment) {
+      const uploadsDir = process.env.UPLOADS_DIR || '/app/uploads';
+      const filePath = path.join(uploadsDir, 'category-4baf9503/1766598518030-wu19bu.pdf');
+      
+      if (fs.existsSync(filePath)) {
+        attachments = [{
+          filename: 'Acceptable_Use_Policy.pdf',
+          path: filePath,
+          contentType: 'application/pdf',
+        }];
+        console.log('Attachment found:', filePath);
+      } else {
+        console.log('Attachment not found:', filePath);
+      }
+    }
+    
+    await sendEmail({
+      to,
+      from: process.env.SMTP_FROM || 'noreply@trustcenter.com',
+      subject: withAttachment ? '📎 Your Requested Documents - Trust Center' : '✅ Trust Center Email Test',
+      html: `
+        <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px;">
+          <h1 style="color: #2563eb;">🎉 ${withAttachment ? 'Your Document Request Has Been Approved!' : 'Email Configuration Working!'}</h1>
+          <p>This is ${withAttachment ? 'your approved document' : 'a test email'} from the Trust Center.</p>
+          ${withAttachment ? '<p><strong>Attached:</strong> Acceptable Use Policy (PDF)</p>' : ''}
+          <p><strong>Provider:</strong> ${provider}</p>
+          <p><strong>Timestamp:</strong> ${new Date().toISOString()}</p>
+          <hr style="border: 1px solid #e5e7eb; margin: 20px 0;">
+          <p style="color: #6b7280;">${withAttachment ? 'Please find your requested document attached to this email.' : 'Your email system is now configured correctly.'}</p>
+        </div>
+      `,
+      attachments,
+    });
+    
+    res.json({ 
+      success: true, 
+      message: `Email sent to ${to} via ${provider}${withAttachment ? ' with attachment' : ''}`,
+      provider,
+      hasAttachment: !!attachments
+    });
+  } catch (error: any) {
+    console.error('Test email error:', error);
+    res.status(500).json({ 
+      error: error.message || 'Failed to send test email',
+      provider: getEmailProvider()
+    });
+  }
+});
+
 // Import routes
 import authRoutes from './routes/auth';
 import documentRoutes from './routes/documents';

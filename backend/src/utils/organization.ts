@@ -67,3 +67,65 @@ export const getOrCreateOrganization = async (
   return newOrg;
 };
 
+/**
+ * Check organization access status and whether to auto-approve
+ */
+export const checkOrganizationAccess = async (organizationId: string): Promise<{
+  hasAccess: boolean;
+  autoApproveAll: boolean;
+  status: 'whitelisted' | 'conditional' | 'no_access' | null;
+}> => {
+  const { data: org, error } = await supabase
+    .from('organizations')
+    .select('status, is_active')
+    .eq('id', organizationId)
+    .single();
+
+  if (error || !org) {
+    return { hasAccess: false, autoApproveAll: false, status: null };
+  }
+
+  // No access if soft-deleted or status is no_access
+  if (!org.is_active || org.status === 'no_access') {
+    return { hasAccess: false, autoApproveAll: false, status: org.status as any };
+  }
+
+  // Whitelisted organizations auto-approve all documents
+  if (org.status === 'whitelisted') {
+    return { hasAccess: true, autoApproveAll: true, status: 'whitelisted' };
+  }
+
+  // Conditional organizations need case-by-case approval
+  return { hasAccess: true, autoApproveAll: false, status: org.status as any };
+};
+
+/**
+ * Check if a specific document should be auto-approved for an organization
+ */
+export const canAutoApproveDocument = async (
+  organizationId: string,
+  documentId: string
+): Promise<boolean> => {
+  const accessCheck = await checkOrganizationAccess(organizationId);
+
+  // Whitelisted organizations auto-approve all documents
+  if (accessCheck.autoApproveAll) {
+    return true;
+  }
+
+  // Conditional organizations only auto-approve documents in their approved list
+  if (accessCheck.status === 'conditional') {
+    const { data: org } = await supabase
+      .from('organizations')
+      .select('approved_document_ids')
+      .eq('id', organizationId)
+      .single();
+
+    if (org && org.approved_document_ids) {
+      return org.approved_document_ids.includes(documentId);
+    }
+  }
+
+  return false;
+};
+

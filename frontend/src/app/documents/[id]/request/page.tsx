@@ -8,7 +8,7 @@ import { Document } from '@/types';
 export default function RequestDocumentPage() {
   const params = useParams();
   const documentId = params.id as string;
-  
+
   const [document, setDocument] = useState<Document | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -94,7 +94,7 @@ export default function RequestDocumentPage() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
-          <label htmlFor="name" className="block text-sm font-medium mb-2">
+          <label htmlFor="name" className="block text-sm font-medium mb-2 text-gray-700">
             Full Name *
           </label>
           <input
@@ -104,12 +104,12 @@ export default function RequestDocumentPage() {
             required
             value={formData.name}
             onChange={handleChange}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900"
           />
         </div>
 
         <div>
-          <label htmlFor="email" className="block text-sm font-medium mb-2">
+          <label htmlFor="email" className="block text-sm font-medium mb-2 text-gray-700">
             Email *
           </label>
           <input
@@ -119,7 +119,7 @@ export default function RequestDocumentPage() {
             required
             value={formData.email}
             onChange={handleChange}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900"
           />
           <p className="text-sm text-gray-500 mt-1">
             We'll send the access link to this email address
@@ -127,7 +127,7 @@ export default function RequestDocumentPage() {
         </div>
 
         <div>
-          <label htmlFor="company" className="block text-sm font-medium mb-2">
+          <label htmlFor="company" className="block text-sm font-medium mb-2 text-gray-700">
             Company Name *
           </label>
           <input
@@ -137,12 +137,12 @@ export default function RequestDocumentPage() {
             required
             value={formData.company}
             onChange={handleChange}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900"
           />
         </div>
 
         <div>
-          <label htmlFor="reason" className="block text-sm font-medium mb-2">
+          <label htmlFor="reason" className="block text-sm font-medium mb-2 text-gray-700">
             Reason for Request *
           </label>
           <textarea
@@ -153,7 +153,7 @@ export default function RequestDocumentPage() {
             value={formData.reason}
             onChange={handleChange}
             placeholder="Please explain why you need access to this document..."
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900"
           />
         </div>
 
