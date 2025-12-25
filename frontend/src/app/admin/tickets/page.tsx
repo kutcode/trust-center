@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { apiRequest } from '@/lib/api';
+import { createClient } from '@/lib/supabase/client';
 
 interface Ticket {
     id: string;
@@ -38,6 +38,7 @@ export default function TicketsPage() {
     const [tickets, setTickets] = useState<Ticket[]>([]);
     const [loading, setLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         fetchTickets();
@@ -46,17 +47,44 @@ export default function TicketsPage() {
     const fetchTickets = async () => {
         try {
             setLoading(true);
+            setError(null);
+
+            // Get auth token from Supabase session
+            const supabase = createClient();
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (!session) {
+                setError('Not authenticated');
+                return;
+            }
+
             const url = statusFilter === 'all'
                 ? '/api/admin/tickets'
                 : `/api/admin/tickets?status=${statusFilter}`;
-            const data = await apiRequest<Ticket[]>(url);
+
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const response = await fetch(`${API_URL}${url}`, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                },
+            });
+
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({ error: 'Unknown error' }));
+                throw new Error(err.error || `HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
             setTickets(data);
-        } catch (error) {
-            console.error('Failed to fetch tickets:', error);
+        } catch (err: any) {
+            console.error('Failed to fetch tickets:', err);
+            setError(err.message || 'Failed to fetch tickets');
         } finally {
             setLoading(false);
         }
     };
+
 
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString('en-US', {
@@ -84,8 +112,8 @@ export default function TicketsPage() {
                         key={status}
                         onClick={() => setStatusFilter(status)}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${statusFilter === status
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
                     >
                         {status === 'all' ? 'All' : statusLabels[status as keyof typeof statusLabels]}

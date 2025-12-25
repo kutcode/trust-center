@@ -14,6 +14,7 @@ export default function DocumentsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [modalDocument, setModalDocument] = useState<Document | null>(null);
+  const [showToast, setShowToast] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -32,6 +33,23 @@ export default function DocumentsPage() {
     }
     loadData();
   }, []);
+
+  // Scroll to document if hash is present in URL
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.hash) {
+      const hash = window.location.hash.substring(1);
+      setTimeout(() => {
+        const element = document.getElementById(hash);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          element.classList.add('ring-2', 'ring-blue-500', 'ring-offset-2');
+          setTimeout(() => {
+            element.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2');
+          }, 2000);
+        }
+      }, 500);
+    }
+  }, [loading]);
 
   // Filter documents by category and search query
   const filteredDocuments = useMemo(() => {
@@ -62,6 +80,34 @@ export default function DocumentsPage() {
     if (fileType.includes('word') || fileType.includes('doc')) return '📝';
     if (fileType.includes('excel') || fileType.includes('sheet')) return '📊';
     return '📎';
+  };
+
+  const getFileTypeLabel = (mimeType: string): string => {
+    if (mimeType.includes('pdf')) return 'PDF';
+    if (mimeType.includes('word') || mimeType.includes('document')) return 'DOCX';
+    if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return 'XLSX';
+    if (mimeType.includes('text')) return 'TXT';
+    if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return 'PPTX';
+    return 'FILE';
+  };
+
+  const formatDate = (dateString: string): string => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
+  const copyLinkToDocument = async (docId: string, docTitle: string) => {
+    const url = `${window.location.origin}/documents#doc-${docId}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    } catch (err) {
+      console.error('Failed to copy link:', err);
+    }
   };
 
   if (loading) {
@@ -112,8 +158,8 @@ export default function DocumentsPage() {
               <button
                 onClick={() => setSelectedCategory(null)}
                 className={`py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${selectedCategory === null
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
               >
                 All Documents
@@ -128,8 +174,8 @@ export default function DocumentsPage() {
                     key={category.id}
                     onClick={() => setSelectedCategory(category.id)}
                     className={`py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${selectedCategory === category.id
-                        ? 'border-blue-600 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                       }`}
                   >
                     {category.name}
@@ -169,18 +215,43 @@ export default function DocumentsPage() {
               {publicDocs.map((doc) => (
                 <div
                   key={doc.id}
+                  id={`doc-${doc.id}`}
                   className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg hover:border-gray-300 transition-all duration-200"
                 >
                   <div className="flex items-start justify-between mb-4">
-                    <div className="text-3xl">{getFileIcon(doc.file_type)}</div>
-                    <span className="px-2.5 py-1 text-xs font-medium text-green-700 bg-green-50 rounded-full">
-                      Public
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <div className="text-3xl">{getFileIcon(doc.file_type)}</div>
+                      <span className="px-2 py-0.5 text-xs font-semibold text-gray-700 bg-gray-100 rounded">
+                        {getFileTypeLabel(doc.file_type)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => copyLinkToDocument(doc.id, doc.title)}
+                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                        title="Copy link to this document"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      </button>
+                      <span className="px-2.5 py-1 text-xs font-medium text-green-700 bg-green-50 rounded-full">
+                        Public
+                      </span>
+                    </div>
                   </div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">{doc.title}</h3>
                   {doc.description && (
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">{doc.description}</p>
+                    <p className="text-gray-600 text-sm mb-3 line-clamp-2">{doc.description}</p>
                   )}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center text-xs text-gray-500">
+                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Updated {formatDate(doc.updated_at)}
+                    </div>
+                  </div>
                   <Link
                     href={`/documents/${doc.id}/download`}
                     className="inline-flex items-center text-blue-600 hover:text-blue-700 font-medium text-sm group"
@@ -207,21 +278,46 @@ export default function DocumentsPage() {
               {restrictedDocs.map((doc) => (
                 <div
                   key={doc.id}
+                  id={`doc-${doc.id}`}
                   className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg hover:border-gray-300 transition-all duration-200"
                 >
                   <div className="flex items-start justify-between mb-4">
-                    <div className="text-3xl">{getFileIcon(doc.file_type)}</div>
-                    <span className="px-2.5 py-1 text-xs font-medium text-amber-700 bg-amber-50 rounded-full flex items-center gap-1">
-                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                      </svg>
-                      Restricted
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <div className="text-3xl">{getFileIcon(doc.file_type)}</div>
+                      <span className="px-2 py-0.5 text-xs font-semibold text-gray-700 bg-gray-100 rounded">
+                        {getFileTypeLabel(doc.file_type)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => copyLinkToDocument(doc.id, doc.title)}
+                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                        title="Copy link to this document"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                      </button>
+                      <span className="px-2.5 py-1 text-xs font-medium text-amber-700 bg-amber-50 rounded-full flex items-center gap-1">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                        </svg>
+                        Restricted
+                      </span>
+                    </div>
                   </div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">{doc.title}</h3>
                   {doc.description && (
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">{doc.description}</p>
+                    <p className="text-gray-600 text-sm mb-3 line-clamp-2">{doc.description}</p>
                   )}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center text-xs text-gray-500">
+                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Updated {formatDate(doc.updated_at)}
+                    </div>
+                  </div>
                   <button
                     onClick={() => setModalDocument(doc)}
                     className="inline-flex items-center text-blue-600 hover:text-blue-700 font-medium text-sm group"
@@ -252,6 +348,16 @@ export default function DocumentsPage() {
           </div>
         )}
       </div>
+
+      {/* Toast Notification */}
+      {showToast && (
+        <div className="fixed bottom-4 right-4 bg-gray-900 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-slide-up z-50">
+          <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          <span className="text-sm font-medium">Link copied to clipboard!</span>
+        </div>
+      )}
 
       {/* Request Document Modal */}
       {modalDocument && (

@@ -722,12 +722,10 @@ router.get('/tickets', requireAdmin, async (req, res) => {
   try {
     const { status } = req.query;
 
+    // Simple query without relationship join to avoid schema cache issues
     let query = supabase
       .from('contact_submissions')
-      .select(`
-        *,
-        assigned_admin:assigned_to(id, email, full_name)
-      `)
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (status && status !== 'all') {
@@ -738,20 +736,28 @@ router.get('/tickets', requireAdmin, async (req, res) => {
 
     if (error) throw error;
 
-    // Get message counts for each ticket
-    const ticketsWithCounts = await Promise.all(
-      (data || []).map(async (ticket) => {
-        const { count } = await supabase
-          .from('ticket_messages')
-          .select('*', { count: 'exact', head: true })
-          .eq('ticket_id', ticket.id);
+    // Get message counts for each ticket (skip if ticket_messages table doesn't exist yet)
+    let ticketsWithCounts = data || [];
 
-        return {
-          ...ticket,
-          message_count: count || 0,
-        };
-      })
-    );
+    try {
+      ticketsWithCounts = await Promise.all(
+        (data || []).map(async (ticket) => {
+          const { count } = await supabase
+            .from('ticket_messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('ticket_id', ticket.id);
+
+          return {
+            ...ticket,
+            message_count: count || 0,
+          };
+        })
+      );
+    } catch (msgError) {
+      // ticket_messages table may not exist, just return tickets with 0 count
+      console.log('Note: ticket_messages query failed, returning 0 counts');
+      ticketsWithCounts = (data || []).map(ticket => ({ ...ticket, message_count: 0 }));
+    }
 
     res.json(ticketsWithCounts);
   } catch (error: any) {
@@ -765,13 +771,10 @@ router.get('/tickets/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Get ticket details
+    // Get ticket details (simple query without relationship join)
     const { data: ticket, error: ticketError } = await supabase
       .from('contact_submissions')
-      .select(`
-        *,
-        assigned_admin:assigned_to(id, email, full_name)
-      `)
+      .select('*')
       .eq('id', id)
       .single();
 
