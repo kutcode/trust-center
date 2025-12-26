@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { apiRequest } from '@/lib/api';
+import { createClient } from '@/lib/supabase/client';
 
 interface TicketMessage {
     id: string;
@@ -58,6 +58,7 @@ export default function TicketDetailPage() {
     const [replyMessage, setReplyMessage] = useState('');
     const [sending, setSending] = useState(false);
     const [updatingStatus, setUpdatingStatus] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         if (params.id) {
@@ -76,10 +77,35 @@ export default function TicketDetailPage() {
     const fetchTicket = async () => {
         try {
             setLoading(true);
-            const data = await apiRequest<Ticket>(`/api/admin/tickets/${params.id}`);
+            setError(null);
+
+            // Get auth token from Supabase session
+            const supabase = createClient();
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (!session) {
+                setError('Not authenticated');
+                return;
+            }
+
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const response = await fetch(`${API_URL}/api/admin/tickets/${params.id}`, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                },
+            });
+
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({ error: 'Unknown error' }));
+                throw new Error(err.error || `HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
             setTicket(data);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to fetch ticket:', error);
+            setError(error.message || 'Failed to fetch ticket');
         } finally {
             setLoading(false);
         }
@@ -91,10 +117,30 @@ export default function TicketDetailPage() {
 
         try {
             setSending(true);
-            await apiRequest(`/api/admin/tickets/${params.id}/messages`, {
+
+            // Get auth token
+            const supabase = createClient();
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (!session) {
+                alert('Not authenticated');
+                return;
+            }
+
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const response = await fetch(`${API_URL}/api/admin/tickets/${params.id}/messages`, {
                 method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                },
                 body: JSON.stringify({ message: replyMessage }),
             });
+
+            if (!response.ok) {
+                throw new Error('Failed to send reply');
+            }
+
             setReplyMessage('');
             fetchTicket(); // Refresh to get new message
         } catch (error) {
@@ -110,10 +156,30 @@ export default function TicketDetailPage() {
 
         try {
             setUpdatingStatus(true);
-            await apiRequest(`/api/admin/tickets/${params.id}/status`, {
+
+            // Get auth token
+            const supabase = createClient();
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (!session) {
+                alert('Not authenticated');
+                return;
+            }
+
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const response = await fetch(`${API_URL}/api/admin/tickets/${params.id}/status`, {
                 method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                },
                 body: JSON.stringify({ status: newStatus }),
             });
+
+            if (!response.ok) {
+                throw new Error('Failed to update status');
+            }
+
             setTicket({ ...ticket, status: newStatus as Ticket['status'] });
         } catch (error) {
             console.error('Failed to update status:', error);
@@ -222,8 +288,8 @@ export default function TicketDetailPage() {
                             <div
                                 key={msg.id}
                                 className={`p-4 rounded-lg ${msg.sender_type === 'admin'
-                                        ? 'bg-blue-50 border border-blue-100 ml-8'
-                                        : 'bg-gray-50 border border-gray-100 mr-8'
+                                    ? 'bg-blue-50 border border-blue-100 ml-8'
+                                    : 'bg-gray-50 border border-gray-100 mr-8'
                                     }`}
                             >
                                 <div className="flex items-center justify-between mb-2">

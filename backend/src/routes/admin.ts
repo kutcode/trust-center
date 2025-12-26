@@ -859,7 +859,7 @@ router.post('/tickets/:id/messages', requireAdmin, async (req: AuthRequest, res)
       await sendEmail({
         to: ticket.email,
         from: process.env.SMTP_FROM || 'noreply@trustcenter.com',
-        subject: `Re: ${ticket.subject}`,
+        subject: `Re: ${ticket.subject} [#${id}]`,
         html: `
           <!DOCTYPE html>
           <html>

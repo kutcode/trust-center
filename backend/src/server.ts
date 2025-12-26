@@ -60,20 +60,20 @@ import fs from 'fs';
 app.post('/api/test-email', async (req, res) => {
   try {
     const { to, withAttachment } = req.body;
-    
+
     if (!to) {
       return res.status(400).json({ error: 'Email address required' });
     }
-    
+
     const provider = getEmailProvider();
     console.log(`Testing email to ${to} via ${provider}...`);
-    
+
     // Check for attachment
     let attachments;
     if (withAttachment) {
       const uploadsDir = process.env.UPLOADS_DIR || '/app/uploads';
       const filePath = path.join(uploadsDir, 'category-4baf9503/1766598518030-wu19bu.pdf');
-      
+
       if (fs.existsSync(filePath)) {
         attachments = [{
           filename: 'Acceptable_Use_Policy.pdf',
@@ -85,7 +85,7 @@ app.post('/api/test-email', async (req, res) => {
         console.log('Attachment not found:', filePath);
       }
     }
-    
+
     await sendEmail({
       to,
       from: process.env.SMTP_FROM || 'noreply@trustcenter.com',
@@ -103,16 +103,16 @@ app.post('/api/test-email', async (req, res) => {
       `,
       attachments,
     });
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       message: `Email sent to ${to} via ${provider}${withAttachment ? ' with attachment' : ''}`,
       provider,
       hasAttachment: !!attachments
     });
   } catch (error: any) {
     console.error('Test email error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: error.message || 'Failed to send test email',
       provider: getEmailProvider()
     });
@@ -130,6 +130,7 @@ import securityUpdateRoutes from './routes/securityUpdates';
 import contactRoutes from './routes/contact';
 import settingsRoutes from './routes/settings';
 import accessRoutes from './routes/access';
+import webhookRoutes from './routes/webhooks';
 
 // Mount routes
 app.use('/api/auth', authRoutes);
@@ -144,6 +145,9 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/access', accessRoutes);
 import adminRoutes from './routes/admin';
 app.use('/api/admin', adminRoutes);
+
+// Webhook routes (no authentication required)
+app.use('/api/webhooks', webhookRoutes);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

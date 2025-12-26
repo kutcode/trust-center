@@ -3,7 +3,23 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import AdminNav from '@/components/admin/AdminNav';
+import AdminSidebar from '@/components/admin/AdminSidebar';
+import { SidebarProvider, useSidebar } from '@/contexts/SidebarContext';
+
+function AdminLayoutContent({ children }: { children: React.ReactNode }) {
+  const { collapsed } = useSidebar();
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <AdminSidebar />
+      <main className={`transition-all duration-300 min-h-screen ${collapsed ? 'ml-16' : 'ml-64'}`}>
+        <div className="p-8">
+          {children}
+        </div>
+      </main>
+    </div>
+  );
+}
 
 export default function AdminLayout({
   children,
@@ -85,12 +101,8 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <AdminNav />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {children}
-      </main>
-    </div>
+    <SidebarProvider>
+      <AdminLayoutContent>{children}</AdminLayoutContent>
+    </SidebarProvider>
   );
 }
-
