@@ -4,14 +4,23 @@ import { requireAdmin } from '../middleware/auth';
 
 const router = express.Router();
 
-// Get all organizations (admin only) - filter out soft-deleted
+// Get all organizations (admin only) - includes active and archived
 router.get('/', requireAdmin, async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { include_archived } = req.query;
+
+    let query = supabase
       .from('organizations')
       .select('*')
-      .eq('is_active', true)
       .order('created_at', { ascending: false });
+
+    // By default, include all organizations (active + archived)
+    // Only filter if explicitly requested
+    if (include_archived === 'false') {
+      query = query.eq('is_active', true);
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
 
@@ -130,9 +139,9 @@ router.delete('/:id', requireAdmin, async (req, res) => {
 
     if (error) throw error;
 
-    res.json({ 
+    res.json({
       message: 'Organization revoked successfully. Future access blocked.',
-      organization: data 
+      organization: data
     });
   } catch (error: any) {
     res.status(500).json({ error: error.message });

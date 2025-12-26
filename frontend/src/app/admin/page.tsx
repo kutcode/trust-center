@@ -9,7 +9,7 @@ import { apiRequestWithAuth } from '@/lib/api';
 interface Stats {
   pendingRequests: number;
   totalOrganizations: number;
-  approvedOrganizations: number;
+  openTickets: number;
   totalDocuments: number;
 }
 
@@ -20,7 +20,7 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats>({
     pendingRequests: 0,
     totalOrganizations: 0,
-    approvedOrganizations: 0,
+    openTickets: 0,
     totalDocuments: 0,
   });
 
@@ -148,17 +148,23 @@ export default function AdminDashboard() {
           <p className="text-sm text-gray-500">Organizations</p>
         </Link>
 
-        <div className="bg-white rounded-lg border border-gray-200 p-5">
+        <Link
+          href="/admin/tickets"
+          className="bg-white rounded-lg border border-gray-200 p-5 hover:border-blue-300 hover:shadow-sm transition-all group"
+        >
           <div className="flex items-center justify-between mb-3">
             <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
               <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
               </svg>
             </div>
+            <svg className="w-4 h-4 text-gray-400 group-hover:text-blue-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
           </div>
-          <p className="text-2xl font-bold text-gray-900">{stats.approvedOrganizations}</p>
-          <p className="text-sm text-gray-500">Approved Orgs</p>
-        </div>
+          <p className="text-2xl font-bold text-gray-900">{stats.openTickets}</p>
+          <p className="text-sm text-gray-500">Open Tickets</p>
+        </Link>
 
         <Link
           href="/admin/documents"

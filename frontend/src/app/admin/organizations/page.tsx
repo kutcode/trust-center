@@ -6,28 +6,33 @@ import { apiRequestWithAuth } from '@/lib/api';
 import { Organization } from '@/types';
 import OrganizationEditModal from '@/components/admin/OrganizationEditModal';
 
-type StatusFilter = 'all' | 'whitelisted' | 'conditional' | 'no_access';
+type StatusFilter = 'all' | 'whitelisted' | 'conditional' | 'no_access' | 'archived';
 
 export default function OrganizationsAdminPage() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [archivedOrganizations, setArchivedOrganizations] = useState<Organization[]>([]);
   const [filteredOrganizations, setFilteredOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [editingOrg, setEditingOrg] = useState<Organization | null>(null);
-  const [deletingOrg, setDeletingOrg] = useState<string | null>(null);
+  const [removingOrg, setRemovingOrg] = useState<Organization | null>(null);
+  const [processingOrg, setProcessingOrg] = useState<string | null>(null);
   const [expandedOrg, setExpandedOrg] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadOrganizations() {
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (session) {
         setToken(session.access_token);
         try {
+          // Load active organizations
           const data = await apiRequestWithAuth<Organization[]>('/api/organizations', session.access_token);
-          setOrganizations(data);
+          // Separate active vs archived
+          setOrganizations(data.filter(org => org.is_active !== false));
+          setArchivedOrganizations(data.filter(org => org.is_active === false));
         } catch (error) {
           console.error('Failed to load organizations:', error);
         }
@@ -40,37 +45,57 @@ export default function OrganizationsAdminPage() {
   useEffect(() => {
     if (statusFilter === 'all') {
       setFilteredOrganizations(organizations);
+    } else if (statusFilter === 'archived') {
+      setFilteredOrganizations(archivedOrganizations);
     } else {
       setFilteredOrganizations(organizations.filter(org => org.status === statusFilter));
     }
-  }, [organizations, statusFilter]);
+  }, [organizations, archivedOrganizations, statusFilter]);
 
-  const handleDelete = async (orgId: string, orgName: string) => {
-    if (!confirm(`Are you sure you want to revoke access for "${orgName}"?\n\nThis will:\n- Block all future document requests from this organization\n- Preserve audit trail of past approvals\n- Can be restored by editing the organization`)) {
-      return;
-    }
-
+  const handleRemove = async (org: Organization) => {
     if (!token) return;
 
-    setDeletingOrg(orgId);
+    setProcessingOrg(org.id);
     try {
-      await apiRequestWithAuth(`/api/admin/organizations/${orgId}`, token, {
+      await apiRequestWithAuth(`/api/admin/organizations/${org.id}`, token, {
         method: 'DELETE',
       });
       // Reload organizations
       const data = await apiRequestWithAuth<Organization[]>('/api/organizations', token);
-      setOrganizations(data);
-      setDeletingOrg(null);
+      setOrganizations(data.filter(o => o.is_active !== false));
+      setArchivedOrganizations(data.filter(o => o.is_active === false));
+      setRemovingOrg(null);
     } catch (error: any) {
-      alert(`Failed to revoke organization: ${error.message}`);
-      setDeletingOrg(null);
+      alert(`Failed to remove organization: ${error.message}`);
+    } finally {
+      setProcessingOrg(null);
+    }
+  };
+
+  const handleRestore = async (org: Organization) => {
+    if (!token) return;
+
+    setProcessingOrg(org.id);
+    try {
+      await apiRequestWithAuth(`/api/admin/organizations/${org.id}/restore`, token, {
+        method: 'PATCH',
+      });
+      // Reload organizations
+      const data = await apiRequestWithAuth<Organization[]>('/api/organizations', token);
+      setOrganizations(data.filter(o => o.is_active !== false));
+      setArchivedOrganizations(data.filter(o => o.is_active === false));
+    } catch (error: any) {
+      alert(`Failed to restore organization: ${error.message}`);
+    } finally {
+      setProcessingOrg(null);
     }
   };
 
   const handleSave = async () => {
     if (!token) return;
     const data = await apiRequestWithAuth<Organization[]>('/api/organizations', token);
-    setOrganizations(data);
+    setOrganizations(data.filter(org => org.is_active !== false));
+    setArchivedOrganizations(data.filter(org => org.is_active === false));
   };
 
   const getStatusBadge = (status: string) => {
@@ -95,6 +120,8 @@ export default function OrganizationsAdminPage() {
         return 'Conditional';
       case 'no_access':
         return 'No Access';
+      case 'archived':
+        return 'Archived';
       default:
         return status;
     }
@@ -117,22 +144,23 @@ export default function OrganizationsAdminPage() {
       {/* Status Filter Tabs */}
       <div className="mb-6 border-b border-gray-200">
         <nav className="flex space-x-8">
-          {(['all', 'whitelisted', 'conditional', 'no_access'] as StatusFilter[]).map((filter) => (
+          {(['all', 'whitelisted', 'conditional', 'no_access', 'archived'] as StatusFilter[]).map((filter) => (
             <button
               key={filter}
               onClick={() => setStatusFilter(filter)}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                statusFilter === filter
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${statusFilter === filter
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
             >
-              {filter === 'all' ? 'All' : getStatusLabel(filter)}
-              {filter !== 'all' && (
-                <span className="ml-2 text-xs">
-                  ({organizations.filter(org => org.status === filter).length})
-                </span>
-              )}
+              {filter === 'all' ? 'All Active' : getStatusLabel(filter)}
+              <span className="ml-2 text-xs">
+                ({filter === 'all'
+                  ? organizations.length
+                  : filter === 'archived'
+                    ? archivedOrganizations.length
+                    : organizations.filter(org => org.status === filter).length})
+              </span>
             </button>
           ))}
         </nav>
@@ -141,17 +169,19 @@ export default function OrganizationsAdminPage() {
       {filteredOrganizations.length === 0 ? (
         <div className="bg-white rounded-lg shadow p-8 text-center">
           <p className="text-gray-600">
-            {statusFilter === 'all' 
-              ? 'No organizations found.' 
-              : `No ${getStatusLabel(statusFilter).toLowerCase()} organizations found.`}
+            {statusFilter === 'all'
+              ? 'No active organizations found.'
+              : statusFilter === 'archived'
+                ? 'No archived organizations.'
+                : `No ${getStatusLabel(statusFilter).toLowerCase()} organizations found.`}
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredOrganizations.map((org) => (
-            <div 
-              key={org.id} 
-              className="bg-white rounded-lg shadow border border-gray-200 hover:shadow-md transition-shadow"
+            <div
+              key={org.id}
+              className={`bg-white rounded-lg shadow border ${statusFilter === 'archived' ? 'border-gray-300 opacity-75' : 'border-gray-200'} hover:shadow-md transition-shadow`}
             >
               <div className="p-6">
                 <div className="flex justify-between items-start mb-3">
@@ -173,20 +203,14 @@ export default function OrganizationsAdminPage() {
                 </p>
 
                 {org.first_approved_at && (
-                  <p className="text-xs text-gray-500 mb-2">
-                    First approved: {new Date(org.first_approved_at).toLocaleDateString()}
-                  </p>
-                )}
-
-                {org.last_approved_at && (
                   <p className="text-xs text-gray-500 mb-4">
-                    Last approved: {new Date(org.last_approved_at).toLocaleDateString()}
+                    Initial Approval: {new Date(org.first_approved_at).toLocaleDateString()}
                   </p>
                 )}
 
-                {org.revoked_at && (
-                  <p className="text-xs text-red-600 mb-4">
-                    Revoked: {new Date(org.revoked_at).toLocaleDateString()}
+                {statusFilter === 'archived' && org.revoked_at && (
+                  <p className="text-xs text-gray-500 mb-4">
+                    Archived: {new Date(org.revoked_at).toLocaleDateString()}
                   </p>
                 )}
 
@@ -203,13 +227,23 @@ export default function OrganizationsAdminPage() {
                   >
                     Edit
                   </button>
-                  <button
-                    onClick={() => handleDelete(org.id, org.name)}
-                    disabled={deletingOrg === org.id}
-                    className="flex-1 px-3 py-2 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:bg-gray-400"
-                  >
-                    {deletingOrg === org.id ? 'Revoking...' : 'Revoke'}
-                  </button>
+                  {statusFilter === 'archived' ? (
+                    <button
+                      onClick={() => handleRestore(org)}
+                      disabled={processingOrg === org.id}
+                      className="flex-1 px-3 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:bg-gray-400"
+                    >
+                      {processingOrg === org.id ? 'Restoring...' : 'Restore'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setRemovingOrg(org)}
+                      disabled={processingOrg === org.id}
+                      className="flex-1 px-3 py-2 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:bg-gray-400"
+                    >
+                      {processingOrg === org.id ? 'Removing...' : 'Remove'}
+                    </button>
+                  )}
                 </div>
 
                 {org.notes && (
@@ -226,6 +260,41 @@ export default function OrganizationsAdminPage() {
         </div>
       )}
 
+      {/* Remove Confirmation Modal */}
+      {removingOrg && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Remove Organization?</h3>
+            <p className="text-gray-600 mb-4">
+              Are you sure you want to remove <strong>{removingOrg.name}</strong> from the active list?
+            </p>
+            <div className="bg-gray-50 rounded-lg p-4 mb-6">
+              <p className="text-sm text-gray-700 mb-2">This will:</p>
+              <ul className="text-sm text-gray-600 space-y-1 list-disc list-inside">
+                <li>Move the organization to the Archived section</li>
+                <li>Block future document requests</li>
+                <li>Preserve all audit trail and history</li>
+              </ul>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setRemovingOrg(null)}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleRemove(removingOrg)}
+                disabled={processingOrg === removingOrg.id}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-400"
+              >
+                {processingOrg === removingOrg.id ? 'Removing...' : 'Remove'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {editingOrg && token && (
         <OrganizationEditModal
           organization={editingOrg}
@@ -238,3 +307,4 @@ export default function OrganizationsAdminPage() {
     </>
   );
 }
+

@@ -362,7 +362,7 @@ export default function DocumentsPage() {
       {/* Request Document Modal */}
       {modalDocument && (
         <RequestDocumentModal
-          document={modalDocument}
+          initialDocument={modalDocument}
           isOpen={!!modalDocument}
           onClose={() => setModalDocument(null)}
         />

@@ -3,6 +3,7 @@ import { supabase } from '../server';
 import { requireAdmin, AuthRequest } from '../middleware/auth';
 import { generateMagicLinkToken, getMagicLinkExpiration } from '../utils/magicLink';
 import { sendMagicLinkEmail, sendRejectionEmail } from '../utils/email';
+import { logActivity } from '../utils/activityLogger';
 
 const router = express.Router();
 
@@ -43,10 +44,16 @@ router.get('/stats', requireAdmin, async (req, res) => {
       .eq('status', 'published')
       .eq('is_current_version', true);
 
+    // Get open tickets count (new or in_progress)
+    const { count: openTicketsCount } = await supabase
+      .from('contact_submissions')
+      .select('*', { count: 'exact', head: true })
+      .in('status', ['new', 'in_progress']);
+
     res.json({
       pendingRequests: pendingCount || 0,
       totalOrganizations: totalOrgsCount || 0,
-      approvedOrganizations: approvedOrgsCount,
+      openTickets: openTicketsCount || 0,
       totalDocuments: totalDocsCount || 0,
       organizationsByStatus: {
         whitelisted: whitelistedCount,
@@ -272,6 +279,22 @@ router.patch('/document-requests/:id/approve', requireAdmin, async (req: AuthReq
       // Continue - don't fail the request if email fails
     }
 
+    // Log the approval
+    const docTitles = (documents || []).map(d => d.title).join(', ');
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'approval',
+      entityType: 'request',
+      entityId: id,
+      entityName: `Request from ${request.requester_name}`,
+      oldValue: { status: 'pending' },
+      newValue: { status: 'approved' },
+      description: `Approved document request for: ${docTitles}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     res.json({
       ...updatedRequest,
       emailSent,
@@ -304,6 +327,21 @@ router.patch('/document-requests/:id/deny', requireAdmin, async (req: AuthReques
 
     // Send rejection email
     await sendRejectionEmail(request.requester_email, request.requester_name, reason);
+
+    // Log the denial
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'denial',
+      entityType: 'request',
+      entityId: id,
+      entityName: `Request from ${request.requester_name}`,
+      oldValue: { status: 'pending' },
+      newValue: { status: 'denied' },
+      description: `Denied document request${reason ? `: ${reason}` : ''}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
 
     res.json(request);
   } catch (error: any) {
@@ -428,6 +466,20 @@ router.patch('/settings', requireAdmin, async (req: AuthRequest, res) => {
       data = created;
     }
 
+    // Log settings update
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'update',
+      entityType: 'settings',
+      entityId: data.id,
+      entityName: 'Trust Center Settings',
+      newValue: req.body,
+      description: 'Updated trust center settings',
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     res.json(data);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -546,6 +598,20 @@ router.post('/users', requireAdmin, async (req: AuthRequest, res) => {
       }
     }
 
+    // Log user creation
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'create',
+      entityType: 'user',
+      entityId: userId,
+      entityName: email,
+      newValue: { email, is_admin, full_name },
+      description: `Created user: ${email}${is_admin ? ' (admin)' : ''}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     res.json({
       success: true,
       user_id: userId,
@@ -635,6 +701,13 @@ router.delete('/users/:id', requireAdmin, async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
 
+    // Get user info before deletion for logging
+    const { data: userInfo } = await supabase
+      .from('admin_users')
+      .select('email, full_name')
+      .eq('id', id)
+      .single();
+
     // Delete from admin_users first (due to foreign key)
     await supabase.from('admin_users').delete().eq('id', id);
 
@@ -642,6 +715,20 @@ router.delete('/users/:id', requireAdmin, async (req: AuthRequest, res) => {
     const { error } = await supabase.from('auth.users').delete().eq('id', id);
 
     if (error) throw error;
+
+    // Log user deletion
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'delete',
+      entityType: 'user',
+      entityId: id,
+      entityName: userInfo?.email || 'Unknown user',
+      oldValue: { email: userInfo?.email, full_name: userInfo?.full_name },
+      description: `Deleted user: ${userInfo?.email || id}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
 
     res.json({ success: true, message: 'User deleted successfully' });
   } catch (error: any) {
@@ -658,6 +745,13 @@ router.patch('/organizations/:id/status', requireAdmin, async (req: AuthRequest,
     if (!status || !['whitelisted', 'conditional', 'no_access'].includes(status)) {
       return res.status(400).json({ error: 'Status is required and must be whitelisted, conditional, or no_access' });
     }
+
+    // Get current org data for logging
+    const { data: oldOrg } = await supabase
+      .from('organizations')
+      .select('name, status')
+      .eq('id', id)
+      .single();
 
     const updateData: any = {
       status,
@@ -679,6 +773,21 @@ router.patch('/organizations/:id/status', requireAdmin, async (req: AuthRequest,
       .single();
 
     if (error) throw error;
+
+    // Log the activity
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'status_change',
+      entityType: 'organization',
+      entityId: id,
+      entityName: oldOrg?.name || data.name,
+      oldValue: { status: oldOrg?.status },
+      newValue: { status },
+      description: `Changed organization status from "${oldOrg?.status}" to "${status}"`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
 
     res.json(data);
   } catch (error: any) {
@@ -704,8 +813,65 @@ router.delete('/organizations/:id', requireAdmin, async (req: AuthRequest, res) 
 
     if (error) throw error;
 
+    // Log organization removal
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'delete',
+      entityType: 'organization',
+      entityId: id,
+      entityName: data.name,
+      oldValue: { is_active: true },
+      newValue: { is_active: false, status: 'no_access' },
+      description: `Removed organization: ${data.name}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     res.json({
       message: 'Organization revoked successfully. Future access blocked.',
+      organization: data
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Restore archived organization (admin only)
+router.patch('/organizations/:id/restore', requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from('organizations')
+      .update({
+        is_active: true,
+        status: 'conditional',
+        revoked_at: null,
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Log organization restore
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'restore',
+      entityType: 'organization',
+      entityId: id,
+      entityName: data.name,
+      oldValue: { is_active: false, status: 'no_access' },
+      newValue: { is_active: true, status: 'conditional' },
+      description: `Restored organization: ${data.name}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    res.json({
+      message: 'Organization restored successfully.',
       organization: data
     });
   } catch (error: any) {
@@ -928,9 +1094,102 @@ router.patch('/tickets/:id/status', requireAdmin, async (req: AuthRequest, res) 
 
     if (error) throw error;
 
+    // Log ticket status change
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'status_change',
+      entityType: 'ticket',
+      entityId: id,
+      entityName: data.subject,
+      newValue: { status },
+      description: `Changed ticket status to: ${status}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     res.json(data);
   } catch (error: any) {
     console.error('Update ticket status error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// =====================
+// ACTIVITY LOGS ROUTES
+// =====================
+
+// Get activity logs with date filter
+router.get('/activity-logs', requireAdmin, async (req, res) => {
+  try {
+    const { date, entity_type, action_type, limit = 100 } = req.query;
+
+    let query = supabase
+      .from('activity_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(Number(limit));
+
+    // Filter by date (YYYY-MM-DD format)
+    if (date) {
+      const startOfDay = `${date}T00:00:00.000Z`;
+      const endOfDay = `${date}T23:59:59.999Z`;
+      query = query.gte('created_at', startOfDay).lte('created_at', endOfDay);
+    }
+
+    if (entity_type) {
+      query = query.eq('entity_type', entity_type);
+    }
+
+    if (action_type) {
+      query = query.eq('action_type', action_type);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    res.json(data || []);
+  } catch (error: any) {
+    console.error('Get activity logs error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get activity log stats for a date range
+router.get('/activity-logs/stats', requireAdmin, async (req, res) => {
+  try {
+    const { days = 7 } = req.query;
+    const daysAgo = new Date();
+    daysAgo.setDate(daysAgo.getDate() - Number(days));
+
+    const { data, error } = await supabase
+      .from('activity_logs')
+      .select('created_at, action_type, entity_type')
+      .gte('created_at', daysAgo.toISOString());
+
+    if (error) throw error;
+
+    // Group by date
+    const byDate: Record<string, number> = {};
+    const byAction: Record<string, number> = {};
+    const byEntity: Record<string, number> = {};
+
+    (data || []).forEach(log => {
+      const date = new Date(log.created_at).toISOString().split('T')[0];
+      byDate[date] = (byDate[date] || 0) + 1;
+      byAction[log.action_type] = (byAction[log.action_type] || 0) + 1;
+      byEntity[log.entity_type] = (byEntity[log.entity_type] || 0) + 1;
+    });
+
+    res.json({
+      totalLogs: data?.length || 0,
+      byDate,
+      byAction,
+      byEntity,
+    });
+  } catch (error: any) {
+    console.error('Get activity log stats error:', error);
     res.status(500).json({ error: error.message });
   }
 });

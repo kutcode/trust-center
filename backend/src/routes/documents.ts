@@ -4,6 +4,7 @@ import { supabase } from '../server';
 import { requireAdmin, AuthRequest } from '../middleware/auth';
 import { upload } from '../middleware/upload';
 import { AppError } from '../middleware/errorHandler';
+import { logActivity } from '../utils/activityLogger';
 import fs from 'fs';
 import path from 'path';
 
@@ -86,14 +87,14 @@ router.get('/:id/download', async (req, res) => {
     if (document.access_level === 'public') {
       // Serve from local storage
       const filePath = path.join(UPLOADS_DIR, document.file_url);
-      
+
       if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: 'File not found on server' });
       }
 
       res.setHeader('Content-Disposition', `attachment; filename="${document.file_name}"`);
       res.setHeader('Content-Type', document.file_type || 'application/octet-stream');
-      
+
       return res.sendFile(filePath);
     }
 
@@ -175,6 +176,20 @@ router.post('/', requireAdmin, upload.single('file'), async (req: AuthRequest, r
 
     if (docError) throw docError;
 
+    // Log document creation
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'create',
+      entityType: 'document',
+      entityId: document.id,
+      entityName: title,
+      newValue: { title, access_level, category_id, file_name: req.file.originalname },
+      description: `Uploaded document: ${title} (${access_level})`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     res.status(201).json(document);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -184,6 +199,13 @@ router.post('/', requireAdmin, upload.single('file'), async (req: AuthRequest, r
 // Update document (admin only)
 router.patch('/:id', requireAdmin, async (req: AuthRequest, res) => {
   try {
+    // Get old document data for logging
+    const { data: oldDoc } = await supabase
+      .from('documents')
+      .select('title')
+      .eq('id', req.params.id)
+      .single();
+
     const { data, error } = await supabase
       .from('documents')
       .update({
@@ -196,6 +218,21 @@ router.patch('/:id', requireAdmin, async (req: AuthRequest, res) => {
 
     if (error) throw error;
 
+    // Log document update
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'update',
+      entityType: 'document',
+      entityId: req.params.id,
+      entityName: data.title,
+      oldValue: { title: oldDoc?.title },
+      newValue: req.body,
+      description: `Updated document: ${data.title}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     res.json(data);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -207,7 +244,7 @@ router.delete('/:id', requireAdmin, async (req: AuthRequest, res) => {
   try {
     const { data: document } = await supabase
       .from('documents')
-      .select('file_url')
+      .select('file_url, title')
       .eq('id', req.params.id)
       .single();
 
@@ -226,6 +263,20 @@ router.delete('/:id', requireAdmin, async (req: AuthRequest, res) => {
       .eq('id', req.params.id);
 
     if (error) throw error;
+
+    // Log document deletion
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'delete',
+      entityType: 'document',
+      entityId: req.params.id,
+      entityName: document?.title || 'Unknown',
+      oldValue: { title: document?.title },
+      description: `Archived document: ${document?.title || req.params.id}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
 
     res.json({ message: 'Document archived successfully' });
   } catch (error: any) {
