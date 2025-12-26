@@ -77,6 +77,10 @@ GRANT SELECT ON subprocessors TO authenticated;
 GRANT INSERT ON subprocessor_subscriptions TO anon;
 GRANT INSERT ON subprocessor_subscriptions TO authenticated;
 
+-- Service role needs full access for backend operations
+GRANT ALL ON subprocessors TO service_role;
+GRANT ALL ON subprocessor_subscriptions TO service_role;
+
 -- Trigger for updated_at
 CREATE TRIGGER update_subprocessors_updated_at BEFORE UPDATE ON subprocessors
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
