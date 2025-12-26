@@ -1,17 +1,25 @@
 import express from 'express';
 import { supabase } from '../server';
-import { requireAdmin } from '../middleware/auth';
+import { requireAdmin, AuthRequest } from '../middleware/auth';
+import { logActivity } from '../utils/activityLogger';
 
 const router = express.Router();
 
 // Get all active certifications (public)
 router.get('/', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const includeInactive = req.query.include_inactive === 'true';
+
+    let query = supabase
       .from('certifications')
       .select('*')
-      .eq('status', 'active')
       .order('display_order', { ascending: true });
+
+    if (!includeInactive) {
+      query = query.eq('status', 'active');
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
 
@@ -22,7 +30,7 @@ router.get('/', async (req, res) => {
 });
 
 // Create certification (admin only)
-router.post('/', requireAdmin, async (req, res) => {
+router.post('/', requireAdmin, async (req: AuthRequest, res) => {
   try {
     const { data, error } = await supabase
       .from('certifications')
@@ -32,6 +40,20 @@ router.post('/', requireAdmin, async (req, res) => {
 
     if (error) throw error;
 
+    // Log activity
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'create',
+      entityType: 'certification',
+      entityId: data.id,
+      entityName: data.name,
+      newValue: { name: data.name, issuer: data.issuer },
+      description: `Created certification: ${data.name}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     res.status(201).json(data);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -39,8 +61,15 @@ router.post('/', requireAdmin, async (req, res) => {
 });
 
 // Update certification (admin only)
-router.patch('/:id', requireAdmin, async (req, res) => {
+router.patch('/:id', requireAdmin, async (req: AuthRequest, res) => {
   try {
+    // Get old data for logging
+    const { data: oldData } = await supabase
+      .from('certifications')
+      .select('name, issuer, status')
+      .eq('id', req.params.id)
+      .single();
+
     const { data, error } = await supabase
       .from('certifications')
       .update(req.body)
@@ -50,6 +79,23 @@ router.patch('/:id', requireAdmin, async (req, res) => {
 
     if (error) throw error;
 
+    // Log activity (only if meaningful changes)
+    if (req.body.name || req.body.issuer || req.body.status) {
+      await logActivity({
+        adminId: req.admin!.id,
+        adminEmail: req.admin!.email,
+        actionType: 'update',
+        entityType: 'certification',
+        entityId: req.params.id,
+        entityName: data.name,
+        oldValue: oldData,
+        newValue: { name: data.name, issuer: data.issuer, status: data.status },
+        description: `Updated certification: ${data.name}`,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      });
+    }
+
     res.json(data);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -57,14 +103,35 @@ router.patch('/:id', requireAdmin, async (req, res) => {
 });
 
 // Delete certification (admin only)
-router.delete('/:id', requireAdmin, async (req, res) => {
+router.delete('/:id', requireAdmin, async (req: AuthRequest, res) => {
   try {
+    // Get certification name before deletion
+    const { data: cert } = await supabase
+      .from('certifications')
+      .select('name')
+      .eq('id', req.params.id)
+      .single();
+
     const { error } = await supabase
       .from('certifications')
       .delete()
       .eq('id', req.params.id);
 
     if (error) throw error;
+
+    // Log activity
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'delete',
+      entityType: 'certification',
+      entityId: req.params.id,
+      entityName: cert?.name || 'Unknown',
+      oldValue: { name: cert?.name },
+      description: `Deleted certification: ${cert?.name || req.params.id}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
 
     res.json({ message: 'Certification deleted successfully' });
   } catch (error: any) {
@@ -73,4 +140,3 @@ router.delete('/:id', requireAdmin, async (req, res) => {
 });
 
 export default router;
-

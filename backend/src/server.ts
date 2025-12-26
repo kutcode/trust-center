@@ -131,6 +131,7 @@ import contactRoutes from './routes/contact';
 import settingsRoutes from './routes/settings';
 import accessRoutes from './routes/access';
 import webhookRoutes from './routes/webhooks';
+import subprocessorRoutes from './routes/subprocessors';
 
 // Mount routes
 app.use('/api/auth', authRoutes);
@@ -143,6 +144,7 @@ app.use('/api/security-updates', securityUpdateRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/access', accessRoutes);
+app.use('/api/subprocessors', subprocessorRoutes);
 import adminRoutes from './routes/admin';
 app.use('/api/admin', adminRoutes);
 

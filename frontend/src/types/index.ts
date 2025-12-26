@@ -78,8 +78,10 @@ export interface TrustCenterSettings {
   id: string;
   company_name?: string;
   company_logo_url?: string;
+  favicon_url?: string;
   primary_color: string;
   secondary_color: string;
+  accent_color?: string;
   hero_title?: string;
   hero_subtitle?: string;
   hero_image_url?: string;
@@ -88,5 +90,7 @@ export interface TrustCenterSettings {
   support_email?: string;
   social_links?: Record<string, string>;
   footer_text?: string;
+  font_family?: string;
+  footer_links?: Array<{ label: string; url: string }>;
 }
 
