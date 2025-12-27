@@ -26,6 +26,7 @@ interface Ticket {
     subject: string;
     message: string;
     status: 'new' | 'in_progress' | 'resolved';
+    priority: 'low' | 'normal' | 'high' | 'critical';
     created_at: string;
     updated_at: string;
     messages: TicketMessage[];
@@ -48,6 +49,13 @@ const statusLabels = {
     resolved: 'Resolved',
 };
 
+const priorityColors = {
+    low: 'bg-gray-100 text-gray-600 border-gray-200',
+    normal: 'bg-blue-100 text-blue-700 border-blue-200',
+    high: 'bg-orange-100 text-orange-700 border-orange-200',
+    critical: 'bg-red-100 text-red-700 border-red-200',
+};
+
 export default function TicketDetailPage() {
     const params = useParams();
     const router = useRouter();
@@ -58,6 +66,7 @@ export default function TicketDetailPage() {
     const [replyMessage, setReplyMessage] = useState('');
     const [sending, setSending] = useState(false);
     const [updatingStatus, setUpdatingStatus] = useState(false);
+    const [updatingPriority, setUpdatingPriority] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
@@ -189,6 +198,43 @@ export default function TicketDetailPage() {
         }
     };
 
+    const handlePriorityChange = async (newPriority: string) => {
+        if (!ticket || updatingPriority) return;
+
+        try {
+            setUpdatingPriority(true);
+
+            const supabase = createClient();
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (!session) {
+                alert('Not authenticated');
+                return;
+            }
+
+            const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+            const response = await fetch(`${API_URL}/api/admin/tickets/${params.id}/priority`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({ priority: newPriority }),
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to update priority');
+            }
+
+            setTicket({ ...ticket, priority: newPriority as Ticket['priority'] });
+        } catch (error) {
+            console.error('Failed to update priority:', error);
+            alert('Failed to update priority. Please try again.');
+        } finally {
+            setUpdatingPriority(false);
+        }
+    };
+
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString('en-US', {
             month: 'short',
@@ -231,6 +277,17 @@ export default function TicketDetailPage() {
                         <p className="text-gray-500 mt-1">Submitted {formatDate(ticket.created_at)}</p>
                     </div>
                     <div className="flex items-center gap-3">
+                        <select
+                            value={ticket.priority || 'normal'}
+                            onChange={(e) => handlePriorityChange(e.target.value)}
+                            disabled={updatingPriority}
+                            className={`px-3 py-2 rounded-lg text-sm font-medium border ${priorityColors[ticket.priority || 'normal']} ${updatingPriority ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                        >
+                            <option value="low">🡇 Low</option>
+                            <option value="normal">● Normal</option>
+                            <option value="high">🡅 High</option>
+                            <option value="critical">⚠️ Critical</option>
+                        </select>
                         <select
                             value={ticket.status}
                             onChange={(e) => handleStatusChange(e.target.value)}

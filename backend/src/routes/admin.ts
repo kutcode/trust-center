@@ -166,7 +166,7 @@ router.get('/document-requests/:id', requireAdmin, async (req, res) => {
 router.patch('/document-requests/:id/approve', requireAdmin, async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
-    const { admin_notes } = req.body;
+    const { admin_notes, expiration_days } = req.body;
 
     // Get request
     const { data: request, error: requestError } = await supabase
@@ -183,6 +183,14 @@ router.patch('/document-requests/:id/approve', requireAdmin, async (req: AuthReq
     const token = generateMagicLinkToken();
     const expiration = getMagicLinkExpiration();
 
+    // Calculate access expiration if specified
+    let accessExpiresAt = null;
+    if (expiration_days && expiration_days > 0) {
+      const expirationDate = new Date();
+      expirationDate.setDate(expirationDate.getDate() + expiration_days);
+      accessExpiresAt = expirationDate.toISOString();
+    }
+
     // Update request
     const { data: updatedRequest, error: updateError } = await supabase
       .from('document_requests')
@@ -193,10 +201,13 @@ router.patch('/document-requests/:id/approve', requireAdmin, async (req: AuthReq
         reviewed_by: req.admin!.id,
         reviewed_at: new Date().toISOString(),
         admin_notes: admin_notes || null,
+        access_expires_at: accessExpiresAt,
+        expiration_days: expiration_days || null,
       })
       .eq('id', id)
       .select()
       .single();
+
 
     if (updateError) throw updateError;
 
@@ -403,6 +414,78 @@ router.post('/document-requests/batch-approve', requireAdmin, async (req: AuthRe
         results.push({ id: requestId, status: 'approved' });
       }
     }
+
+    // Log bulk action
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'bulk_approval',
+      entityType: 'request',
+      entityId: request_ids.join(','),
+      entityName: `${results.length} requests`,
+      description: `Bulk approved ${results.length} document requests`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    res.json({ success: true, results });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Batch deny requests (admin only)
+router.post('/document-requests/batch-deny', requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const { request_ids, reason } = req.body;
+
+    if (!Array.isArray(request_ids) || request_ids.length === 0) {
+      return res.status(400).json({ error: 'request_ids array is required' });
+    }
+
+    const results = [];
+
+    for (const requestId of request_ids) {
+      const { data: request } = await supabase
+        .from('document_requests')
+        .select('requester_name, requester_email, status')
+        .eq('id', requestId)
+        .single();
+
+      if (request && request.status === 'pending') {
+        await supabase
+          .from('document_requests')
+          .update({
+            status: 'denied',
+            reviewed_by: req.admin!.id,
+            reviewed_at: new Date().toISOString(),
+            admin_notes: reason || null,
+          })
+          .eq('id', requestId);
+
+        // Send rejection email
+        try {
+          await sendRejectionEmail(request.requester_email, request.requester_name, reason);
+        } catch (emailErr) {
+          console.error(`Failed to send rejection email to ${request.requester_email}`);
+        }
+
+        results.push({ id: requestId, status: 'denied' });
+      }
+    }
+
+    // Log bulk action
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'bulk_denial',
+      entityType: 'request',
+      entityId: request_ids.join(','),
+      entityName: `${results.length} requests`,
+      description: `Bulk denied ${results.length} document requests${reason ? `: ${reason}` : ''}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
 
     res.json({ success: true, results });
   } catch (error: any) {
@@ -886,7 +969,7 @@ router.patch('/organizations/:id/restore', requireAdmin, async (req: AuthRequest
 // Get all tickets (contact submissions)
 router.get('/tickets', requireAdmin, async (req, res) => {
   try {
-    const { status } = req.query;
+    const { status, priority } = req.query;
 
     // Simple query without relationship join to avoid schema cache issues
     let query = supabase
@@ -896,6 +979,10 @@ router.get('/tickets', requireAdmin, async (req, res) => {
 
     if (status && status !== 'all') {
       query = query.eq('status', status);
+    }
+
+    if (priority && priority !== 'all') {
+      query = query.eq('priority', priority);
     }
 
     const { data, error } = await query;
@@ -1111,6 +1198,46 @@ router.patch('/tickets/:id/status', requireAdmin, async (req: AuthRequest, res) 
     res.json(data);
   } catch (error: any) {
     console.error('Update ticket status error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update ticket priority
+router.patch('/tickets/:id/priority', requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const { priority } = req.body;
+
+    if (!priority || !['low', 'normal', 'high', 'critical'].includes(priority)) {
+      return res.status(400).json({ error: 'Valid priority is required (low, normal, high, critical)' });
+    }
+
+    const { data, error } = await supabase
+      .from('contact_submissions')
+      .update({ priority })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Log priority change
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'priority_change',
+      entityType: 'ticket',
+      entityId: id,
+      entityName: data.subject,
+      newValue: { priority },
+      description: `Changed ticket priority to: ${priority}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    res.json(data);
+  } catch (error: any) {
+    console.error('Update ticket priority error:', error);
     res.status(500).json({ error: error.message });
   }
 });
