@@ -13,6 +13,7 @@ export interface Document {
   created_at: string;
   updated_at: string;
   document_categories?: DocumentCategory;
+  requires_nda: boolean;
 }
 
 export interface DocumentCategory {
@@ -92,5 +93,26 @@ export interface TrustCenterSettings {
   footer_text?: string;
   font_family?: string;
   footer_links?: Array<{ label: string; url: string }>;
+  nda_url?: string;
+}
+
+export interface KnowledgeBaseItem {
+  id: string;
+  question: string;
+  answer: string;
+  tags?: string[];
+  is_public: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Webhook {
+  id: string;
+  url: string;
+  description?: string;
+  event_types: string[];
+  secret: string;
+  is_active: boolean;
+  created_at: string;
 }
 

@@ -1,5 +1,6 @@
 import express from 'express';
 import { supabase } from '../server';
+import { dispatchWebhook } from '../services/webhookDispatcher';
 import { requireAdmin, AuthRequest } from '../middleware/auth';
 import { extractEmailDomain, isPersonalEmailDomain, getOrCreateOrganization, checkOrganizationAccess, canAutoApproveDocument } from '../utils/organization';
 import { generateMagicLinkToken, getMagicLinkExpiration } from '../utils/magicLink';
@@ -39,7 +40,7 @@ router.post('/', async (req, res) => {
 
       // Block if organization has no access
       if (!accessCheck.hasAccess) {
-        return res.status(403).json({ 
+        return res.status(403).json({
           error: 'Access denied. Your organization does not have permission to request documents.',
           status: accessCheck.status
         });
@@ -88,6 +89,9 @@ router.post('/', async (req, res) => {
         .single();
 
       if (!approvedError && approvedRequest) {
+        // Dispatch webhook for auto-approved request
+        dispatchWebhook('request.created', approvedRequest);
+
         // Get full document details including file paths
         const { data: documents } = await supabase
           .from('documents')
@@ -137,6 +141,9 @@ router.post('/', async (req, res) => {
         .single();
 
       if (pendingError) throw pendingError;
+
+      // Dispatch webhook for pending request
+      dispatchWebhook('request.created', pendingRequest);
     }
 
     res.json({

@@ -25,6 +25,7 @@ export default function EditDocumentPage() {
     category_id: '',
     access_level: 'restricted',
     status: 'published',
+    requires_nda: false,
   });
 
   useEffect(() => {
@@ -57,9 +58,9 @@ export default function EditDocumentPage() {
         setFormData({
           title: doc.title || '',
           description: doc.description || '',
-          category_id: doc.category_id || '',
           access_level: doc.access_level || 'restricted',
           status: doc.status || 'published',
+          requires_nda: doc.requires_nda || false,
         });
 
         // Load categories
@@ -133,141 +134,157 @@ export default function EditDocumentPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Edit Document</h1>
-          <Link
-            href="/admin/documents"
-            className="text-gray-600 hover:text-gray-900"
-          >
-            ← Back to Documents
-          </Link>
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">Edit Document</h1>
+        <Link
+          href="/admin/documents"
+          className="text-gray-600 hover:text-gray-900"
+        >
+          ← Back to Documents
+        </Link>
+      </div>
+
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          {error}
+        </div>
+      )}
+
+      {success && (
+        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+          {success}
+        </div>
+      )}
+
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+          <h3 className="font-semibold text-gray-900 mb-2">Current File</h3>
+          <p className="text-gray-700">{document.file_name}</p>
+          <p className="text-sm text-gray-500">
+            Size: {Math.round((document.file_size || 0) / 1024)} KB
+          </p>
         </div>
 
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            {error}
-          </div>
-        )}
-
-        {success && (
-          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-            {success}
-          </div>
-        )}
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-            <h3 className="font-semibold text-gray-900 mb-2">Current File</h3>
-            <p className="text-gray-700">{document.file_name}</p>
-            <p className="text-sm text-gray-500">
-              Size: {Math.round((document.file_size || 0) / 1024)} KB
-            </p>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Title *
+            </label>
+            <input
+              type="text"
+              required
+              value={formData.title}
+              onChange={(e) =>
+                setFormData({ ...formData, title: e.target.value })
+              }
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500"
+            />
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Title *
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.title}
-                onChange={(e) =>
-                  setFormData({ ...formData, title: e.target.value })
-                }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Description
+            </label>
+            <textarea
+              rows={3}
+              value={formData.description}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Description
-              </label>
-              <textarea
-                rows={3}
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Category
-              </label>
-              <select
-                value={formData.category_id}
-                onChange={(e) =>
-                  setFormData({ ...formData, category_id: e.target.value })
-                }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select a category</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Access Level *
-              </label>
-              <select
-                required
-                value={formData.access_level}
-                onChange={(e) =>
-                  setFormData({ ...formData, access_level: e.target.value })
-                }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="public">Public (anyone can download)</option>
-                <option value="restricted">
-                  Restricted (requires approval)
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Category
+            </label>
+            <select
+              value={formData.category_id}
+              onChange={(e) =>
+                setFormData({ ...formData, category_id: e.target.value })
+              }
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Select a category</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
                 </option>
-              </select>
-            </div>
+              ))}
+            </select>
+          </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Status
-              </label>
-              <select
-                value={formData.status}
-                onChange={(e) =>
-                  setFormData({ ...formData, status: e.target.value })
-                }
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="published">Published</option>
-                <option value="draft">Draft</option>
-                <option value="archived">Archived</option>
-              </select>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Access Level *
+            </label>
+            <select
+              required
+              value={formData.access_level}
+              onChange={(e) =>
+                setFormData({ ...formData, access_level: e.target.value })
+              }
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="public">Public (anyone can download)</option>
+              <option value="restricted">
+                Restricted (requires approval)
+              </option>
+            </select>
+          </select>
+      </div>
 
-            <div className="flex gap-4">
-              <button
-                type="submit"
-                disabled={saving}
-                className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-400"
-              >
-                {saving ? 'Saving...' : 'Save Changes'}
-              </button>
-              <Link
-                href="/admin/documents"
-                className="px-6 py-3 bg-gray-200 text-gray-900 rounded-lg font-semibold hover:bg-gray-300 text-center"
-              >
-                Cancel
-              </Link>
-            </div>
-          </form>
+      {formData.access_level === 'restricted' && (
+        <div className="flex items-center">
+          <input
+            id="requires_nda"
+            type="checkbox"
+            checked={formData.requires_nda}
+            onChange={(e) => setFormData({ ...formData, requires_nda: e.target.checked })}
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+          />
+          <label htmlFor="requires_nda" className="ml-2 block text-sm text-gray-900">
+            Require NDA Acceptance
+          </label>
         </div>
-    </div>
+      )}
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Status
+        </label>
+        <select
+          value={formData.status}
+          onChange={(e) =>
+            setFormData({ ...formData, status: e.target.value })
+          }
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="published">Published</option>
+          <option value="draft">Draft</option>
+          <option value="archived">Archived</option>
+        </select>
+      </div>
+
+      <div className="flex gap-4">
+        <button
+          type="submit"
+          disabled={saving}
+          className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-400"
+        >
+          {saving ? 'Saving...' : 'Save Changes'}
+        </button>
+        <Link
+          href="/admin/documents"
+          className="px-6 py-3 bg-gray-200 text-gray-900 rounded-lg font-semibold hover:bg-gray-300 text-center"
+        >
+          Cancel
+        </Link>
+      </div>
+    </form>
+      </div >
+    </div >
   );
 }
 

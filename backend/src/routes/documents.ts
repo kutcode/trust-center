@@ -112,7 +112,7 @@ router.post('/', requireAdmin, upload.single('file'), async (req: AuthRequest, r
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const { title, description, category_id, access_level, version, replaces_document_id } = req.body;
+    const { title, description, category_id, access_level, version, replaces_document_id, requires_nda } = req.body;
 
     if (!title || !access_level) {
       return res.status(400).json({ error: 'Title and access_level are required' });
@@ -170,6 +170,7 @@ router.post('/', requireAdmin, upload.single('file'), async (req: AuthRequest, r
         status: 'published',
         published_at: new Date().toISOString(),
         uploaded_by: req.admin!.id,
+        requires_nda: requires_nda === 'true' || requires_nda === true,
       })
       .select()
       .single();

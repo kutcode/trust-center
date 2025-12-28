@@ -145,6 +145,8 @@ app.use('/api/contact', contactRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/access', accessRoutes);
 app.use('/api/subprocessors', subprocessorRoutes);
+import outboundWebhookRoutes from './routes/outboundWebhooks';
+app.use('/api/outbound-webhooks', outboundWebhookRoutes);
 import adminRoutes from './routes/admin';
 app.use('/api/admin', adminRoutes);
 

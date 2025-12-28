@@ -29,6 +29,9 @@ export default function RequestDocumentModal({ initialDocument, isOpen, onClose 
     const [searchQuery, setSearchQuery] = useState('');
     const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
     const [errorMessage, setErrorMessage] = useState('');
+    const [ndaAccepted, setNdaAccepted] = useState(false);
+    const [showNdaModal, setShowNdaModal] = useState(false);
+    const [ndaUrl, setNdaUrl] = useState<string | null>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     // Fetch all restricted documents and categories
@@ -50,6 +53,10 @@ export default function RequestDocumentModal({ initialDocument, isOpen, onClose 
         if (isOpen) {
             fetchDocumentsAndCategories();
             setSelectedDocuments([initialDocument]);
+            // Fetch NDA URL from settings
+            apiRequest<{ nda_url?: string }>('/api/settings')
+                .then(settings => setNdaUrl(settings.nda_url || null))
+                .catch(() => setNdaUrl(null));
         }
     }, [isOpen, initialDocument]);
 
@@ -101,6 +108,8 @@ export default function RequestDocumentModal({ initialDocument, isOpen, onClose 
         setErrorMessage('');
         setIsDropdownOpen(false);
         setSearchQuery('');
+        setNdaAccepted(false);
+        setShowNdaModal(false);
         onClose();
     };
 
@@ -392,10 +401,47 @@ export default function RequestDocumentModal({ initialDocument, isOpen, onClose 
                                     </p>
                                 </div>
 
+                                {/* NDA Agreement */}
+                                {ndaUrl && (
+                                    <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                                        <label className="flex items-start gap-3 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={ndaAccepted}
+                                                onChange={(e) => {
+                                                    if (!ndaAccepted) {
+                                                        // If not accepted yet, show modal
+                                                        setShowNdaModal(true);
+                                                    } else {
+                                                        setNdaAccepted(e.target.checked);
+                                                    }
+                                                }}
+                                                className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                            />
+                                            <div className="text-sm">
+                                                <span className="text-gray-700">I have read and agree to the </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowNdaModal(true)}
+                                                    className="text-blue-600 hover:text-blue-800 underline font-medium"
+                                                >
+                                                    Non-Disclosure Agreement (NDA)
+                                                </button>
+                                                <span className="text-red-500 ml-1">*</span>
+                                            </div>
+                                        </label>
+                                        {!ndaAccepted && (
+                                            <p className="mt-2 text-xs text-amber-700">
+                                                You must review and accept the NDA to continue.
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+
                                 {/* Submit Button */}
                                 <button
                                     type="submit"
-                                    disabled={status === 'submitting' || selectedDocuments.length === 0}
+                                    disabled={status === 'submitting' || selectedDocuments.length === 0 || (ndaUrl && !ndaAccepted)}
                                     className="w-full py-3 px-4 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                                 >
                                     {status === 'submitting' ? (
@@ -411,6 +457,50 @@ export default function RequestDocumentModal({ initialDocument, isOpen, onClose 
                                     )}
                                 </button>
                             </form>
+                        </div>
+                    )}
+
+                    {/* NDA Viewer Modal */}
+                    {showNdaModal && ndaUrl && (
+                        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                            <div className="fixed inset-0 bg-black/60" onClick={() => setShowNdaModal(false)} />
+                            <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col">
+                                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                                    <h3 className="text-lg font-bold text-gray-900">Non-Disclosure Agreement</h3>
+                                    <button
+                                        onClick={() => setShowNdaModal(false)}
+                                        className="text-gray-400 hover:text-gray-600"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div className="flex-1 p-2 bg-gray-100">
+                                    <iframe
+                                        src={ndaUrl}
+                                        className="w-full h-full rounded border border-gray-300"
+                                        title="NDA Document"
+                                    />
+                                </div>
+                                <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+                                    <button
+                                        onClick={() => setShowNdaModal(false)}
+                                        className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 font-medium"
+                                    >
+                                        Close
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setNdaAccepted(true);
+                                            setShowNdaModal(false);
+                                        }}
+                                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                                    >
+                                        I Accept the NDA
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     )}
                 </div>

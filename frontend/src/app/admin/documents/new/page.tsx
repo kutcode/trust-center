@@ -15,6 +15,7 @@ export default function UploadDocumentPage() {
     description: '',
     category_id: '',
     access_level: 'restricted' as 'public' | 'restricted',
+    requires_nda: false,
   });
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
@@ -25,7 +26,7 @@ export default function UploadDocumentPage() {
     async function loadCategories() {
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (session) {
         setToken(session.access_token);
         try {
@@ -53,6 +54,7 @@ export default function UploadDocumentPage() {
       formDataToSend.append('description', formData.description);
       formDataToSend.append('category_id', formData.category_id);
       formDataToSend.append('access_level', formData.access_level);
+      formDataToSend.append('requires_nda', String(formData.requires_nda));
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
       console.log('Uploading to:', `${apiUrl}/api/documents`);
@@ -105,98 +107,116 @@ export default function UploadDocumentPage() {
 
       <div className="bg-white rounded-lg shadow p-6">
         <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label htmlFor="file" className="block text-sm font-medium mb-2 text-gray-700">
-            File *
-          </label>
-          <input
-            type="file"
-            id="file"
-            required
-            accept=".pdf,.docx,.png,.jpg,.jpeg"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
-          />
-          <p className="text-sm text-gray-600 mt-1">Accepted formats: PDF, DOCX, PNG, JPG (max 50MB)</p>
-        </div>
+          <div>
+            <label htmlFor="file" className="block text-sm font-medium mb-2 text-gray-700">
+              File *
+            </label>
+            <input
+              type="file"
+              id="file"
+              required
+              accept=".pdf,.docx,.png,.jpg,.jpeg"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
+            />
+            <p className="text-sm text-gray-600 mt-1">Accepted formats: PDF, DOCX, PNG, JPG (max 50MB)</p>
+          </div>
 
-        <div>
-          <label htmlFor="title" className="block text-sm font-medium mb-2 text-gray-700">
-            Title *
-          </label>
-          <input
-            type="text"
-            id="title"
-            required
-            value={formData.title}
-            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
-          />
-        </div>
+          <div>
+            <label htmlFor="title" className="block text-sm font-medium mb-2 text-gray-700">
+              Title *
+            </label>
+            <input
+              type="text"
+              id="title"
+              required
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
+            />
+          </div>
 
-        <div>
-          <label htmlFor="description" className="block text-sm font-medium mb-2 text-gray-700">
-            Description
-          </label>
-          <textarea
-            id="description"
-            rows={4}
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
-          />
-        </div>
+          <div>
+            <label htmlFor="description" className="block text-sm font-medium mb-2 text-gray-700">
+              Description
+            </label>
+            <textarea
+              id="description"
+              rows={4}
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
+            />
+          </div>
 
-        <div>
-          <label htmlFor="category_id" className="block text-sm font-medium mb-2 text-gray-700">
-            Category
-          </label>
-          <select
-            id="category_id"
-            value={formData.category_id}
-            onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
-          >
-            <option value="">Select a category</option>
-            {categories.map((cat) => (
-              <option key={cat.id} value={cat.id}>
-                {cat.name}
-              </option>
-            ))}
-          </select>
-        </div>
+          <div>
+            <label htmlFor="category_id" className="block text-sm font-medium mb-2 text-gray-700">
+              Category
+            </label>
+            <select
+              id="category_id"
+              value={formData.category_id}
+              onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
+            >
+              <option value="">Select a category</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        <div>
-          <label htmlFor="access_level" className="block text-sm font-medium mb-2 text-gray-700">
-            Access Level *
-          </label>
-          <select
-            id="access_level"
-            required
-            value={formData.access_level}
-            onChange={(e) => setFormData({ ...formData, access_level: e.target.value as 'public' | 'restricted' })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
-          >
-            <option value="public">Public (anyone can download)</option>
-            <option value="restricted">Restricted (requires approval)</option>
-          </select>
-        </div>
+          <div>
+            <label htmlFor="access_level" className="block text-sm font-medium mb-2 text-gray-700">
+              Access Level *
+            </label>
+            <select
+              id="access_level"
+              required
+              value={formData.access_level}
+              onChange={(e) => setFormData({ ...formData, access_level: e.target.value as 'public' | 'restricted' })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
+            >
+              <option value="public">Public (anyone can download)</option>
+              <option value="restricted">Restricted (requires approval)</option>
+            </select>
+          </div>
 
-        <div className="flex gap-4">
-          <button
-            type="submit"
-            disabled={loading || !file}
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-400"
-          >
-            {loading ? 'Uploading...' : 'Upload Document'}
-          </button>
-          <Link
-            href="/admin/documents"
-            className="bg-gray-200 text-gray-900 px-6 py-3 rounded-lg font-semibold hover:bg-gray-300"
-          >
-            Cancel
-          </Link>
-        </div>
+          {formData.access_level === 'restricted' && (
+            <div className="flex items-center">
+              <input
+                id="requires_nda"
+                type="checkbox"
+                checked={formData.requires_nda}
+                onChange={(e) => setFormData({ ...formData, requires_nda: e.target.checked })}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <label htmlFor="requires_nda" className="ml-2 block text-sm text-gray-900">
+                Require NDA Acceptance
+                <span className="block text-xs text-gray-500">
+                  Users must agree to the NDA before downloading this document.
+                </span>
+              </label>
+            </div>
+          )}
+
+          <div className="flex gap-4">
+            <button
+              type="submit"
+              disabled={loading || !file}
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-400"
+            >
+              {loading ? 'Uploading...' : 'Upload Document'}
+            </button>
+            <Link
+              href="/admin/documents"
+              className="bg-gray-200 text-gray-900 px-6 py-3 rounded-lg font-semibold hover:bg-gray-300"
+            >
+              Cancel
+            </Link>
+          </div>
         </form>
       </div>
     </>

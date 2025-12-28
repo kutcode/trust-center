@@ -1,9 +1,11 @@
 import express from 'express';
 import { supabase } from '../server';
+import { dispatchWebhook } from '../services/webhookDispatcher';
 import { requireAdmin, AuthRequest } from '../middleware/auth';
 import { generateMagicLinkToken, getMagicLinkExpiration } from '../utils/magicLink';
 import { sendMagicLinkEmail, sendRejectionEmail } from '../utils/email';
 import { logActivity } from '../utils/activityLogger';
+import { handleError } from '../utils/errorHandler';
 
 const router = express.Router();
 
@@ -62,8 +64,7 @@ router.get('/stats', requireAdmin, async (req, res) => {
       },
     });
   } catch (error: any) {
-    console.error('Stats endpoint error:', error);
-    res.status(500).json({ error: error.message });
+    handleError(res, error, 'Stats endpoint error');
   }
 });
 
@@ -117,8 +118,7 @@ router.get('/document-requests', requireAdmin, async (req, res) => {
     console.log('Returning', requestsWithDocs.length, 'requests');
     res.json(requestsWithDocs);
   } catch (error: any) {
-    console.error('Document requests route error:', error);
-    res.status(500).json({ error: error.message });
+    handleError(res, error, 'Document requests route error');
   }
 });
 
@@ -158,7 +158,7 @@ router.get('/document-requests/:id', requireAdmin, async (req, res) => {
       history: history || [],
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error, 'Get request details error');
   }
 });
 
@@ -306,13 +306,16 @@ router.patch('/document-requests/:id/approve', requireAdmin, async (req: AuthReq
       userAgent: req.headers['user-agent'],
     });
 
+    // Dispatch webhook
+    dispatchWebhook('request.approved', updatedRequest);
+
     res.json({
       ...updatedRequest,
       emailSent,
       emailError: emailError || undefined,
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error, 'Approve request error');
   }
 });
 
@@ -354,9 +357,12 @@ router.patch('/document-requests/:id/deny', requireAdmin, async (req: AuthReques
       userAgent: req.headers['user-agent'],
     });
 
+    // Dispatch webhook
+    dispatchWebhook('request.denied', { ...request, status: 'denied', admin_notes: admin_notes });
+
     res.json(request);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error, 'Deny request error');
   }
 });
 
@@ -428,9 +434,19 @@ router.post('/document-requests/batch-approve', requireAdmin, async (req: AuthRe
       userAgent: req.headers['user-agent'],
     });
 
+    // Dispatch webhooks for bulk approvals
+    // We could dispatch one summary event or multiple. Let's do summary for now or loop.
+    // Looping might be heavy if many. Let's emit one summary event 'bulk.approved' or just loop individually in background?
+    // Let's loop individually for consistency.
+    for (const r of results) {
+      // Fetch full request to send active data?
+      // Or just send minimal { id, status: 'approved' }
+      dispatchWebhook('request.approved', { id: r.id, status: 'approved' });
+    }
+
     res.json({ success: true, results });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error, 'Batch approve error');
   }
 });
 
@@ -487,9 +503,13 @@ router.post('/document-requests/batch-deny', requireAdmin, async (req: AuthReque
       userAgent: req.headers['user-agent'],
     });
 
+    for (const r of results) {
+      dispatchWebhook('request.denied', { id: r.id, status: 'denied' });
+    }
+
     res.json({ success: true, results });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error, 'Batch deny error');
   }
 });
 
@@ -506,7 +526,7 @@ router.get('/settings', requireAdmin, async (req, res) => {
 
     res.json(data);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error, 'Get settings error');
   }
 });
 
@@ -565,7 +585,7 @@ router.patch('/settings', requireAdmin, async (req: AuthRequest, res) => {
 
     res.json(data);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error, 'Update settings error');
   }
 });
 
@@ -618,7 +638,7 @@ router.get('/users', requireAdmin, async (req, res) => {
 
     res.json(usersWithAdminStatus);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error, 'Get users error');
   }
 });
 
@@ -701,7 +721,7 @@ router.post('/users', requireAdmin, async (req: AuthRequest, res) => {
       message: 'User created successfully',
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error, 'Create user error');
   }
 });
 
@@ -775,7 +795,7 @@ router.patch('/users/:id', requireAdmin, async (req: AuthRequest, res) => {
 
     res.json({ success: true, message: 'User updated successfully' });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error, 'Update user error');
   }
 });
 
@@ -815,7 +835,7 @@ router.delete('/users/:id', requireAdmin, async (req: AuthRequest, res) => {
 
     res.json({ success: true, message: 'User deleted successfully' });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error, 'Delete user error');
   }
 });
 
@@ -874,7 +894,7 @@ router.patch('/organizations/:id/status', requireAdmin, async (req: AuthRequest,
 
     res.json(data);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error, 'Change organization status error');
   }
 });
 
@@ -916,7 +936,7 @@ router.delete('/organizations/:id', requireAdmin, async (req: AuthRequest, res) 
       organization: data
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error, 'Delete organization error');
   }
 });
 
@@ -958,7 +978,7 @@ router.patch('/organizations/:id/restore', requireAdmin, async (req: AuthRequest
       organization: data
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    handleError(res, error, 'Restore organization error');
   }
 });
 
@@ -1014,8 +1034,7 @@ router.get('/tickets', requireAdmin, async (req, res) => {
 
     res.json(ticketsWithCounts);
   } catch (error: any) {
-    console.error('Get tickets error:', error);
-    res.status(500).json({ error: error.message });
+    handleError(res, error, 'Get tickets error');
   }
 });
 
@@ -1050,8 +1069,7 @@ router.get('/tickets/:id', requireAdmin, async (req, res) => {
       messages: messages || [],
     });
   } catch (error: any) {
-    console.error('Get ticket error:', error);
-    res.status(500).json({ error: error.message });
+    handleError(res, error, 'Get ticket error');
   }
 });
 
@@ -1150,8 +1168,7 @@ router.post('/tickets/:id/messages', requireAdmin, async (req: AuthRequest, res)
 
     res.json(newMessage);
   } catch (error: any) {
-    console.error('Add ticket message error:', error);
-    res.status(500).json({ error: error.message });
+    handleError(res, error, 'Add ticket message error');
   }
 });
 
@@ -1197,8 +1214,7 @@ router.patch('/tickets/:id/status', requireAdmin, async (req: AuthRequest, res) 
 
     res.json(data);
   } catch (error: any) {
-    console.error('Update ticket status error:', error);
-    res.status(500).json({ error: error.message });
+    handleError(res, error, 'Update ticket status error');
   }
 });
 
@@ -1237,8 +1253,7 @@ router.patch('/tickets/:id/priority', requireAdmin, async (req: AuthRequest, res
 
     res.json(data);
   } catch (error: any) {
-    console.error('Update ticket priority error:', error);
-    res.status(500).json({ error: error.message });
+    handleError(res, error, 'Update ticket priority error');
   }
 });
 
@@ -1278,8 +1293,7 @@ router.get('/activity-logs', requireAdmin, async (req, res) => {
 
     res.json(data || []);
   } catch (error: any) {
-    console.error('Get activity logs error:', error);
-    res.status(500).json({ error: error.message });
+    handleError(res, error, 'Get activity logs error');
   }
 });
 
@@ -1316,8 +1330,7 @@ router.get('/activity-logs/stats', requireAdmin, async (req, res) => {
       byEntity,
     });
   } catch (error: any) {
-    console.error('Get activity log stats error:', error);
-    res.status(500).json({ error: error.message });
+    handleError(res, error, 'Get activity log stats error');
   }
 });
 

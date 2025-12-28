@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { apiRequestWithAuth } from '@/lib/api';
+import toast from 'react-hot-toast';
+import ConfirmModal from '@/components/ui/ConfirmModal';
+import TableSkeleton from '@/components/ui/TableSkeleton';
 
 interface Subprocessor {
     id: string;
@@ -63,6 +66,7 @@ export default function SubprocessorsAdminPage() {
             setSubprocessors(data);
         } catch (error) {
             console.error('Failed to load subprocessors:', error);
+            toast.error('Failed to load subprocessors');
         } finally {
             setLoading(false);
         }
@@ -111,18 +115,20 @@ export default function SubprocessorsAdminPage() {
                     method: 'PATCH',
                     body: JSON.stringify(payload),
                 });
+                toast.success('Subprocessor updated successfully');
             } else {
                 const maxOrder = Math.max(...subprocessors.map(s => s.display_order || 0), 0);
                 await apiRequestWithAuth('/api/subprocessors', token, {
                     method: 'POST',
                     body: JSON.stringify({ ...payload, display_order: maxOrder + 1 }),
                 });
+                toast.success('Subprocessor created successfully');
             }
 
             await loadSubprocessors();
             setShowModal(false);
         } catch (error: any) {
-            alert(`Failed to save: ${error.message}`);
+            toast.error(error.message || 'Failed to save subprocessor');
         } finally {
             setSaving(false);
         }
@@ -136,10 +142,11 @@ export default function SubprocessorsAdminPage() {
             await apiRequestWithAuth(`/api/subprocessors/${deleteConfirm.id}`, token, {
                 method: 'DELETE',
             });
+            toast.success('Subprocessor deleted successfully');
             await loadSubprocessors();
             setDeleteConfirm(null);
         } catch (error: any) {
-            alert(`Failed to delete: ${error.message}`);
+            toast.error(error.message || 'Failed to delete subprocessor');
         } finally {
             setSaving(false);
         }
@@ -154,13 +161,27 @@ export default function SubprocessorsAdminPage() {
                 body: JSON.stringify({ is_active: !sub.is_active }),
             });
             await loadSubprocessors();
+            toast.success(`Subprocessor ${sub.is_active ? 'deactivated' : 'activated'}`);
         } catch (error: any) {
-            alert(`Failed to update: ${error.message}`);
+            toast.error(error.message || 'Failed to update status');
         }
     };
 
+    if (loading) {
+        return <div className="p-6"><TableSkeleton columns={6} rows={6} /></div>;
+    }
+
     return (
         <div className="space-y-6">
+            <ConfirmModal
+                isOpen={!!deleteConfirm}
+                onClose={() => setDeleteConfirm(null)}
+                onConfirm={handleDelete}
+                title="Delete Subprocessor"
+                message={`Are you sure you want to delete "${deleteConfirm?.name}"? This cannot be undone.`}
+                isLoading={saving}
+            />
+
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
@@ -182,11 +203,7 @@ export default function SubprocessorsAdminPage() {
 
             {/* Table */}
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-                {loading ? (
-                    <div className="flex items-center justify-center py-12">
-                        <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent"></div>
-                    </div>
-                ) : subprocessors.length === 0 ? (
+                {subprocessors.length === 0 ? (
                     <div className="text-center py-12">
                         <div className="text-4xl mb-3">📋</div>
                         <h3 className="text-lg font-medium text-gray-900">No subprocessors</h3>
@@ -259,8 +276,8 @@ export default function SubprocessorsAdminPage() {
                                         <button
                                             onClick={() => toggleActive(sub)}
                                             className={`px-2.5 py-1 text-xs font-medium rounded-full ${sub.is_active
-                                                    ? 'bg-green-100 text-green-700'
-                                                    : 'bg-gray-100 text-gray-600'
+                                                ? 'bg-green-100 text-green-700'
+                                                : 'bg-gray-100 text-gray-600'
                                                 }`}
                                         >
                                             {sub.is_active ? 'Active' : 'Inactive'}
@@ -409,34 +426,7 @@ export default function SubprocessorsAdminPage() {
                     </div>
                 </div>
             )}
-
-            {/* Delete Confirmation */}
-            {deleteConfirm && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
-                        <h3 className="text-lg font-bold text-gray-900 mb-2">Delete Subprocessor?</h3>
-                        <p className="text-gray-600 mb-6">
-                            Are you sure you want to delete <strong>"{deleteConfirm.name}"</strong>?
-                            This cannot be undone.
-                        </p>
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => setDeleteConfirm(null)}
-                                className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleDelete}
-                                disabled={saving}
-                                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-400"
-                            >
-                                {saving ? 'Deleting...' : 'Delete'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
+

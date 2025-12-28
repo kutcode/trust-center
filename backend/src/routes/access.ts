@@ -1,5 +1,9 @@
 import express from 'express';
 import { supabase } from '../server';
+import fs from 'fs';
+import path from 'path';
+
+const UPLOADS_DIR = process.env.UPLOADS_DIR || '/app/uploads';
 
 const router = express.Router();
 
@@ -56,7 +60,7 @@ router.get('/:token/download/:document_id', async (req, res) => {
     // Validate token and check document access
     const { data: request, error } = await supabase
       .from('document_requests')
-      .select('document_ids, status, magic_link_expires_at')
+      .select('document_ids, status, magic_link_expires_at, requester_email')
       .eq('magic_link_token', token)
       .single();
 
@@ -79,7 +83,7 @@ router.get('/:token/download/:document_id', async (req, res) => {
     // Get document
     const { data: document, error: docError } = await supabase
       .from('documents')
-      .select('file_url')
+      .select('file_url, file_name, file_type, requires_nda')
       .eq('id', document_id)
       .single();
 
@@ -87,15 +91,76 @@ router.get('/:token/download/:document_id', async (req, res) => {
       return res.status(404).json({ error: 'Document not found' });
     }
 
-    // Generate signed URL
-    const { data: signedUrl, error: urlError } = await supabase
-      .storage
-      .from('compliance-documents')
-      .createSignedUrl(document.file_url, 3600); // 1 hour expiry
+    // Check NDA Requirement
+    if (document.requires_nda) {
+      const { data: acceptance } = await supabase
+        .from('nda_acceptances')
+        .select('id')
+        .eq('email', request.requester_email)
+        .single();
 
-    if (urlError) throw urlError;
+      if (!acceptance) {
+        return res.status(403).json({
+          error: 'NDA_REQUIRED',
+          message: 'You must accept the Non-Disclosure Agreement before accessing this document.'
+        });
+      }
+    }
 
-    res.redirect(signedUrl.signedUrl);
+    // Serve from local storage (consistent with documents.ts)
+    // Adjust path if file_url is relative
+    const filePath = path.join(UPLOADS_DIR, document.file_url);
+
+    if (!fs.existsSync(filePath)) {
+      console.error(`File not found at ${filePath}`);
+      return res.status(404).json({ error: 'File not found on server' });
+    }
+
+    res.setHeader('Content-Disposition', `attachment; filename="${document.file_name}"`);
+    res.setHeader('Content-Type', document.file_type || 'application/octet-stream');
+
+    return res.sendFile(filePath);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Accept NDA via magic link token
+router.post('/:token/accept-nda', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const userAgent = req.headers['user-agent'];
+    const ip = req.ip;
+
+    // Validate token
+    const { data: request, error } = await supabase
+      .from('document_requests')
+      .select('requester_email, organization_id, status, magic_link_expires_at')
+      .eq('magic_link_token', token)
+      .single();
+
+    if (error || !request) {
+      return res.status(404).json({ error: 'Invalid or expired link' });
+    }
+
+    if (request.magic_link_expires_at && new Date(request.magic_link_expires_at) < new Date()) {
+      return res.status(403).json({ error: 'This link has expired' });
+    }
+
+    // Insert acceptance
+    const { error: insertError } = await supabase
+      .from('nda_acceptances')
+      .insert({
+        email: request.requester_email,
+        organization_id: request.organization_id,
+        ip_address: ip,
+        user_agent: userAgent
+      });
+
+    if (insertError) throw insertError;
+
+    res.json({ message: 'NDA Accepted successfully' });
+
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

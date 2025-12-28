@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { apiRequestWithAuth } from '@/lib/api';
 import { TrustCenterSettings } from '@/types';
+import toast from 'react-hot-toast';
 
 // Popular Google Fonts
 const googleFonts = [
@@ -31,7 +32,6 @@ export default function SettingsAdminPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [token, setToken] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const [activeTab, setActiveTab] = useState<'general' | 'branding' | 'footer'>('general');
 
   // Footer links state
@@ -54,6 +54,7 @@ export default function SettingsAdminPage() {
           setFooterLinks(data.footer_links || []);
         } catch (error) {
           console.error('Failed to load settings:', error);
+          toast.error('Failed to load settings');
         }
       }
       setLoading(false);
@@ -66,7 +67,6 @@ export default function SettingsAdminPage() {
     if (!token) return;
 
     setSaving(true);
-    setSuccess(false);
 
     try {
       await apiRequestWithAuth('/api/admin/settings', token, {
@@ -76,10 +76,10 @@ export default function SettingsAdminPage() {
           footer_links: footerLinks,
         }),
       });
-      setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
+      toast.success('Settings saved successfully');
     } catch (error) {
       console.error('Failed to save settings:', error);
+      toast.error('Failed to save settings');
     } finally {
       setSaving(false);
     }
@@ -94,6 +94,7 @@ export default function SettingsAdminPage() {
     formData.append('bucket', 'branding');
     formData.append('path', 'logo');
 
+    const toastId = toast.loading('Uploading logo...');
     try {
       const response = await fetch('/api/admin/upload', {
         method: 'POST',
@@ -107,8 +108,9 @@ export default function SettingsAdminPage() {
 
       const data = await response.json();
       setSettings({ ...settings, company_logo_url: data.url });
+      toast.success('Logo uploaded', { id: toastId });
     } catch (error) {
-      alert('Failed to upload logo');
+      toast.error('Failed to upload logo', { id: toastId });
     }
   };
 
@@ -121,6 +123,7 @@ export default function SettingsAdminPage() {
     formData.append('bucket', 'branding');
     formData.append('path', 'favicon');
 
+    const toastId = toast.loading('Uploading favicon...');
     try {
       const response = await fetch('/api/admin/upload', {
         method: 'POST',
@@ -134,8 +137,9 @@ export default function SettingsAdminPage() {
 
       const data = await response.json();
       setSettings({ ...settings, favicon_url: data.url });
+      toast.success('Favicon uploaded', { id: toastId });
     } catch (error) {
-      alert('Failed to upload favicon');
+      toast.error('Failed to upload favicon', { id: toastId });
     }
   };
 
@@ -171,15 +175,6 @@ export default function SettingsAdminPage() {
         </p>
       </div>
 
-      {success && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center gap-2">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-          Settings saved successfully!
-        </div>
-      )}
-
       {/* Tabs */}
       <div className="border-b border-gray-200">
         <nav className="flex gap-6">
@@ -192,8 +187,8 @@ export default function SettingsAdminPage() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
               className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
             >
               {tab.label}
@@ -524,6 +519,21 @@ export default function SettingsAdminPage() {
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-gray-700">
+                    NDA Document URL
+                  </label>
+                  <input
+                    type="url"
+                    value={settings.nda_url || ''}
+                    onChange={(e) => setSettings({ ...settings, nda_url: e.target.value })}
+                    placeholder="https://example.com/nda.pdf"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Users must accept this NDA before requesting documents. Leave blank to disable.
+                  </p>
+                </div>
               </div>
             </div>
           )}
@@ -550,3 +560,4 @@ export default function SettingsAdminPage() {
     </div>
   );
 }
+
