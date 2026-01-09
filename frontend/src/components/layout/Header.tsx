@@ -12,6 +12,9 @@ export default function Header() {
             <Link href="/documents" className="text-gray-700 hover:text-gray-900 font-medium transition-colors">
               Documents
             </Link>
+            <Link href="/controls" className="text-gray-700 hover:text-gray-900 font-medium transition-colors">
+              Controls
+            </Link>
             <Link href="/certifications" className="text-gray-700 hover:text-gray-900 font-medium transition-colors">
               Certifications
             </Link>

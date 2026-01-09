@@ -39,6 +39,7 @@ export default function AdminNav() {
   const navLinks = [
     { href: '/admin', label: 'Dashboard' },
     { href: '/admin/documents', label: 'Documents' },
+    { href: '/admin/controls', label: 'Controls' },
     { href: '/admin/requests', label: 'Requests' },
     { href: '/admin/tickets', label: 'Tickets' },
     { href: '/admin/organizations', label: 'Organizations' },

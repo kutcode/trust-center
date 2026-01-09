@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { apiRequest } from '@/lib/api';
-import Link from 'next/link';
+import toast from 'react-hot-toast';
 
 interface ControlCategory {
     id: string;
@@ -25,6 +25,7 @@ export default function ControlsPage() {
     const [controls, setControls] = useState<Control[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeCategory, setActiveCategory] = useState<string | null>(null);
+    const [copiedId, setCopiedId] = useState<string | null>(null);
     const sectionRefs = useRef<Map<string, HTMLElement>>(new Map());
 
     useEffect(() => {
@@ -47,6 +48,19 @@ export default function ControlsPage() {
         }
         loadData();
     }, []);
+
+    // Handle hash navigation on page load
+    useEffect(() => {
+        if (categories.length > 0 && window.location.hash) {
+            const hash = window.location.hash.slice(1);
+            const element = document.getElementById(hash);
+            if (element) {
+                setTimeout(() => {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
+            }
+        }
+    }, [categories]);
 
     // Intersection Observer for active category highlighting
     useEffect(() => {
@@ -83,6 +97,23 @@ export default function ControlsPage() {
     const getCategoryIcon = (icon?: string) => {
         if (icon) return icon;
         return '🔒';
+    };
+
+    const copyToClipboard = async (id: string, type: 'category' | 'control', name: string) => {
+        const url = `${window.location.origin}/controls#${id}`;
+        try {
+            await navigator.clipboard.writeText(url);
+            setCopiedId(id);
+            toast.success(`Link to "${name}" copied!`);
+            setTimeout(() => setCopiedId(null), 2000);
+        } catch (err) {
+            toast.error('Failed to copy link');
+        }
+    };
+
+    // Generate a slug from control title for anchor links
+    const getControlSlug = (controlId: string, title: string) => {
+        return `control-${controlId.slice(0, 8)}`;
     };
 
     if (loading) {
@@ -124,8 +155,8 @@ export default function ControlsPage() {
                                         key={category.id}
                                         onClick={() => scrollToSection(category.id)}
                                         className={`w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-3 ${activeCategory === category.id
-                                                ? 'bg-blue-50 text-blue-700 border-l-4 border-blue-600'
-                                                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                                            ? 'bg-blue-50 text-blue-700 border-l-4 border-blue-600'
+                                            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                                             }`}
                                     >
                                         <span className="text-lg">{getCategoryIcon(category.icon)}</span>
@@ -154,19 +185,45 @@ export default function ControlsPage() {
                                         {/* Category Header */}
                                         <div
                                             className={`rounded-t-xl px-6 py-4 ${catIndex === 0
-                                                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white'
-                                                    : 'bg-gray-100 text-gray-900'
+                                                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white'
+                                                : 'bg-gray-100 text-gray-900'
                                                 }`}
                                         >
-                                            <div className="flex items-center gap-3">
-                                                <span className="text-2xl">{getCategoryIcon(category.icon)}</span>
-                                                <div>
-                                                    <h2 className="text-xl font-bold">{category.name}</h2>
-                                                    {category.description && (
-                                                        <p className={`text-sm mt-1 ${catIndex === 0 ? 'text-blue-100' : 'text-gray-500'}`}>
-                                                            {category.description}
-                                                        </p>
-                                                    )}
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-2xl">{getCategoryIcon(category.icon)}</span>
+                                                    <div>
+                                                        <h2 className="text-xl font-bold">{category.name}</h2>
+                                                        {category.description && (
+                                                            <p className={`text-sm mt-1 ${catIndex === 0 ? 'text-blue-100' : 'text-gray-500'}`}>
+                                                                {category.description}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                {/* Copy Category Link Button */}
+                                                <div className="relative group/tooltip">
+                                                    <button
+                                                        onClick={() => copyToClipboard(category.id, 'category', category.name)}
+                                                        className={`p-2 rounded-lg transition-all ${catIndex === 0
+                                                            ? 'hover:bg-white/20 text-white/80 hover:text-white'
+                                                            : 'hover:bg-gray-200 text-gray-500 hover:text-gray-700'
+                                                            }`}
+                                                        aria-label="Copy link to this section"
+                                                    >
+                                                        {copiedId === category.id ? (
+                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                            </svg>
+                                                        ) : (
+                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                                            </svg>
+                                                        )}
+                                                    </button>
+                                                    <div className="absolute bottom-full right-0 mb-2 px-2 py-1 bg-black text-white text-xs rounded shadow-lg opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all whitespace-nowrap z-10 pointer-events-none">
+                                                        Copy link to section
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -178,38 +235,67 @@ export default function ControlsPage() {
                                                     No controls in this category yet.
                                                 </div>
                                             ) : (
-                                                categoryControls.map((control) => (
-                                                    <div key={control.id} className="px-6 py-5 flex items-start gap-4">
-                                                        {/* Green Checkmark */}
-                                                        <div className="flex-shrink-0 mt-0.5">
-                                                            <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
-                                                                <svg
-                                                                    className="w-4 h-4 text-green-600"
-                                                                    fill="currentColor"
-                                                                    viewBox="0 0 20 20"
+                                                categoryControls.map((control) => {
+                                                    const controlSlug = getControlSlug(control.id, control.title);
+                                                    return (
+                                                        <div
+                                                            key={control.id}
+                                                            id={controlSlug}
+                                                            className="px-6 py-5 flex items-start gap-4 group scroll-mt-8"
+                                                        >
+                                                            {/* Green Checkmark */}
+                                                            <div className="flex-shrink-0 mt-0.5">
+                                                                <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
+                                                                    <svg
+                                                                        className="w-4 h-4 text-green-600"
+                                                                        fill="currentColor"
+                                                                        viewBox="0 0 20 20"
+                                                                    >
+                                                                        <path
+                                                                            fillRule="evenodd"
+                                                                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                                                            clipRule="evenodd"
+                                                                        />
+                                                                    </svg>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Control Content */}
+                                                            <div className="flex-1">
+                                                                <h3 className="text-base font-semibold text-gray-900">
+                                                                    {control.title}
+                                                                </h3>
+                                                                {control.description && (
+                                                                    <p className="text-gray-600 text-sm mt-1 leading-relaxed">
+                                                                        {control.description}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Copy Control Link Button */}
+                                                            <div className="relative group/tooltip">
+                                                                <button
+                                                                    onClick={() => copyToClipboard(controlSlug, 'control', control.title)}
+                                                                    className="p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-gray-100 text-gray-400 hover:text-gray-600"
+                                                                    aria-label="Copy link to this control"
                                                                 >
-                                                                    <path
-                                                                        fillRule="evenodd"
-                                                                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                                                        clipRule="evenodd"
-                                                                    />
-                                                                </svg>
+                                                                    {copiedId === controlSlug ? (
+                                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                                        </svg>
+                                                                    ) : (
+                                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                                                        </svg>
+                                                                    )}
+                                                                </button>
+                                                                <div className="absolute bottom-full right-0 mb-2 px-2 py-1 bg-black text-white text-xs rounded shadow-lg opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all whitespace-nowrap z-10 pointer-events-none">
+                                                                    Copy link to section
+                                                                </div>
                                                             </div>
                                                         </div>
-
-                                                        {/* Control Content */}
-                                                        <div className="flex-1">
-                                                            <h3 className="text-base font-semibold text-gray-900">
-                                                                {control.title}
-                                                            </h3>
-                                                            {control.description && (
-                                                                <p className="text-gray-600 text-sm mt-1 leading-relaxed">
-                                                                    {control.description}
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                ))
+                                                    );
+                                                })
                                             )}
                                         </div>
                                     </section>
