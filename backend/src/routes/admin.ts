@@ -1497,6 +1497,59 @@ router.delete('/controls/:id', requireAdmin, async (req, res) => {
   }
 });
 
+// ============ REORDER ENDPOINTS ============
+
+// Reorder control categories (bulk update sort_order)
+router.patch('/control-categories/reorder', requireAdmin, async (req, res) => {
+  try {
+    const { orders } = req.body; // Array of { id, sort_order }
+
+    if (!orders || !Array.isArray(orders)) {
+      return res.status(400).json({ error: 'orders array is required' });
+    }
+
+    // Update each category's sort_order
+    for (const item of orders) {
+      const { error } = await supabase
+        .from('control_categories')
+        .update({ sort_order: item.sort_order })
+        .eq('id', item.id);
+
+      if (error) throw error;
+    }
+
+    res.json({ message: 'Categories reordered successfully' });
+  } catch (error: any) {
+    handleError(res, error, 'Reorder control categories error');
+  }
+});
+
+// Reorder controls within a category (bulk update sort_order)
+router.patch('/controls/reorder', requireAdmin, async (req, res) => {
+  try {
+    const { orders } = req.body; // Array of { id, sort_order }
+
+    if (!orders || !Array.isArray(orders)) {
+      return res.status(400).json({ error: 'orders array is required' });
+    }
+
+    // Update each control's sort_order
+    for (const item of orders) {
+      const { error } = await supabase
+        .from('controls')
+        .update({ sort_order: item.sort_order })
+        .eq('id', item.id);
+
+      if (error) throw error;
+    }
+
+    res.json({ message: 'Controls reordered successfully' });
+  } catch (error: any) {
+    handleError(res, error, 'Reorder controls error');
+  }
+});
+
 export default router;
+
 
 
