@@ -184,18 +184,15 @@ export default function ControlsPage() {
                                     >
                                         {/* Category Header */}
                                         <div
-                                            className={`rounded-t-xl px-6 py-4 ${catIndex === 0
-                                                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white'
-                                                : 'bg-gray-100 text-gray-900'
-                                                }`}
+                                            className="rounded-t-xl px-6 py-8 relative overflow-hidden bg-gray-100 text-gray-900"
                                         >
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-3">
-                                                    <span className="text-2xl">{getCategoryIcon(category.icon)}</span>
+                                            <div className="relative z-10 flex items-center justify-between">
+                                                <div className="flex items-center gap-4">
+                                                    <span className="text-3xl">{getCategoryIcon(category.icon)}</span>
                                                     <div>
-                                                        <h2 className="text-xl font-bold">{category.name}</h2>
+                                                        <h2 className="text-2xl font-bold">{category.name}</h2>
                                                         {category.description && (
-                                                            <p className={`text-sm mt-1 ${catIndex === 0 ? 'text-blue-100' : 'text-gray-500'}`}>
+                                                            <p className="text-base mt-1 text-gray-500">
                                                                 {category.description}
                                                             </p>
                                                         )}
@@ -205,10 +202,7 @@ export default function ControlsPage() {
                                                 <div className="relative group/tooltip">
                                                     <button
                                                         onClick={() => copyToClipboard(category.id, 'category', category.name)}
-                                                        className={`p-2 rounded-lg transition-all ${catIndex === 0
-                                                            ? 'hover:bg-white/20 text-white/80 hover:text-white'
-                                                            : 'hover:bg-gray-200 text-gray-500 hover:text-gray-700'
-                                                            }`}
+                                                        className="p-2 rounded-lg transition-all hover:bg-gray-200 text-gray-500 hover:text-gray-700"
                                                         aria-label="Copy link to this section"
                                                     >
                                                         {copiedId === category.id ? (
@@ -305,6 +299,6 @@ export default function ControlsPage() {
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 }

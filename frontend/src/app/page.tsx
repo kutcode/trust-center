@@ -109,11 +109,11 @@ export default async function Home() {
         <div className="container mx-auto px-4 py-12">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             <div className="text-center">
-              <div className="text-4xl font-bold text-gray-900 mb-2">{certifications.length || '5+'}</div>
+              <div className="text-4xl font-bold text-gray-900 mb-2">{certifications.length}</div>
               <div className="text-gray-600">Certifications</div>
             </div>
             <div className="text-center">
-              <div className="text-4xl font-bold text-gray-900 mb-2">{publishedDocs.length || '10+'}</div>
+              <div className="text-4xl font-bold text-gray-900 mb-2">{publishedDocs.length}</div>
               <div className="text-gray-600">Documents</div>
             </div>
             <div className="text-center">
@@ -224,8 +224,8 @@ export default async function Home() {
                       {doc.file_type?.includes('pdf') ? '📄' : '📎'}
                     </div>
                     <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${doc.access_level === 'public'
-                        ? 'text-green-700 bg-green-50'
-                        : 'text-amber-700 bg-amber-50'
+                      ? 'text-green-700 bg-green-50'
+                      : 'text-amber-700 bg-amber-50'
                       }`}>
                       {doc.access_level === 'public' ? 'Public' : 'Restricted'}
                     </span>

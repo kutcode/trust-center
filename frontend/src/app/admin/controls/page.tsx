@@ -35,12 +35,23 @@ export default function AdminControlsPage() {
     const [editingCategory, setEditingCategory] = useState<ControlCategory | null>(null);
     const [editingControl, setEditingControl] = useState<Control | null>(null);
 
-    const [categoryForm, setCategoryForm] = useState({ name: '', description: '', icon: '🔒' });
+    const [categoryForm, setCategoryForm] = useState({ name: '', description: '', icon: '🔒', banner_image: '' });
     const [controlForm, setControlForm] = useState({ title: '', description: '', category_id: '' });
 
     useEffect(() => {
         loadData();
     }, []);
+
+    // Helper to get fresh token (avoids stale token issues)
+    async function getToken(): Promise<string | null> {
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+            setToken(session.access_token);
+            return session.access_token;
+        }
+        return null;
+    }
 
     async function loadData() {
         const supabase = createClient();
@@ -63,7 +74,7 @@ export default function AdminControlsPage() {
 
     // Handle category drag end
     async function handleCategoryDragEnd(result: DropResult) {
-        if (!result.destination || !token) return;
+        if (!result.destination) return;
 
         const items = Array.from(categories);
         const [reorderedItem] = items.splice(result.source.index, 1);
@@ -73,9 +84,11 @@ export default function AdminControlsPage() {
         const updatedCategories = items.map((item, index) => ({ ...item, sort_order: index }));
         setCategories(updatedCategories);
 
-        // Save to backend
+        // Save to backend with fresh token
         try {
-            await apiRequestWithAuth('/api/admin/control-categories/reorder', token, {
+            const freshToken = await getToken();
+            if (!freshToken) throw new Error('Not authenticated');
+            await apiRequestWithAuth('/api/admin/control-categories/reorder', freshToken, {
                 method: 'PATCH',
                 body: JSON.stringify({ orders: updatedCategories.map(c => ({ id: c.id, sort_order: c.sort_order })) }),
             });
@@ -88,7 +101,7 @@ export default function AdminControlsPage() {
 
     // Handle control drag end within a category
     async function handleControlDragEnd(categoryId: string, result: DropResult) {
-        if (!result.destination || !token) return;
+        if (!result.destination) return;
 
         const categoryControls = controls
             .filter(c => c.category_id === categoryId)
@@ -103,9 +116,11 @@ export default function AdminControlsPage() {
         const otherControls = controls.filter(c => c.category_id !== categoryId);
         setControls([...otherControls, ...updatedItems]);
 
-        // Save to backend
+        // Save to backend with fresh token
         try {
-            await apiRequestWithAuth('/api/admin/controls/reorder', token, {
+            const freshToken = await getToken();
+            if (!freshToken) throw new Error('Not authenticated');
+            await apiRequestWithAuth('/api/admin/controls/reorder', freshToken, {
                 method: 'PATCH',
                 body: JSON.stringify({ orders: updatedItems.map(c => ({ id: c.id, sort_order: c.sort_order })) }),
             });
@@ -117,16 +132,17 @@ export default function AdminControlsPage() {
     }
 
     async function saveCategory() {
-        if (!token) return;
         try {
+            const freshToken = await getToken();
+            if (!freshToken) throw new Error('Not authenticated');
             if (editingCategory) {
-                await apiRequestWithAuth(`/api/admin/control-categories/${editingCategory.id}`, token, {
+                await apiRequestWithAuth(`/api/admin/control-categories/${editingCategory.id}`, freshToken, {
                     method: 'PATCH',
                     body: JSON.stringify(categoryForm),
                 });
                 toast.success('Category updated');
             } else {
-                await apiRequestWithAuth('/api/admin/control-categories', token, {
+                await apiRequestWithAuth('/api/admin/control-categories', freshToken, {
                     method: 'POST',
                     body: JSON.stringify(categoryForm),
                 });
@@ -142,9 +158,11 @@ export default function AdminControlsPage() {
     }
 
     async function deleteCategory(id: string) {
-        if (!token || !confirm('Delete this category? All controls in it will also be deleted.')) return;
+        if (!confirm('Delete this category? All controls in it will also be deleted.')) return;
         try {
-            await apiRequestWithAuth(`/api/admin/control-categories/${id}`, token, { method: 'DELETE' });
+            const freshToken = await getToken();
+            if (!freshToken) throw new Error('Not authenticated');
+            await apiRequestWithAuth(`/api/admin/control-categories/${id}`, freshToken, { method: 'DELETE' });
             toast.success('Category deleted');
             loadData();
         } catch (error: any) {
@@ -153,16 +171,17 @@ export default function AdminControlsPage() {
     }
 
     async function saveControl() {
-        if (!token) return;
         try {
+            const freshToken = await getToken();
+            if (!freshToken) throw new Error('Not authenticated');
             if (editingControl) {
-                await apiRequestWithAuth(`/api/admin/controls/${editingControl.id}`, token, {
+                await apiRequestWithAuth(`/api/admin/controls/${editingControl.id}`, freshToken, {
                     method: 'PATCH',
                     body: JSON.stringify(controlForm),
                 });
                 toast.success('Control updated');
             } else {
-                await apiRequestWithAuth('/api/admin/controls', token, {
+                await apiRequestWithAuth('/api/admin/controls', freshToken, {
                     method: 'POST',
                     body: JSON.stringify(controlForm),
                 });
@@ -178,9 +197,11 @@ export default function AdminControlsPage() {
     }
 
     async function deleteControl(id: string) {
-        if (!token || !confirm('Delete this control?')) return;
+        if (!confirm('Delete this control?')) return;
         try {
-            await apiRequestWithAuth(`/api/admin/controls/${id}`, token, { method: 'DELETE' });
+            const freshToken = await getToken();
+            if (!freshToken) throw new Error('Not authenticated');
+            await apiRequestWithAuth(`/api/admin/controls/${id}`, freshToken, { method: 'DELETE' });
             toast.success('Control deleted');
             loadData();
         } catch (error: any) {
@@ -388,7 +409,8 @@ export default function AdminControlsPage() {
                                                         </Droppable>
                                                     </DragDropContext>
                                                 </div>
-                                            )}
+                                            )
+                                            }
                                         </Draggable>
                                     );
                                 })}
@@ -397,121 +419,126 @@ export default function AdminControlsPage() {
                         )}
                     </Droppable>
                 </DragDropContext>
-            )}
+            )
+            }
 
             {/* Category Modal */}
-            {showCategoryModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
-                        <h3 className="text-lg font-semibold mb-4">
-                            {editingCategory ? 'Edit Category' : 'Add Category'}
-                        </h3>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Icon</label>
-                                <div className="flex flex-wrap gap-2">
-                                    {EMOJI_OPTIONS.map((emoji) => (
-                                        <button
-                                            key={emoji}
-                                            type="button"
-                                            onClick={() => setCategoryForm({ ...categoryForm, icon: emoji })}
-                                            className={`w-10 h-10 text-xl rounded-lg border-2 transition-all ${categoryForm.icon === emoji
+            {
+                showCategoryModal && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                        <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
+                            <h3 className="text-lg font-semibold mb-4">
+                                {editingCategory ? 'Edit Category' : 'Add Category'}
+                            </h3>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Icon</label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {EMOJI_OPTIONS.map((emoji) => (
+                                            <button
+                                                key={emoji}
+                                                type="button"
+                                                onClick={() => setCategoryForm({ ...categoryForm, icon: emoji })}
+                                                className={`w-10 h-10 text-xl rounded-lg border-2 transition-all ${categoryForm.icon === emoji
                                                     ? 'border-blue-500 bg-blue-50'
                                                     : 'border-gray-200 hover:border-gray-300'
-                                                }`}
-                                        >
-                                            {emoji}
-                                        </button>
-                                    ))}
+                                                    }`}
+                                            >
+                                                {emoji}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                                    <input
+                                        type="text"
+                                        value={categoryForm.name}
+                                        onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        placeholder="e.g., Access Management"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                    <textarea
+                                        value={categoryForm.description}
+                                        onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        rows={3}
+                                        placeholder="Describe this category..."
+                                    />
                                 </div>
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
-                                <input
-                                    type="text"
-                                    value={categoryForm.name}
-                                    onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    placeholder="e.g., Access Management"
-                                />
+                            <div className="flex justify-end gap-3 mt-6">
+                                <button
+                                    onClick={() => setShowCategoryModal(false)}
+                                    className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={saveCategory}
+                                    disabled={!categoryForm.name}
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                                >
+                                    {editingCategory ? 'Save Changes' : 'Create Category'}
+                                </button>
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                                <textarea
-                                    value={categoryForm.description}
-                                    onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    rows={3}
-                                    placeholder="Describe this category..."
-                                />
-                            </div>
-                        </div>
-                        <div className="flex justify-end gap-3 mt-6">
-                            <button
-                                onClick={() => setShowCategoryModal(false)}
-                                className="px-4 py-2 text-gray-600 hover:text-gray-800"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={saveCategory}
-                                disabled={!categoryForm.name}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                            >
-                                {editingCategory ? 'Save Changes' : 'Create Category'}
-                            </button>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Control Modal */}
-            {showControlModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl p-6 w-full max-w-lg shadow-xl">
-                        <h3 className="text-lg font-semibold mb-4">
-                            {editingControl ? 'Edit Control' : 'Add Control'}
-                        </h3>
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
-                                <input
-                                    type="text"
-                                    value={controlForm.title}
-                                    onChange={(e) => setControlForm({ ...controlForm, title: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    placeholder="e.g., SOC 2 Type II Report"
-                                />
+            {
+                showControlModal && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                        <div className="bg-white rounded-xl p-6 w-full max-w-lg shadow-xl">
+                            <h3 className="text-lg font-semibold mb-4">
+                                {editingControl ? 'Edit Control' : 'Add Control'}
+                            </h3>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+                                    <input
+                                        type="text"
+                                        value={controlForm.title}
+                                        onChange={(e) => setControlForm({ ...controlForm, title: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        placeholder="e.g., SOC 2 Type II Report"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                    <textarea
+                                        value={controlForm.description}
+                                        onChange={(e) => setControlForm({ ...controlForm, description: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        rows={4}
+                                        placeholder="Describe this security control in detail..."
+                                    />
+                                </div>
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                                <textarea
-                                    value={controlForm.description}
-                                    onChange={(e) => setControlForm({ ...controlForm, description: e.target.value })}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    rows={4}
-                                    placeholder="Describe this security control in detail..."
-                                />
+                            <div className="flex justify-end gap-3 mt-6">
+                                <button
+                                    onClick={() => setShowControlModal(false)}
+                                    className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={saveControl}
+                                    disabled={!controlForm.title}
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                                >
+                                    {editingControl ? 'Save Changes' : 'Add Control'}
+                                </button>
                             </div>
-                        </div>
-                        <div className="flex justify-end gap-3 mt-6">
-                            <button
-                                onClick={() => setShowControlModal(false)}
-                                className="px-4 py-2 text-gray-600 hover:text-gray-800"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={saveControl}
-                                disabled={!controlForm.title}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                            >
-                                {editingControl ? 'Save Changes' : 'Add Control'}
-                            </button>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }
