@@ -23,7 +23,10 @@ export default function ActivityLogsPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [logs, setLogs] = useState<ActivityLog[]>([]);
-    const [selectedDate, setSelectedDate] = useState<string>(
+    const [startDate, setStartDate] = useState<string>(
+        new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 7 days ago
+    );
+    const [endDate, setEndDate] = useState<string>(
         new Date().toISOString().split('T')[0]
     );
     const [entityFilter, setEntityFilter] = useState<string>('');
@@ -31,7 +34,7 @@ export default function ActivityLogsPage() {
 
     useEffect(() => {
         loadLogs();
-    }, [selectedDate, entityFilter, actionFilter]);
+    }, [startDate, endDate, entityFilter, actionFilter]);
 
     async function loadLogs() {
         setLoading(true);
@@ -44,7 +47,7 @@ export default function ActivityLogsPage() {
                 return;
             }
 
-            let url = `/api/admin/activity-logs?date=${selectedDate}`;
+            let url = `/api/admin/activity-logs?start_date=${startDate}&end_date=${endDate}`;
             if (entityFilter) url += `&entity_type=${entityFilter}`;
             if (actionFilter) url += `&action_type=${actionFilter}`;
 
@@ -58,43 +61,35 @@ export default function ActivityLogsPage() {
     }
 
     const formatTime = (dateString: string) => {
-        return new Date(dateString).toLocaleTimeString('en-US', {
+        return new Date(dateString).toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
             hour: '2-digit',
             minute: '2-digit',
             second: '2-digit',
-            hour12: false,
+            hour12: true,
         });
     };
 
+    // ... (helper functions for badges)
     const getActionBadgeColor = (action: string) => {
         switch (action) {
-            case 'status_change':
-                return 'bg-blue-100 text-blue-700';
-            case 'approval':
-                return 'bg-green-100 text-green-700';
-            case 'denial':
-                return 'bg-red-100 text-red-700';
-            case 'create':
-                return 'bg-purple-100 text-purple-700';
-            case 'delete':
-                return 'bg-red-100 text-red-700';
-            default:
-                return 'bg-gray-100 text-gray-700';
+            case 'status_change': return 'bg-blue-100 text-blue-700';
+            case 'approval': return 'bg-green-100 text-green-700';
+            case 'denial': return 'bg-red-100 text-red-700';
+            case 'create': return 'bg-purple-100 text-purple-700';
+            case 'delete': return 'bg-red-100 text-red-700';
+            default: return 'bg-gray-100 text-gray-700';
         }
     };
-
     const getEntityBadgeColor = (entity: string) => {
         switch (entity) {
-            case 'organization':
-                return 'bg-indigo-100 text-indigo-700';
-            case 'document':
-                return 'bg-amber-100 text-amber-700';
-            case 'request':
-                return 'bg-orange-100 text-orange-700';
-            case 'ticket':
-                return 'bg-teal-100 text-teal-700';
-            default:
-                return 'bg-gray-100 text-gray-700';
+            case 'organization': return 'bg-indigo-100 text-indigo-700';
+            case 'document': return 'bg-amber-100 text-amber-700';
+            case 'request': return 'bg-orange-100 text-orange-700';
+            case 'ticket': return 'bg-teal-100 text-teal-700';
+            default: return 'bg-gray-100 text-gray-700';
         }
     };
 
@@ -102,14 +97,13 @@ export default function ActivityLogsPage() {
         if (logs.length === 0) return;
 
         // CSV headers
-        const headers = ['Date', 'Time', 'Action Type', 'Entity Type', 'Entity Name', 'Description', 'Admin Email'];
+        const headers = ['Date', 'Action Type', 'Entity Type', 'Entity Name', 'Description', 'Admin Email'];
 
         // CSV rows
         const rows = logs.map(log => {
             const date = new Date(log.created_at);
             return [
-                date.toLocaleDateString(),
-                date.toLocaleTimeString(),
+                date.toLocaleString(),
                 log.action_type,
                 log.entity_type,
                 log.entity_name || '',
@@ -126,7 +120,7 @@ export default function ActivityLogsPage() {
         const link = document.createElement('a');
         const url = URL.createObjectURL(blob);
         link.setAttribute('href', url);
-        link.setAttribute('download', `activity_logs_${selectedDate}.csv`);
+        link.setAttribute('download', `activity_logs_${startDate}_to_${endDate}.csv`);
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
@@ -160,12 +154,23 @@ export default function ActivityLogsPage() {
                 <div className="flex flex-wrap items-center gap-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Date
+                            Start Date
                         </label>
                         <input
                             type="date"
-                            value={selectedDate}
-                            onChange={(e) => setSelectedDate(e.target.value)}
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            End Date
+                        </label>
+                        <input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
                             className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         />
                     </div>
@@ -227,7 +232,7 @@ export default function ActivityLogsPage() {
                         <div className="text-4xl mb-3">📋</div>
                         <h3 className="text-lg font-medium text-gray-900">No activity logs</h3>
                         <p className="text-gray-500 text-sm mt-1">
-                            No logs found for {selectedDate}
+                            No logs found for the selected period.
                         </p>
                     </div>
                 ) : (
@@ -298,7 +303,7 @@ export default function ActivityLogsPage() {
             {/* Summary */}
             {!loading && logs.length > 0 && (
                 <div className="text-sm text-gray-500 text-center">
-                    Showing {logs.length} log{logs.length !== 1 ? 's' : ''} for {selectedDate}
+                    Showing {logs.length} log{logs.length !== 1 ? 's' : ''} from {startDate} to {endDate}
                 </div>
             )}
         </div>

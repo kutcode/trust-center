@@ -130,9 +130,8 @@ import securityUpdateRoutes from './routes/securityUpdates';
 import contactRoutes from './routes/contact';
 import settingsRoutes from './routes/settings';
 import accessRoutes from './routes/access';
-import webhookRoutes from './routes/webhooks';
-import subprocessorRoutes from './routes/subprocessors';
 import controlsRoutes from './routes/controls';
+import adminRoutes from './routes/admin';
 
 // Mount routes
 app.use('/api/auth', authRoutes);
@@ -145,15 +144,9 @@ app.use('/api/security-updates', securityUpdateRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/access', accessRoutes);
-app.use('/api/subprocessors', subprocessorRoutes);
 app.use('/api', controlsRoutes);
-import outboundWebhookRoutes from './routes/outboundWebhooks';
-app.use('/api/outbound-webhooks', outboundWebhookRoutes);
-import adminRoutes from './routes/admin';
 app.use('/api/admin', adminRoutes);
 
-// Webhook routes (no authentication required)
-app.use('/api/webhooks', webhookRoutes);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

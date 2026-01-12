@@ -392,7 +392,11 @@ export default function AdminControlsPage() {
                                                                                                 Edit
                                                                                             </button>
                                                                                             <button
-                                                                                                onClick={() => deleteControl(control.id)}
+                                                                                                onClick={(e) => {
+                                                                                                    e.stopPropagation();
+                                                                                                    e.preventDefault();
+                                                                                                    deleteControl(control.id);
+                                                                                                }}
                                                                                                 className="text-sm text-red-500 hover:text-red-700"
                                                                                             >
                                                                                                 Delete

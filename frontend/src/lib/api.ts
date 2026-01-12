@@ -15,13 +15,20 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const API_URL = getApiUrl();
   const url = `${API_URL}${endpoint}`;
-  
+
+  // Merge headers ensuring Content-Type is set for JSON requests
+  const headers: HeadersInit = {
+    ...options.headers,
+  };
+
+  // Only set Content-Type if body is a string (JSON) and not FormData
+  if (options.body && typeof options.body === 'string') {
+    (headers as Record<string, string>)['Content-Type'] = 'application/json';
+  }
+
   const response = await fetch(url, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
+    headers,
   });
 
   if (!response.ok) {

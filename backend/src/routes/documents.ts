@@ -240,6 +240,101 @@ router.patch('/:id', requireAdmin, async (req: AuthRequest, res) => {
   }
 });
 
+// Replace document file (admin only)
+router.put('/:id/replace', requireAdmin, upload.single('file'), async (req: AuthRequest, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const { id } = req.params;
+    const { title, description, category_id, access_level, status, requires_nda } = req.body;
+
+    // Get the existing document
+    const { data: existingDoc, error: fetchError } = await supabase
+      .from('documents')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !existingDoc) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    // Delete old file from storage
+    if (existingDoc.file_url) {
+      const oldFilePath = path.join(UPLOADS_DIR, existingDoc.file_url);
+      if (fs.existsSync(oldFilePath)) {
+        fs.unlinkSync(oldFilePath);
+        console.log('Deleted old file:', oldFilePath);
+      }
+    }
+
+    // Save new file
+    const fileExt = req.file.originalname.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const folderName = (category_id || existingDoc.category_id)
+      ? `category-${(category_id || existingDoc.category_id).substring(0, 8)}`
+      : 'uncategorized';
+    const filePath = `${folderName}/${fileName}`;
+    const fullPath = path.join(UPLOADS_DIR, filePath);
+
+    console.log('Saving replacement file to:', fullPath);
+
+    // Ensure directory exists
+    const dirPath = path.dirname(fullPath);
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true });
+    }
+
+    // Write file to local storage
+    fs.writeFileSync(fullPath, req.file.buffer);
+    console.log('Replacement file saved successfully:', filePath);
+
+    // Update document record with new file and metadata
+    const { data: updatedDoc, error: updateError } = await supabase
+      .from('documents')
+      .update({
+        title: title || existingDoc.title,
+        description: description !== undefined ? description : existingDoc.description,
+        category_id: category_id || existingDoc.category_id,
+        access_level: access_level || existingDoc.access_level,
+        status: status || existingDoc.status,
+        requires_nda: requires_nda === 'true' || requires_nda === true,
+        file_url: filePath,
+        file_name: req.file.originalname,
+        file_size: req.file.size,
+        file_type: req.file.mimetype,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+
+    // Log file replacement
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'update',
+      entityType: 'document',
+      entityId: id,
+      entityName: updatedDoc.title,
+      oldValue: { file_name: existingDoc.file_name, file_size: existingDoc.file_size },
+      newValue: { file_name: req.file.originalname, file_size: req.file.size },
+      description: `Replaced file for document: ${updatedDoc.title}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    res.json(updatedDoc);
+  } catch (error: any) {
+    console.error('File replacement error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Delete document (admin only)
 router.delete('/:id', requireAdmin, async (req: AuthRequest, res) => {
   try {

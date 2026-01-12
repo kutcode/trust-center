@@ -102,6 +102,29 @@ router.patch('/:id', requireAdmin, async (req: AuthRequest, res) => {
   }
 });
 
+// Reorder certifications (admin only)
+router.patch('/reorder', requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const { items } = req.body; // Array of { id, display_order }
+
+    if (!Array.isArray(items)) {
+      return res.status(400).json({ error: 'Invalid items format' });
+    }
+
+    // Process updates in transaction-like manner (sequential)
+    for (const item of items) {
+      await supabase
+        .from('certifications')
+        .update({ display_order: item.display_order })
+        .eq('id', item.id);
+    }
+
+    res.json({ message: 'Reordered successfully' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Delete certification (admin only)
 router.delete('/:id', requireAdmin, async (req: AuthRequest, res) => {
   try {

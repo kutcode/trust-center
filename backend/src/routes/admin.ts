@@ -1264,16 +1264,26 @@ router.patch('/tickets/:id/priority', requireAdmin, async (req: AuthRequest, res
 // Get activity logs with date filter
 router.get('/activity-logs', requireAdmin, async (req, res) => {
   try {
-    const { date, entity_type, action_type, limit = 100 } = req.query;
+    const { date, start_date, end_date, entity_type, action_type, limit } = req.query;
+
+    // Use higher default limit for date range queries
+    const defaultLimit = (start_date && end_date) ? 1000 : 100;
+    const queryLimit = limit ? Number(limit) : defaultLimit;
 
     let query = supabase
       .from('activity_logs')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(Number(limit));
+      .limit(queryLimit);
 
-    // Filter by date (YYYY-MM-DD format)
-    if (date) {
+    // Filter by date range
+    if (start_date && end_date) {
+      const startOfDay = `${start_date}T00:00:00.000Z`;
+      const endOfDay = `${end_date}T23:59:59.999Z`;
+      query = query.gte('created_at', startOfDay).lte('created_at', endOfDay);
+    }
+    // Fallback to single date if provided
+    else if (date) {
       const startOfDay = `${date}T00:00:00.000Z`;
       const endOfDay = `${date}T23:59:59.999Z`;
       query = query.gte('created_at', startOfDay).lte('created_at', endOfDay);
