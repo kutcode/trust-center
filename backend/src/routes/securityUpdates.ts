@@ -4,15 +4,28 @@ import { requireAdmin } from '../middleware/auth';
 
 const router = express.Router();
 
-// Get all published security updates (public)
+// Get security updates (public or admin)
+// Use ?include_unpublished=true for admin to see all updates
 router.get('/', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const includeUnpublished = req.query.include_unpublished === 'true';
+
+    let query = supabase
       .from('security_updates')
-      .select('*')
-      .not('published_at', 'is', null)
-      .lte('published_at', new Date().toISOString())
-      .order('published_at', { ascending: false });
+      .select('*');
+
+    if (!includeUnpublished) {
+      // Public view: only published updates
+      query = query
+        .not('published_at', 'is', null)
+        .lte('published_at', new Date().toISOString());
+    }
+
+    // Order by published_at for public, created_at for admin
+    const { data, error } = await query.order(
+      includeUnpublished ? 'created_at' : 'published_at',
+      { ascending: false }
+    );
 
     if (error) throw error;
 
