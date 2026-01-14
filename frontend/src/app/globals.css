@@ -10,12 +10,21 @@
   --border: #e5e7eb;
   --input-bg: #ffffff;
   --input-border: #d1d5db;
+
+  /* Brand colors - set dynamically via BrandingProvider */
+  --brand-primary: #111827;
+  --brand-secondary: #3b82f6;
+  --brand-primary-light: #374151;
+  --brand-primary-dark: #030712;
+  --brand-secondary-light: #60a5fa;
+  --brand-secondary-dark: #2563eb;
+  --brand-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 body {
   color: var(--foreground);
   background-color: var(--background);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--brand-font);
 }
 
 /* Ensure all inputs and forms have proper text colors */
@@ -42,4 +51,3 @@ label {
     text-wrap: balance;
   }
 }
-

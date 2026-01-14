@@ -1,3 +1,6 @@
+import { TrustCenterSettings } from '@/types';
+import { cache } from 'react';
+
 // Use different URLs for server-side (Docker network) vs client-side (browser)
 const getApiUrl = () => {
   // Check if we're on the server
@@ -53,3 +56,17 @@ export async function apiRequestWithAuth<T>(
   });
 }
 
+// Cached settings fetch - React cache deduplicates during a single render
+export const getSettings = cache(async (): Promise<TrustCenterSettings | null> => {
+  try {
+    const API_URL = getApiUrl();
+    const response = await fetch(`${API_URL}/api/settings`, {
+      next: { revalidate: 60 }, // Cache for 60 seconds
+    });
+
+    if (!response.ok) return null;
+    return response.json();
+  } catch {
+    return null;
+  }
+});

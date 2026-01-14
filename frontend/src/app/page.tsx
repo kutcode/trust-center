@@ -74,7 +74,10 @@ export default async function Home() {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section - Clean, Professional Design */}
-      <section className="bg-gray-900 text-white">
+      <section
+        className="text-white"
+        style={{ backgroundColor: settings.primary_color || '#111827' }}
+      >
         <div className="container mx-auto px-4 py-20">
           <div className="max-w-3xl">
             <h1 className="text-5xl font-bold mb-6 leading-tight">
@@ -86,7 +89,8 @@ export default async function Home() {
             <div className="flex flex-wrap gap-4">
               <Link
                 href="/documents"
-                className="inline-flex items-center px-6 py-3 bg-white text-gray-900 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
+                className="inline-flex items-center px-6 py-3 bg-white rounded-lg font-semibold hover:bg-gray-100 transition-colors"
+                style={{ color: settings.primary_color || '#111827' }}
               >
                 Browse Documents
                 <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

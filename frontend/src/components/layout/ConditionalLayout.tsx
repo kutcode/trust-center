@@ -1,14 +1,19 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import Header from '@/components/layout/Header';
-import Footer from '@/components/layout/Footer';
+import type { ReactNode } from 'react';
+
+interface ConditionalLayoutProps {
+  children: ReactNode;
+  header?: ReactNode;
+  footer?: ReactNode;
+}
 
 export default function ConditionalLayout({
   children,
-}: {
-  children: React.ReactNode;
-}) {
+  header,
+  footer,
+}: ConditionalLayoutProps) {
   const pathname = usePathname();
   const isAdminRoute = pathname?.startsWith('/admin');
 
@@ -20,10 +25,9 @@ export default function ConditionalLayout({
   // Public routes get Header and Footer
   return (
     <>
-      <Header />
+      {header}
       <main className="flex-grow">{children}</main>
-      <Footer />
+      {footer}
     </>
   );
 }
-

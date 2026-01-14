@@ -64,12 +64,20 @@ export default function SettingsAdminPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token) return;
 
     setSaving(true);
 
     try {
-      await apiRequestWithAuth('/api/admin/settings', token, {
+      // Get fresh token to avoid expiration issues
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        toast.error('Session expired. Please log in again.');
+        return;
+      }
+
+      await apiRequestWithAuth('/api/admin/settings', session.access_token, {
         method: 'PATCH',
         body: JSON.stringify({
           ...settings,

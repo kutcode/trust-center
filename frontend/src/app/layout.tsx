@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 import ConditionalLayout from '@/components/layout/ConditionalLayout';
 import ToastProvider from '@/components/providers/ToastProvider';
+import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
 
 export const metadata: Metadata = {
   title: 'Trust Center',
@@ -16,7 +18,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="flex flex-col min-h-screen">
-        <ConditionalLayout>
+        <ConditionalLayout header={<Header />} footer={<Footer />}>
           {children}
           <ToastProvider />
         </ConditionalLayout>

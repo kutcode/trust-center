@@ -60,6 +60,7 @@ export default function CertificationsAdminPage() {
         expiry_date: '',
         description: '',
         status: 'active' as 'active' | 'inactive',
+        certificate_image_url: '',
     });
 
     useEffect(() => {
@@ -129,6 +130,7 @@ export default function CertificationsAdminPage() {
             expiry_date: '',
             description: '',
             status: 'active',
+            certificate_image_url: '',
         });
         setShowModal(true);
     };
@@ -142,6 +144,7 @@ export default function CertificationsAdminPage() {
             expiry_date: cert.expiry_date || '',
             description: cert.description || '',
             status: cert.status,
+            certificate_image_url: cert.certificate_image_url || '',
         });
         setShowModal(true);
     };
@@ -157,6 +160,7 @@ export default function CertificationsAdminPage() {
                 issue_date: form.issue_date || null,
                 expiry_date: form.expiry_date || null,
                 description: form.description || null,
+                certificate_image_url: form.certificate_image_url || null,
             };
 
             if (editingCert) {
@@ -500,6 +504,22 @@ export default function CertificationsAdminPage() {
                                     placeholder="Brief description of the certification..."
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 resize-none"
                                 />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Icon/Badge URL
+                                </label>
+                                <input
+                                    type="url"
+                                    value={form.certificate_image_url}
+                                    onChange={(e) => setForm({ ...form, certificate_image_url: e.target.value })}
+                                    placeholder="https://example.com/badge.png (leave empty for auto icon)"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Enter a URL to a badge/icon image. If empty, an emoji icon will be auto-selected based on the certification name.
+                                </p>
                             </div>
 
                             <div>
