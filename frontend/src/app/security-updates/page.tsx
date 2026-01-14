@@ -60,10 +60,10 @@ export default async function SecurityUpdatesPage() {
                 </div>
                 {update.published_at && (
                   <p className="text-sm text-gray-500 mb-6">
-                    Published: {new Date(update.published_at).toLocaleDateString()}
+                    Published: {update.published_at.split('T')[0]}
                   </p>
                 )}
-                <div 
+                <div
                   className="prose max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-a:text-blue-600"
                   dangerouslySetInnerHTML={{ __html: update.content }}
                 />

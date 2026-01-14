@@ -104,7 +104,8 @@ export default function SecurityUpdatesAdminPage() {
                 title: form.title,
                 content: form.content,
                 severity: form.severity || null,
-                published_at: form.published_at ? new Date(form.published_at).toISOString() : null,
+                // Store date at noon UTC to avoid timezone boundary issues
+                published_at: form.published_at ? `${form.published_at}T12:00:00.000Z` : null,
             };
 
             if (editingUpdate) {
@@ -269,8 +270,8 @@ export default function SecurityUpdatesAdminPage() {
                                     <td className="px-6 py-4">
                                         <span className="text-sm text-gray-600">
                                             {update.published_at
-                                                ? new Date(update.published_at).toLocaleDateString()
-                                                : new Date(update.created_at).toLocaleDateString() + ' (created)'
+                                                ? update.published_at.split('T')[0]
+                                                : update.created_at.split('T')[0] + ' (created)'
                                             }
                                         </span>
                                     </td>
