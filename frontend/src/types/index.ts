@@ -23,6 +23,8 @@ export interface DocumentCategory {
   description?: string;
   icon?: string;
   display_order: number;
+  document_count?: number;
+  is_hidden?: boolean;
 }
 
 export interface DocumentRequest {

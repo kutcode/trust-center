@@ -5,17 +5,47 @@ import { logActivity } from '../utils/activityLogger';
 
 const router = express.Router();
 
-// Get all categories (public)
+// Get all categories (public or admin)
+// Use ?include_hidden=true for admin to see all
 router.get('/', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const includeHidden = req.query.include_hidden === 'true';
+
+    let query = supabase
       .from('document_categories')
-      .select('*')
+      .select('*, documents(count)')
       .order('display_order', { ascending: true });
+
+    // Filter out hidden categories for public requests
+    // Only apply filter if not including hidden
+    if (!includeHidden) {
+      query = query.eq('is_hidden', false);
+    }
+
+    let { data, error } = await query;
+
+    // If is_hidden column doesn't exist yet, retry without the filter
+    if (error && error.message.includes('is_hidden')) {
+      const fallbackQuery = supabase
+        .from('document_categories')
+        .select('*, documents(count)')
+        .order('display_order', { ascending: true });
+
+      const fallbackResult = await fallbackQuery;
+      data = fallbackResult.data;
+      error = fallbackResult.error;
+    }
 
     if (error) throw error;
 
-    res.json(data);
+    // Transform to include document_count as a simple number
+    const categoriesWithCount = data?.map((category: any) => ({
+      ...category,
+      document_count: category.documents?.[0]?.count || 0,
+      documents: undefined, // Remove the raw documents array
+    }));
+
+    res.json(categoriesWithCount);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
