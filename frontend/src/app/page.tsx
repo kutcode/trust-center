@@ -40,6 +40,22 @@ async function getCertifications() {
   }
 }
 
+async function getControlCategories() {
+  try {
+    return await apiRequest<any[]>('/api/control-categories');
+  } catch {
+    return [];
+  }
+}
+
+async function getSecurityUpdates() {
+  try {
+    return await apiRequest<any[]>('/api/security-updates');
+  } catch {
+    return [];
+  }
+}
+
 // Category icons mapping
 const categoryIcons: { [key: string]: string } = {
   'compliance': '📋',
@@ -62,14 +78,27 @@ function getCategoryIcon(categoryName: string): string {
 }
 
 export default async function Home() {
-  const [settings, documents, categories, certifications] = await Promise.all([
+  const [settings, documents, categories, certifications, controlCategories, securityUpdates] = await Promise.all([
     getSettings(),
     getDocuments(),
     getCategories(),
     getCertifications(),
+    getControlCategories(),
+    getSecurityUpdates(),
   ]);
 
   const publishedDocs = documents.filter(doc => doc.status === 'published');
+
+  // Severity color helper for security updates
+  const getSeverityColor = (severity?: string) => {
+    switch (severity) {
+      case 'critical': return 'bg-red-100 text-red-700';
+      case 'high': return 'bg-orange-100 text-orange-700';
+      case 'medium': return 'bg-yellow-100 text-yellow-700';
+      case 'low': return 'bg-blue-100 text-blue-700';
+      default: return 'bg-gray-100 text-gray-700';
+    }
+  };
 
   return (
     <div className="min-h-screen bg-white">
@@ -250,6 +279,108 @@ export default async function Home() {
                     </svg>
                   </Link>
                 </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Security Controls Section */}
+      {controlCategories.length > 0 && (
+        <section className="py-16 bg-gray-50">
+          <div className="container mx-auto px-4">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Security Controls</h2>
+                <p className="text-gray-600">Our comprehensive security framework</p>
+              </div>
+              <Link
+                href="/controls"
+                className="inline-flex items-center px-4 py-2 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors"
+              >
+                See All Controls
+                <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {controlCategories.slice(0, 6).map((category: any) => (
+                <Link
+                  key={category.id}
+                  href="/controls"
+                  className="group bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg hover:border-gray-300 transition-all duration-200"
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                      {category.name}
+                    </h3>
+                  </div>
+                  {category.description && (
+                    <p className="text-gray-600 text-sm line-clamp-2">
+                      {category.description}
+                    </p>
+                  )}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Security Updates Section */}
+      {securityUpdates.length > 0 && (
+        <section className="py-16">
+          <div className="container mx-auto px-4">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Security Updates</h2>
+                <p className="text-gray-600">Latest security advisories and announcements</p>
+              </div>
+              <Link
+                href="/security-updates"
+                className="inline-flex items-center px-4 py-2 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors"
+              >
+                See All Security Updates
+                <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {securityUpdates.slice(0, 3).map((update: any) => (
+                <Link
+                  key={update.id}
+                  href="/security-updates"
+                  className="group bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg hover:border-gray-300 transition-all duration-200"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                      </svg>
+                    </div>
+                    {update.severity && (
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getSeverityColor(update.severity)}`}>
+                        {update.severity.charAt(0).toUpperCase() + update.severity.slice(1)}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors line-clamp-2">
+                    {update.title}
+                  </h3>
+                  <p className="text-gray-600 text-sm line-clamp-2 mb-3">
+                    {update.content.replace(/<[^>]*>/g, '').substring(0, 100)}...
+                  </p>
+                  <div className="text-xs text-gray-500">
+                    {update.published_at ? update.published_at.split('T')[0] : ''}
+                  </div>
+                </Link>
               ))}
             </div>
           </div>
