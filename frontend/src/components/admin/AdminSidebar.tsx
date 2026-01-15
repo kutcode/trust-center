@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useSidebar } from '@/contexts/SidebarContext';
+import toast from 'react-hot-toast';
 
 interface NavItem {
     href: string;
@@ -12,12 +13,17 @@ interface NavItem {
     icon: React.ReactNode;
 }
 
+const IDLE_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes in milliseconds
+const WARNING_TIME_MS = 60 * 1000; // Show warning 1 minute before logout
+
 export default function AdminSidebar() {
     const router = useRouter();
     const pathname = usePathname();
     const [user, setUser] = useState<{ email: string; full_name?: string } | null>(null);
     const { collapsed, toggleCollapsed } = useSidebar();
     const [userMenuOpen, setUserMenuOpen] = useState(false);
+    const [lastActivity, setLastActivity] = useState(Date.now());
+    const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
 
     useEffect(() => {
         async function loadUser() {
@@ -39,11 +45,58 @@ export default function AdminSidebar() {
         loadUser();
     }, []);
 
-    const handleLogout = async () => {
+    const handleLogout = useCallback(async (reason?: string) => {
         const supabase = createClient();
         await supabase.auth.signOut();
+        if (reason) {
+            toast.error(reason);
+        }
         router.push('/admin/login');
-    };
+    }, [router]);
+
+    // Track user activity
+    const updateActivity = useCallback(() => {
+        setLastActivity(Date.now());
+        setShowTimeoutWarning(false);
+    }, []);
+
+    // Set up activity listeners
+    useEffect(() => {
+        const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click'];
+
+        events.forEach(event => {
+            document.addEventListener(event, updateActivity);
+        });
+
+        return () => {
+            events.forEach(event => {
+                document.removeEventListener(event, updateActivity);
+            });
+        };
+    }, [updateActivity]);
+
+    // Check for idle timeout
+    useEffect(() => {
+        const checkIdleTimeout = setInterval(() => {
+            const idleTime = Date.now() - lastActivity;
+
+            // Show warning 1 minute before logout
+            if (idleTime >= IDLE_TIMEOUT_MS - WARNING_TIME_MS && !showTimeoutWarning) {
+                setShowTimeoutWarning(true);
+                toast.error('You will be logged out in 1 minute due to inactivity. Move your mouse or click to stay logged in.', {
+                    duration: 10000,
+                    id: 'idle-warning',
+                });
+            }
+
+            // Auto-logout after 10 minutes of inactivity
+            if (idleTime >= IDLE_TIMEOUT_MS) {
+                handleLogout('Session expired due to inactivity. Please log in again.');
+            }
+        }, 10000); // Check every 10 seconds
+
+        return () => clearInterval(checkIdleTimeout);
+    }, [lastActivity, showTimeoutWarning, handleLogout]);
 
     const navItems: NavItem[] = [
         {
@@ -208,15 +261,24 @@ export default function AdminSidebar() {
                     </svg>
                     {!collapsed && <span className="font-medium">View Site</span>}
                 </Link>
+
+                {/* Sign Out Button - Always Visible */}
+                <button
+                    onClick={() => handleLogout()}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-red-400 hover:bg-red-900/30 hover:text-red-300 transition-colors ${collapsed ? 'justify-center' : ''
+                        }`}
+                    title="Sign Out"
+                >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    {!collapsed && <span className="font-medium">Sign Out</span>}
+                </button>
             </div>
 
-            {/* User Profile */}
-            <div className="relative border-t border-slate-700 p-3">
-                <button
-                    onClick={() => setUserMenuOpen(!userMenuOpen)}
-                    className={`w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-slate-800 transition-colors ${collapsed ? 'justify-center' : ''
-                        }`}
-                >
+            {/* User Info */}
+            <div className="border-t border-slate-700 p-3">
+                <div className={`flex items-center gap-3 px-2 py-2 ${collapsed ? 'justify-center' : ''}`}>
                     <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
                         <span className="text-sm font-medium text-white">
                             {user?.full_name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase() || 'A'}
@@ -230,27 +292,7 @@ export default function AdminSidebar() {
                             <p className="text-xs text-slate-400 truncate">{user?.email}</p>
                         </div>
                     )}
-                    {!collapsed && (
-                        <svg className={`w-4 h-4 text-slate-400 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                        </svg>
-                    )}
-                </button>
-
-                {/* User Dropdown */}
-                {userMenuOpen && (
-                    <div className={`absolute bottom-full left-0 mb-2 bg-slate-800 rounded-lg shadow-lg border border-slate-700 overflow-hidden ${collapsed ? 'left-16 ml-2' : 'w-full mx-3 left-0 right-0'}`} style={collapsed ? { width: '180px' } : {}}>
-                        <button
-                            onClick={handleLogout}
-                            className="w-full flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-slate-700 transition-colors"
-                        >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                            </svg>
-                            <span className="font-medium">Logout</span>
-                        </button>
-                    </div>
-                )}
+                </div>
             </div>
         </aside>
     );
