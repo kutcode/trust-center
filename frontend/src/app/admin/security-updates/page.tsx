@@ -38,6 +38,10 @@ export default function SecurityUpdatesAdminPage() {
     const [saving, setSaving] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState<SecurityUpdate | null>(null);
 
+    // Sorting state
+    const [sortField, setSortField] = useState<'date' | 'title'>('date');
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
     // Form state
     const [form, setForm] = useState({
         title: '',
@@ -219,8 +223,25 @@ export default function SecurityUpdatesAdminPage() {
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                    Title
+                                <th
+                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
+                                    onClick={() => {
+                                        if (sortField === 'title') {
+                                            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                                        } else {
+                                            setSortField('title');
+                                            setSortDirection('asc');
+                                        }
+                                    }}
+                                >
+                                    <div className="flex items-center gap-1">
+                                        Title
+                                        {sortField === 'title' && (
+                                            <svg className={`w-4 h-4 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                                            </svg>
+                                        )}
+                                    </div>
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                                     Severity
@@ -228,8 +249,25 @@ export default function SecurityUpdatesAdminPage() {
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                                     Status
                                 </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                    Date
+                                <th
+                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
+                                    onClick={() => {
+                                        if (sortField === 'date') {
+                                            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                                        } else {
+                                            setSortField('date');
+                                            setSortDirection('desc');
+                                        }
+                                    }}
+                                >
+                                    <div className="flex items-center gap-1">
+                                        Date
+                                        {sortField === 'date' && (
+                                            <svg className={`w-4 h-4 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                                            </svg>
+                                        )}
+                                    </div>
                                 </th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                                     Actions
@@ -237,7 +275,23 @@ export default function SecurityUpdatesAdminPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
-                            {updates.map((update) => (
+                            {[...updates].sort((a, b) => {
+                                let aVal: string, bVal: string;
+
+                                if (sortField === 'date') {
+                                    aVal = a.published_at || a.created_at;
+                                    bVal = b.published_at || b.created_at;
+                                } else {
+                                    aVal = a.title.toLowerCase();
+                                    bVal = b.title.toLowerCase();
+                                }
+
+                                if (sortDirection === 'asc') {
+                                    return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+                                } else {
+                                    return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
+                                }
+                            }).map((update) => (
                                 <tr key={update.id} className="hover:bg-gray-50">
                                     <td className="px-6 py-4">
                                         <div>
