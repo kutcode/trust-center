@@ -30,7 +30,7 @@ export default function UploadDocumentPage() {
       if (session) {
         setToken(session.access_token);
         try {
-          const cats = await apiRequestWithAuth<DocumentCategory[]>('/api/document-categories', session.access_token);
+          const cats = await apiRequestWithAuth<DocumentCategory[]>('/api/document-categories?include_hidden=true', session.access_token);
           setCategories(cats);
         } catch (error) {
           console.error('Failed to load categories:', error);
@@ -151,10 +151,11 @@ export default function UploadDocumentPage() {
 
           <div>
             <label htmlFor="category_id" className="block text-sm font-medium mb-2 text-gray-700">
-              Category
+              Category *
             </label>
             <select
               id="category_id"
+              required
               value={formData.category_id}
               onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
@@ -162,7 +163,7 @@ export default function UploadDocumentPage() {
               <option value="">Select a category</option>
               {categories.map((cat) => (
                 <option key={cat.id} value={cat.id}>
-                  {cat.name}
+                  {cat.name}{cat.is_hidden ? ' (Hidden)' : ''}
                 </option>
               ))}
             </select>

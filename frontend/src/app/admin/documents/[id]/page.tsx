@@ -71,7 +71,7 @@ export default function EditDocumentPage() {
 
         // Load categories
         const catRes = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/document-categories`,
+          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/document-categories?include_hidden=true`,
           {
             headers: { Authorization: `Bearer ${session.access_token}` },
           }
@@ -336,9 +336,10 @@ export default function EditDocumentPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Category
+              Category *
             </label>
             <select
+              required
               value={formData.category_id}
               onChange={(e) =>
                 setFormData({ ...formData, category_id: e.target.value })
@@ -348,7 +349,7 @@ export default function EditDocumentPage() {
               <option value="">Select a category</option>
               {categories.map((cat) => (
                 <option key={cat.id} value={cat.id}>
-                  {cat.name}
+                  {cat.name}{cat.is_hidden ? ' (Hidden)' : ''}
                 </option>
               ))}
             </select>
