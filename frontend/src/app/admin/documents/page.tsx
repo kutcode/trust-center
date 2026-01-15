@@ -30,7 +30,7 @@ export default function DocumentsAdminPage() {
       setToken(session.access_token);
       try {
         const [docs, cats] = await Promise.all([
-          apiRequestWithAuth<Document[]>('/api/documents', session.access_token),
+          apiRequestWithAuth<Document[]>('/api/documents?include_all_status=true', session.access_token),
           apiRequestWithAuth<DocumentCategory[]>('/api/document-categories', session.access_token),
         ]);
         setDocuments(docs);
@@ -137,14 +137,14 @@ export default function DocumentsAdminPage() {
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === tab
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
               >
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
                 <span className={`ml-2 py-0.5 px-2 rounded-full text-xs ${activeTab === tab
-                    ? 'bg-blue-100 text-blue-600'
-                    : 'bg-gray-100 text-gray-600'
+                  ? 'bg-blue-100 text-blue-600'
+                  : 'bg-gray-100 text-gray-600'
                   }`}>
                   {statusCounts[tab]}
                 </span>
@@ -200,10 +200,10 @@ export default function DocumentsAdminPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 rounded text-xs font-medium ${doc.status === 'published'
-                          ? 'bg-blue-100 text-blue-800'
-                          : doc.status === 'draft'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-gray-100 text-gray-800'
+                        ? 'bg-blue-100 text-blue-800'
+                        : doc.status === 'draft'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-gray-100 text-gray-800'
                         }`}>
                         {doc.status}
                       </span>

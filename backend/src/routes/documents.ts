@@ -18,17 +18,22 @@ if (!fs.existsSync(UPLOADS_DIR)) {
 
 const router = express.Router();
 
-// Get all published documents (public)
+// Get all documents (public endpoint returns only published, admin can request all)
 router.get('/', async (req, res) => {
   try {
-    const { category_id, access_level } = req.query;
+    const { category_id, access_level, include_all_status } = req.query;
 
     let query = supabase
       .from('documents')
       .select('*, document_categories(*)')
-      .eq('status', 'published')
       .eq('is_current_version', true)
       .order('created_at', { ascending: false });
+
+    // For admin panel: include_all_status=true returns all documents
+    // For public: only return published documents
+    if (include_all_status !== 'true') {
+      query = query.eq('status', 'published');
+    }
 
     if (category_id) {
       query = query.eq('category_id', category_id);
