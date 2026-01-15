@@ -4,11 +4,21 @@ import ConditionalLayout from '@/components/layout/ConditionalLayout';
 import ToastProvider from '@/components/providers/ToastProvider';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
+import { getSettings } from '@/lib/api';
 
-export const metadata: Metadata = {
-  title: 'Trust Center',
-  description: 'Security and compliance documentation',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSettings();
+
+  return {
+    title: settings?.company_name || 'Trust Center',
+    description: settings?.hero_subtitle || 'Security and compliance documentation',
+    icons: settings?.favicon_url ? {
+      icon: settings.favicon_url,
+      shortcut: settings.favicon_url,
+      apple: settings.favicon_url,
+    } : undefined,
+  };
+}
 
 export default function RootLayout({
   children,

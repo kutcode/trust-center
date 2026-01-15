@@ -18,9 +18,10 @@ interface SearchResult {
 interface HeaderClientProps {
     companyName: string;
     primaryColor: string;
+    logoUrl?: string;
 }
 
-export default function HeaderClient({ companyName, primaryColor }: HeaderClientProps) {
+export default function HeaderClient({ companyName, primaryColor, logoUrl }: HeaderClientProps) {
     const router = useRouter();
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -188,10 +189,22 @@ export default function HeaderClient({ companyName, primaryColor }: HeaderClient
                         {/* Logo */}
                         <Link
                             href="/"
-                            className="text-xl font-bold hover:opacity-80 transition-opacity flex-shrink-0"
-                            style={{ color: primaryColor || '#111827' }}
+                            className="hover:opacity-80 transition-opacity flex-shrink-0"
                         >
-                            {companyName || 'Trust Center'}
+                            {logoUrl ? (
+                                <img
+                                    src={logoUrl}
+                                    alt={companyName || 'Trust Center'}
+                                    className="h-8 w-auto object-contain"
+                                />
+                            ) : (
+                                <span
+                                    className="text-xl font-bold"
+                                    style={{ color: primaryColor || '#111827' }}
+                                >
+                                    {companyName || 'Trust Center'}
+                                </span>
+                            )}
                         </Link>
 
                         {/* Search Bar */}

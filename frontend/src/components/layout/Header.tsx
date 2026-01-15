@@ -8,6 +8,7 @@ export default async function Header() {
     <HeaderClient
       companyName={settings?.company_name || 'Trust Center'}
       primaryColor={settings?.primary_color || '#111827'}
+      logoUrl={settings?.company_logo_url}
     />
   );
 }
