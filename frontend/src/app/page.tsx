@@ -103,37 +103,90 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Hero Section - Clean, Professional Design */}
+      {/* Hero Section - Two Column Layout */}
       <section
         className="text-white"
         style={{ backgroundColor: settings.primary_color || '#111827' }}
       >
-        <div className="container mx-auto px-4 py-20">
-          <div className="max-w-3xl">
-            <h1 className="text-5xl font-bold mb-6 leading-tight">
-              {settings.hero_title || 'Security & Trust'}
-            </h1>
-            <p className="text-xl text-gray-300 mb-8 leading-relaxed">
-              {settings.hero_subtitle || 'Learn about our commitment to keeping your data safe and secure'}
-            </p>
-            <div className="flex flex-wrap gap-4">
-              <Link
-                href="/documents"
-                className="inline-flex items-center px-6 py-3 bg-white rounded-lg font-semibold hover:bg-gray-100 transition-colors"
-                style={{ color: settings.primary_color || '#111827' }}
-              >
-                Browse Documents
-                <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </Link>
-              <Link
-                href="/certifications"
-                className="inline-flex items-center px-6 py-3 border border-gray-500 text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors"
-              >
-                View Certifications
-              </Link>
+        <div className="container mx-auto px-4 py-16">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+            {/* Left Column - Title and CTAs */}
+            <div>
+              <h1 className="text-4xl lg:text-5xl font-bold mb-6 leading-tight">
+                {settings.hero_title || 'Security & Trust'}
+              </h1>
+              <p className="text-lg lg:text-xl text-gray-300 mb-8 leading-relaxed">
+                {settings.hero_subtitle || 'Learn about our commitment to keeping your data safe and secure'}
+              </p>
+              <div className="flex flex-wrap gap-4">
+                <Link
+                  href="/documents"
+                  className="inline-flex items-center px-6 py-3 bg-white rounded-lg font-semibold hover:bg-gray-100 transition-colors"
+                  style={{ color: settings.primary_color || '#111827' }}
+                >
+                  Browse Documents
+                  <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+                <Link
+                  href="/certifications"
+                  className="inline-flex items-center px-6 py-3 border border-gray-500 text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors"
+                >
+                  View Certifications
+                </Link>
+              </div>
             </div>
+
+            {/* Right Column - Recent Security Updates */}
+            {securityUpdates.length > 0 && (
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  Recent Security Updates
+                </h3>
+                <div className="space-y-3">
+                  {securityUpdates.slice(0, 3).map((update: any) => (
+                    <Link
+                      key={update.id}
+                      href="/security-updates"
+                      className="block p-3 bg-white/5 hover:bg-white/10 rounded-lg transition-colors group"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-white group-hover:text-gray-100 truncate text-sm">
+                            {update.title}
+                          </h4>
+                          <p className="text-gray-400 text-xs mt-1">
+                            {update.published_at ? new Date(update.published_at).toLocaleDateString() : ''}
+                          </p>
+                        </div>
+                        {update.severity && (
+                          <span className={`flex-shrink-0 px-2 py-0.5 text-xs font-medium rounded ${update.severity === 'critical' ? 'bg-red-500/20 text-red-300' :
+                              update.severity === 'high' ? 'bg-orange-500/20 text-orange-300' :
+                                update.severity === 'medium' ? 'bg-yellow-500/20 text-yellow-300' :
+                                  'bg-blue-500/20 text-blue-300'
+                            }`}>
+                            {update.severity.charAt(0).toUpperCase() + update.severity.slice(1)}
+                          </span>
+                        )}
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+                <Link
+                  href="/security-updates"
+                  className="mt-4 inline-flex items-center text-sm text-gray-300 hover:text-white transition-colors"
+                >
+                  View all security updates
+                  <svg className="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </section>
