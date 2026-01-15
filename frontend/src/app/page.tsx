@@ -78,13 +78,14 @@ function getCategoryIcon(categoryName: string): string {
 }
 
 export default async function Home() {
-  const [settings, documents, categories, certifications, controlCategories, securityUpdates] = await Promise.all([
+  const [settings, documents, categories, certifications, controlCategories, securityUpdates, controls] = await Promise.all([
     getSettings(),
     getDocuments(),
     getCategories(),
     getCertifications(),
     getControlCategories(),
     getSecurityUpdates(),
+    apiRequest<any[]>('/api/controls').catch(() => []),
   ]);
 
   const publishedDocs = documents.filter(doc => doc.status === 'published');
@@ -285,49 +286,77 @@ export default async function Home() {
         </section>
       )}
 
-      {/* Security Controls Section */}
+      {/* Security Controls Section - Plaid Style */}
       {controlCategories.length > 0 && (
         <section className="py-16 bg-gray-50">
           <div className="container mx-auto px-4">
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">Security Controls</h2>
-                <p className="text-gray-600">Our comprehensive security framework</p>
-              </div>
+            <div className="text-center mb-10">
+              <h2 className="text-3xl font-bold text-gray-900 mb-3">Security Controls</h2>
+              <p className="text-gray-600 max-w-2xl mx-auto">Our comprehensive security framework protects your data at every level</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {controlCategories.slice(0, 6).map((category: any) => {
+                const categoryControls = controls.filter((c: any) => c.category_id === category.id);
+                const displayControls = categoryControls.slice(0, 3);
+                const remainingCount = categoryControls.length - 3;
+
+                return (
+                  <div
+                    key={category.id}
+                    className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-all duration-200"
+                  >
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                        <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-bold text-gray-900">
+                        {category.name}
+                      </h3>
+                    </div>
+
+                    {/* Control items with checkmarks */}
+                    <ul className="space-y-3 mb-4">
+                      {displayControls.length > 0 ? (
+                        displayControls.map((control: any) => (
+                          <li key={control.id} className="flex items-start gap-2">
+                            <svg className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            <span className="text-gray-600 text-sm">{control.name}</span>
+                          </li>
+                        ))
+                      ) : (
+                        <li className="text-gray-400 text-sm italic">Controls coming soon</li>
+                      )}
+                    </ul>
+
+                    {/* View more link */}
+                    {remainingCount > 0 && (
+                      <Link
+                        href="/controls"
+                        className="inline-flex items-center text-blue-600 hover:text-blue-700 text-sm font-medium"
+                      >
+                        View {remainingCount} more →
+                      </Link>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* See All Controls button at bottom */}
+            <div className="mt-10 text-center">
               <Link
                 href="/controls"
-                className="inline-flex items-center px-4 py-2 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors"
+                className="inline-flex items-center px-6 py-3 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors"
               >
-                See All Controls
+                View All Controls
                 <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </Link>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {controlCategories.slice(0, 6).map((category: any) => (
-                <Link
-                  key={category.id}
-                  href="/controls"
-                  className="group bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg hover:border-gray-300 transition-all duration-200"
-                >
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
-                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                      </svg>
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
-                      {category.name}
-                    </h3>
-                  </div>
-                  {category.description && (
-                    <p className="text-gray-600 text-sm line-clamp-2">
-                      {category.description}
-                    </p>
-                  )}
-                </Link>
-              ))}
             </div>
           </div>
         </section>
@@ -337,20 +366,9 @@ export default async function Home() {
       {securityUpdates.length > 0 && (
         <section className="py-16">
           <div className="container mx-auto px-4">
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">Security Updates</h2>
-                <p className="text-gray-600">Latest security advisories and announcements</p>
-              </div>
-              <Link
-                href="/security-updates"
-                className="inline-flex items-center px-4 py-2 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors"
-              >
-                See All Security Updates
-                <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </Link>
+            <div className="text-center mb-10">
+              <h2 className="text-3xl font-bold text-gray-900 mb-3">Security Updates</h2>
+              <p className="text-gray-600 max-w-2xl mx-auto">Latest security advisories and announcements</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {securityUpdates.slice(0, 3).map((update: any) => (
@@ -382,6 +400,19 @@ export default async function Home() {
                   </div>
                 </Link>
               ))}
+            </div>
+
+            {/* See All Security Updates button at bottom */}
+            <div className="mt-10 text-center">
+              <Link
+                href="/security-updates"
+                className="inline-flex items-center px-6 py-3 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors"
+              >
+                View All Security Updates
+                <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
             </div>
           </div>
         </section>
