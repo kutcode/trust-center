@@ -414,18 +414,6 @@ export default async function Home() {
         </section>
       )}
 
-      {/* About Section */}
-      {settings.about_section && (
-        <section className="py-16 bg-gray-50">
-          <div className="container mx-auto px-4">
-            <div
-              className="prose prose-lg max-w-3xl mx-auto text-gray-700"
-              dangerouslySetInnerHTML={{ __html: settings.about_section }}
-            />
-          </div>
-        </section>
-      )}
-
       {/* CTA Section */}
       <section className="py-16 bg-gray-900 text-white">
         <div className="container mx-auto px-4 text-center">
