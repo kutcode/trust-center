@@ -290,9 +290,20 @@ export default async function Home() {
       {controlCategories.length > 0 && (
         <section className="py-16 bg-gray-50">
           <div className="container mx-auto px-4">
-            <div className="text-center mb-10">
-              <h2 className="text-3xl font-bold text-gray-900 mb-3">Security Controls</h2>
-              <p className="text-gray-600 max-w-2xl mx-auto">Our comprehensive security framework protects your data at every level</p>
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Security Controls</h2>
+                <p className="text-gray-600">Our comprehensive security framework protects your data at every level</p>
+              </div>
+              <Link
+                href="/controls"
+                className="inline-flex items-center text-blue-600 hover:text-blue-700 font-medium"
+              >
+                View All
+                <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {controlCategories.slice(0, 6).map((category: any) => {
@@ -345,19 +356,6 @@ export default async function Home() {
                 );
               })}
             </div>
-
-            {/* See All Controls button at bottom */}
-            <div className="mt-10 text-center">
-              <Link
-                href="/controls"
-                className="inline-flex items-center px-6 py-3 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors"
-              >
-                View All Controls
-                <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </Link>
-            </div>
           </div>
         </section>
       )}
@@ -366,9 +364,20 @@ export default async function Home() {
       {securityUpdates.length > 0 && (
         <section className="py-16">
           <div className="container mx-auto px-4">
-            <div className="text-center mb-10">
-              <h2 className="text-3xl font-bold text-gray-900 mb-3">Security Updates</h2>
-              <p className="text-gray-600 max-w-2xl mx-auto">Latest security advisories and announcements</p>
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Security Updates</h2>
+                <p className="text-gray-600">Latest security advisories and announcements</p>
+              </div>
+              <Link
+                href="/security-updates"
+                className="inline-flex items-center text-blue-600 hover:text-blue-700 font-medium"
+              >
+                View All
+                <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {securityUpdates.slice(0, 3).map((update: any) => (
@@ -400,19 +409,6 @@ export default async function Home() {
                   </div>
                 </Link>
               ))}
-            </div>
-
-            {/* See All Security Updates button at bottom */}
-            <div className="mt-10 text-center">
-              <Link
-                href="/security-updates"
-                className="inline-flex items-center px-6 py-3 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors"
-              >
-                View All Security Updates
-                <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </Link>
             </div>
           </div>
         </section>
