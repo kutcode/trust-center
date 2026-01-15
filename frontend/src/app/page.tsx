@@ -431,13 +431,13 @@ export default async function Home() {
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl font-bold mb-4">Ready to learn more?</h2>
           <p className="text-gray-300 mb-8 max-w-2xl mx-auto">
-            If you have questions about our security practices or need access to specific documentation, our team is here to help.
+            Explore our comprehensive security documentation and learn about our commitment to protecting your data.
           </p>
           <Link
-            href="/contact"
+            href="/documents"
             className="inline-flex items-center px-6 py-3 bg-white text-gray-900 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
           >
-            Contact Us
+            Browse Documents
             <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>

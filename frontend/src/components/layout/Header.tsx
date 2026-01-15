@@ -40,12 +40,6 @@ export default async function Header() {
             >
               Security Updates
             </Link>
-            <Link
-              href="/contact"
-              className="text-gray-700 hover:text-gray-900 font-medium transition-colors"
-            >
-              Contact
-            </Link>
           </div>
         </nav>
       </div>
