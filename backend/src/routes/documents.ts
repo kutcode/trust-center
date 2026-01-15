@@ -53,15 +53,23 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get document by ID (public)
+// Get document by ID (public returns only published, admin can request any)
 router.get('/:id', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { include_all_status } = req.query;
+
+    let query = supabase
       .from('documents')
       .select('*, document_categories(*)')
-      .eq('id', req.params.id)
-      .eq('status', 'published')
-      .single();
+      .eq('id', req.params.id);
+
+    // For admin panel: include_all_status=true returns any document
+    // For public: only return published documents
+    if (include_all_status !== 'true') {
+      query = query.eq('status', 'published');
+    }
+
+    const { data, error } = await query.single();
 
     if (error) throw error;
     if (!data) {

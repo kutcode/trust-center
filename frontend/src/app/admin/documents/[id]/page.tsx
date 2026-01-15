@@ -46,9 +46,9 @@ export default function EditDocumentPage() {
       setToken(session.access_token);
 
       try {
-        // Load document
+        // Load document (include_all_status for admin to edit draft/archived docs)
         const docRes = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/documents/${documentId}`,
+          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/documents/${documentId}?include_all_status=true`,
           {
             headers: { Authorization: `Bearer ${session.access_token}` },
           }
