@@ -122,7 +122,8 @@ router.patch('/:id', requireAdmin, async (req: AuthRequest, res) => {
     res.json(data);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
-  });
+  }
+});
 
 // Delete certification (admin only)
 router.delete('/:id', requireAdmin, async (req: AuthRequest, res) => {
