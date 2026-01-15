@@ -157,11 +157,9 @@ export default function AccessPage() {
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
                 <h3 className="text-xl font-semibold">{doc.title}</h3>
-                {doc.requires_nda && (
-                  <span className="px-2 py-1 text-xs font-semibold bg-amber-100 text-amber-800 rounded">
-                    NDA Required
-                  </span>
-                )}
+                <span className="px-2 py-1 text-xs font-semibold bg-amber-100 text-amber-800 rounded">
+                  NDA Required
+                </span>
               </div>
               {doc.description && (
                 <p className="text-gray-600 mb-4">{doc.description}</p>

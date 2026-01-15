@@ -91,20 +91,18 @@ router.get('/:token/download/:document_id', async (req, res) => {
       return res.status(404).json({ error: 'Document not found' });
     }
 
-    // Check NDA Requirement
-    if (document.requires_nda) {
-      const { data: acceptance } = await supabase
-        .from('nda_acceptances')
-        .select('id')
-        .eq('email', request.requester_email)
-        .single();
+    // NDA is always required for all document access
+    const { data: acceptance } = await supabase
+      .from('nda_acceptances')
+      .select('id')
+      .eq('email', request.requester_email)
+      .single();
 
-      if (!acceptance) {
-        return res.status(403).json({
-          error: 'NDA_REQUIRED',
-          message: 'You must accept the Non-Disclosure Agreement before accessing this document.'
-        });
-      }
+    if (!acceptance) {
+      return res.status(403).json({
+        error: 'NDA_REQUIRED',
+        message: 'You must accept the Non-Disclosure Agreement before accessing this document.'
+      });
     }
 
     // Serve from local storage (consistent with documents.ts)

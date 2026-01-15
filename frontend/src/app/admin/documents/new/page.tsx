@@ -183,25 +183,10 @@ export default function UploadDocumentPage() {
               <option value="public">Public (anyone can download)</option>
               <option value="restricted">Restricted (requires approval)</option>
             </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Note: All restricted documents require NDA acceptance before download.
+            </p>
           </div>
-
-          {formData.access_level === 'restricted' && (
-            <div className="flex items-center">
-              <input
-                id="requires_nda"
-                type="checkbox"
-                checked={formData.requires_nda}
-                onChange={(e) => setFormData({ ...formData, requires_nda: e.target.checked })}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-              <label htmlFor="requires_nda" className="ml-2 block text-sm text-gray-900">
-                Require NDA Acceptance
-                <span className="block text-xs text-gray-500">
-                  Users must agree to the NDA before downloading this document.
-                </span>
-              </label>
-            </div>
-          )}
 
           <div className="flex gap-4">
             <button

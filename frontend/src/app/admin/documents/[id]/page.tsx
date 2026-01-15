@@ -372,22 +372,10 @@ export default function EditDocumentPage() {
                 Restricted (requires approval)
               </option>
             </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Note: All restricted documents require NDA acceptance before download.
+            </p>
           </div>
-
-          {formData.access_level === 'restricted' && (
-            <div className="flex items-center">
-              <input
-                id="requires_nda"
-                type="checkbox"
-                checked={formData.requires_nda}
-                onChange={(e) => setFormData({ ...formData, requires_nda: e.target.checked })}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-              <label htmlFor="requires_nda" className="ml-2 block text-sm text-gray-900">
-                Require NDA Acceptance
-              </label>
-            </div>
-          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
