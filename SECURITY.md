@@ -18,7 +18,7 @@ We take security seriously. If you discover a security vulnerability, please fol
 
 ### Do
 
-1. **Email us privately** at security@kutcode.com with:
+1. **Email us privately** at bkut444@gmail.com with:
    - Description of the vulnerability
    - Steps to reproduce
    - Potential impact
