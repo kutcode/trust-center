@@ -261,8 +261,9 @@ router.patch('/document-requests/:id/approve', requireAdmin, async (req: AuthReq
       .select('id, title, file_url, file_name, file_type')
       .in('id', request.document_ids);
 
-    // Prepare document data with file paths for email attachments
+    // Prepare document data with file paths and IDs for email
     const documentsForEmail = (documents || []).map(doc => ({
+      id: doc.id,
       title: doc.title,
       filePath: doc.file_url || undefined,
       fileName: doc.file_name || undefined,
@@ -279,6 +280,7 @@ router.patch('/document-requests/:id/approve', requireAdmin, async (req: AuthReq
         requesterName: request.requester_name,
         requesterEmail: request.requester_email,
         documents: documentsForEmail,
+        magicLinkToken: token,
         magicLinkUrl,
         expirationDate: expiration.toLocaleDateString(),
       });
@@ -533,10 +535,10 @@ router.get('/settings', requireAdmin, async (req, res) => {
 // Update trust center settings (admin only)
 router.patch('/settings', requireAdmin, async (req: AuthRequest, res) => {
   try {
-    // Get existing settings or create new
+    // Get existing settings for comparison
     const { data: existing } = await supabase
       .from('trust_center_settings')
-      .select('id')
+      .select('*')
       .limit(1)
       .single();
 
@@ -569,16 +571,63 @@ router.patch('/settings', requireAdmin, async (req: AuthRequest, res) => {
       data = created;
     }
 
-    // Log settings update
+    // Categorize what changed for better logging
+    const changedFields = Object.keys(req.body);
+    const changeCategories: string[] = [];
+
+    // Check for logo/icon changes
+    const logoFields = ['logo_url', 'favicon_url', 'logo'];
+    if (changedFields.some(f => logoFields.includes(f))) {
+      changeCategories.push('logo/icon');
+    }
+
+    // Check for NDA URL changes
+    if (changedFields.includes('nda_url') || changedFields.includes('nda_document_url')) {
+      changeCategories.push('NDA URL');
+    }
+
+    // Check for branding changes
+    const brandingFields = ['primary_color', 'secondary_color', 'company_name', 'font_family'];
+    if (changedFields.some(f => brandingFields.includes(f))) {
+      changeCategories.push('branding');
+    }
+
+    // Check for content changes
+    const contentFields = ['hero_title', 'hero_subtitle', 'footer_text', 'footer_links'];
+    if (changedFields.some(f => contentFields.includes(f))) {
+      changeCategories.push('content');
+    }
+
+    // Check for visibility/toggle changes
+    const toggleFields = ['show_certifications', 'show_documents', 'show_security_updates', 'show_controls', 'light_mode', 'dark_mode'];
+    if (changedFields.some(f => toggleFields.includes(f))) {
+      changeCategories.push('visibility settings');
+    }
+
+    // Determine appropriate action type based on changes
+    let actionType = 'settings_update';
+    if (changeCategories.includes('logo/icon')) {
+      actionType = 'settings_logo_changed';
+    } else if (changeCategories.includes('NDA URL')) {
+      actionType = 'settings_nda_changed';
+    }
+
+    // Build description
+    const description = changeCategories.length > 0
+      ? `Updated settings: ${changeCategories.join(', ')}`
+      : `Updated settings: ${changedFields.join(', ')}`;
+
+    // Log settings update with specific categorization
     await logActivity({
       adminId: req.admin!.id,
       adminEmail: req.admin!.email,
-      actionType: 'update',
+      actionType: actionType,
       entityType: 'settings',
       entityId: data.id,
       entityName: 'Trust Center Settings',
-      newValue: req.body,
-      description: 'Updated trust center settings',
+      oldValue: existing,
+      newValue: data,
+      description: description,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
     });
@@ -1362,7 +1411,7 @@ router.get('/control-categories', requireAdmin, async (req, res) => {
 });
 
 // Create control category
-router.post('/control-categories', requireAdmin, async (req, res) => {
+router.post('/control-categories', requireAdmin, async (req: AuthRequest, res) => {
   try {
     const { name, description, icon } = req.body;
 
@@ -1382,6 +1431,21 @@ router.post('/control-categories', requireAdmin, async (req, res) => {
       .single();
 
     if (error) throw error;
+
+    // Log control category creation
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'create',
+      entityType: 'control_category',
+      entityId: data.id,
+      entityName: data.name,
+      newValue: data,
+      description: `Created control category: ${data.name}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     res.status(201).json(data);
   } catch (error: any) {
     handleError(res, error, 'Create control category error');
@@ -1389,7 +1453,7 @@ router.post('/control-categories', requireAdmin, async (req, res) => {
 });
 
 // Reorder control categories (bulk update sort_order) - MUST be before /:id route
-router.patch('/control-categories/reorder', requireAdmin, async (req, res) => {
+router.patch('/control-categories/reorder', requireAdmin, async (req: AuthRequest, res) => {
   try {
     const { orders } = req.body; // Array of { id, sort_order }
 
@@ -1407,6 +1471,17 @@ router.patch('/control-categories/reorder', requireAdmin, async (req, res) => {
       if (error) throw error;
     }
 
+    // Log reorder action
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'reorder',
+      entityType: 'control_category',
+      description: `Reordered ${orders.length} control categories`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     res.json({ message: 'Categories reordered successfully' });
   } catch (error: any) {
     handleError(res, error, 'Reorder control categories error');
@@ -1414,10 +1489,17 @@ router.patch('/control-categories/reorder', requireAdmin, async (req, res) => {
 });
 
 // Update control category
-router.patch('/control-categories/:id', requireAdmin, async (req, res) => {
+router.patch('/control-categories/:id', requireAdmin, async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
     const { name, description, icon, sort_order } = req.body;
+
+    // Get existing for logging
+    const { data: existing } = await supabase
+      .from('control_categories')
+      .select('*')
+      .eq('id', id)
+      .single();
 
     const { data, error } = await supabase
       .from('control_categories')
@@ -1427,6 +1509,22 @@ router.patch('/control-categories/:id', requireAdmin, async (req, res) => {
       .single();
 
     if (error) throw error;
+
+    // Log control category update
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'update',
+      entityType: 'control_category',
+      entityId: id,
+      entityName: data.name,
+      oldValue: existing,
+      newValue: data,
+      description: `Updated control category: ${data.name}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     res.json(data);
   } catch (error: any) {
     handleError(res, error, 'Update control category error');
@@ -1434,9 +1532,16 @@ router.patch('/control-categories/:id', requireAdmin, async (req, res) => {
 });
 
 // Delete control category
-router.delete('/control-categories/:id', requireAdmin, async (req, res) => {
+router.delete('/control-categories/:id', requireAdmin, async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
+
+    // Get existing for logging
+    const { data: existing } = await supabase
+      .from('control_categories')
+      .select('*')
+      .eq('id', id)
+      .single();
 
     const { error } = await supabase
       .from('control_categories')
@@ -1444,6 +1549,21 @@ router.delete('/control-categories/:id', requireAdmin, async (req, res) => {
       .eq('id', id);
 
     if (error) throw error;
+
+    // Log control category deletion
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'delete',
+      entityType: 'control_category',
+      entityId: id,
+      entityName: existing?.name || 'Unknown',
+      oldValue: existing,
+      description: `Deleted control category: ${existing?.name || 'Unknown'}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     res.json({ message: 'Category deleted' });
   } catch (error: any) {
     handleError(res, error, 'Delete control category error');
@@ -1468,7 +1588,7 @@ router.get('/controls', requireAdmin, async (req, res) => {
 });
 
 // Create control
-router.post('/controls', requireAdmin, async (req, res) => {
+router.post('/controls', requireAdmin, async (req: AuthRequest, res) => {
   try {
     const { title, description, category_id } = req.body;
 
@@ -1489,6 +1609,21 @@ router.post('/controls', requireAdmin, async (req, res) => {
       .single();
 
     if (error) throw error;
+
+    // Log control creation
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'create',
+      entityType: 'control',
+      entityId: data.id,
+      entityName: data.title,
+      newValue: data,
+      description: `Created control: ${data.title}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     res.status(201).json(data);
   } catch (error: any) {
     handleError(res, error, 'Create control error');
@@ -1496,7 +1631,7 @@ router.post('/controls', requireAdmin, async (req, res) => {
 });
 
 // Reorder controls within a category (bulk update sort_order) - MUST be before /:id route
-router.patch('/controls/reorder', requireAdmin, async (req, res) => {
+router.patch('/controls/reorder', requireAdmin, async (req: AuthRequest, res) => {
   try {
     const { orders } = req.body; // Array of { id, sort_order }
 
@@ -1514,6 +1649,17 @@ router.patch('/controls/reorder', requireAdmin, async (req, res) => {
       if (error) throw error;
     }
 
+    // Log reorder action
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'reorder',
+      entityType: 'control',
+      description: `Reordered ${orders.length} controls`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     res.json({ message: 'Controls reordered successfully' });
   } catch (error: any) {
     handleError(res, error, 'Reorder controls error');
@@ -1521,10 +1667,17 @@ router.patch('/controls/reorder', requireAdmin, async (req, res) => {
 });
 
 // Update control
-router.patch('/controls/:id', requireAdmin, async (req, res) => {
+router.patch('/controls/:id', requireAdmin, async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
     const { title, description, category_id, sort_order } = req.body;
+
+    // Get existing for logging
+    const { data: existing } = await supabase
+      .from('controls')
+      .select('*')
+      .eq('id', id)
+      .single();
 
     const { data, error } = await supabase
       .from('controls')
@@ -1534,6 +1687,22 @@ router.patch('/controls/:id', requireAdmin, async (req, res) => {
       .single();
 
     if (error) throw error;
+
+    // Log control update
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'update',
+      entityType: 'control',
+      entityId: id,
+      entityName: data.title,
+      oldValue: existing,
+      newValue: data,
+      description: `Updated control: ${data.title}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     res.json(data);
   } catch (error: any) {
     handleError(res, error, 'Update control error');
@@ -1541,9 +1710,16 @@ router.patch('/controls/:id', requireAdmin, async (req, res) => {
 });
 
 // Delete control
-router.delete('/controls/:id', requireAdmin, async (req, res) => {
+router.delete('/controls/:id', requireAdmin, async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
+
+    // Get existing for logging
+    const { data: existing } = await supabase
+      .from('controls')
+      .select('*')
+      .eq('id', id)
+      .single();
 
     const { error } = await supabase
       .from('controls')
@@ -1551,6 +1727,21 @@ router.delete('/controls/:id', requireAdmin, async (req, res) => {
       .eq('id', id);
 
     if (error) throw error;
+
+    // Log control deletion
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'delete',
+      entityType: 'control',
+      entityId: id,
+      entityName: existing?.title || 'Unknown',
+      oldValue: existing,
+      description: `Deleted control: ${existing?.title || 'Unknown'}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     res.json({ message: 'Control deleted' });
   } catch (error: any) {
     handleError(res, error, 'Delete control error');

@@ -165,9 +165,9 @@ export default async function Home() {
                         </div>
                         {update.severity && (
                           <span className={`flex-shrink-0 px-2 py-0.5 text-xs font-medium rounded ${update.severity === 'critical' ? 'bg-red-500/20 text-red-300' :
-                              update.severity === 'high' ? 'bg-orange-500/20 text-orange-300' :
-                                update.severity === 'medium' ? 'bg-yellow-500/20 text-yellow-300' :
-                                  'bg-blue-500/20 text-blue-300'
+                            update.severity === 'high' ? 'bg-orange-500/20 text-orange-300' :
+                              update.severity === 'medium' ? 'bg-yellow-500/20 text-yellow-300' :
+                                'bg-blue-500/20 text-blue-300'
                             }`}>
                             {update.severity.charAt(0).toUpperCase() + update.severity.slice(1)}
                           </span>
@@ -339,7 +339,7 @@ export default async function Home() {
         </section>
       )}
 
-      {/* Security Controls Section - Plaid Style */}
+      {/* Security Controls Section */}
       {controlCategories.length > 0 && (
         <section className="py-16 bg-gray-50">
           <div className="container mx-auto px-4">

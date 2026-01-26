@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client';
 import { useSidebar } from '@/contexts/SidebarContext';
 import toast from 'react-hot-toast';
 
 interface NavItem {
+    key: string;
     href: string;
     label: string;
     icon: React.ReactNode;
@@ -24,9 +25,10 @@ export default function AdminSidebar() {
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const [lastActivity, setLastActivity] = useState(Date.now());
     const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
+    const [navOrder, setNavOrder] = useState<string[]>([]);
 
     useEffect(() => {
-        async function loadUser() {
+        async function loadUserAndSettings() {
             const supabase = createClient();
             const { data: { session } } = await supabase.auth.getSession();
 
@@ -40,13 +42,43 @@ export default function AdminSidebar() {
                 if (adminUser) {
                     setUser(adminUser);
                 }
+
+                // Load nav order from settings
+                const { data: settings } = await supabase
+                    .from('trust_center_settings')
+                    .select('admin_nav_order')
+                    .limit(1)
+                    .single();
+
+                if (settings?.admin_nav_order && settings.admin_nav_order.length > 0) {
+                    setNavOrder(settings.admin_nav_order);
+                }
             }
         }
-        loadUser();
+        loadUserAndSettings();
     }, []);
 
-    const handleLogout = useCallback(async (reason?: string) => {
+    const handleLogout = useCallback(async (reason?: string, isAutoLogout: boolean = false) => {
         const supabase = createClient();
+
+        // Get auth token for logging request
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+            try {
+                // Call backend to log the logout action
+                const endpoint = isAutoLogout ? '/api/auth/logout/auto' : '/api/auth/logout';
+                await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${endpoint}`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${session.access_token}`,
+                    },
+                });
+            } catch (e) {
+                // Don't block logout if logging fails
+                console.error('Failed to log logout:', e);
+            }
+        }
+
         await supabase.auth.signOut();
         if (reason) {
             toast.error(reason);
@@ -91,15 +123,16 @@ export default function AdminSidebar() {
 
             // Auto-logout after 10 minutes of inactivity
             if (idleTime >= IDLE_TIMEOUT_MS) {
-                handleLogout('Session expired due to inactivity. Please log in again.');
+                handleLogout('Session expired due to inactivity. Please log in again.', true);
             }
         }, 10000); // Check every 10 seconds
 
         return () => clearInterval(checkIdleTimeout);
     }, [lastActivity, showTimeoutWarning, handleLogout]);
 
-    const navItems: NavItem[] = [
+    const navItemsBase: NavItem[] = [
         {
+            key: 'dashboard',
             href: '/admin',
             label: 'Dashboard',
             icon: (
@@ -109,6 +142,7 @@ export default function AdminSidebar() {
             ),
         },
         {
+            key: 'controls',
             href: '/admin/controls',
             label: 'Security Controls',
             icon: (
@@ -118,6 +152,7 @@ export default function AdminSidebar() {
             ),
         },
         {
+            key: 'documents',
             href: '/admin/documents',
             label: 'Documents',
             icon: (
@@ -127,6 +162,7 @@ export default function AdminSidebar() {
             ),
         },
         {
+            key: 'certifications',
             href: '/admin/certifications',
             label: 'Certifications',
             icon: (
@@ -136,6 +172,7 @@ export default function AdminSidebar() {
             ),
         },
         {
+            key: 'security-updates',
             href: '/admin/security-updates',
             label: 'Security Updates',
             icon: (
@@ -145,6 +182,7 @@ export default function AdminSidebar() {
             ),
         },
         {
+            key: 'requests',
             href: '/admin/requests',
             label: 'Requests',
             icon: (
@@ -154,6 +192,7 @@ export default function AdminSidebar() {
             ),
         },
         {
+            key: 'organizations',
             href: '/admin/organizations',
             label: 'Organizations',
             icon: (
@@ -162,8 +201,8 @@ export default function AdminSidebar() {
                 </svg>
             ),
         },
-
         {
+            key: 'users',
             href: '/admin/users',
             label: 'Users',
             icon: (
@@ -173,6 +212,7 @@ export default function AdminSidebar() {
             ),
         },
         {
+            key: 'activity',
             href: '/admin/activity',
             label: 'Activity Logs',
             icon: (
@@ -181,8 +221,8 @@ export default function AdminSidebar() {
                 </svg>
             ),
         },
-
         {
+            key: 'settings',
             href: '/admin/settings',
             label: 'Settings',
             icon: (
@@ -193,6 +233,33 @@ export default function AdminSidebar() {
             ),
         },
     ];
+
+    // Sort nav items based on custom order from settings
+    const navItems = useMemo(() => {
+        if (navOrder.length === 0) {
+            return navItemsBase;
+        }
+
+        // Create a map for quick lookup
+        const itemMap = new Map(navItemsBase.map(item => [item.key, item]));
+
+        // Build sorted array based on navOrder
+        const sorted: NavItem[] = [];
+        for (const key of navOrder) {
+            const item = itemMap.get(key);
+            if (item) {
+                sorted.push(item);
+                itemMap.delete(key);
+            }
+        }
+
+        // Add any remaining items not in navOrder (in case of new items)
+        for (const item of itemMap.values()) {
+            sorted.push(item);
+        }
+
+        return sorted;
+    }, [navOrder]);
 
     const isActive = (href: string) => {
         if (href === '/admin') return pathname === '/admin';

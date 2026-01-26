@@ -2,6 +2,7 @@ import express from 'express';
 import { supabase } from '../server';
 import fs from 'fs';
 import path from 'path';
+import { logActivity } from '../utils/activityLogger';
 
 const UPLOADS_DIR = process.env.UPLOADS_DIR || '/app/uploads';
 
@@ -12,13 +13,15 @@ router.get('/:token', async (req, res) => {
   try {
     const { token } = req.params;
 
+    // First fetch the document request
     const { data: request, error } = await supabase
       .from('document_requests')
-      .select('*, documents(*)')
+      .select('*')
       .eq('magic_link_token', token)
       .single();
 
     if (error || !request) {
+      console.error('Magic link lookup failed:', error?.message || 'No request found');
       return res.status(404).json({ error: 'Invalid or expired link' });
     }
 
@@ -30,6 +33,19 @@ router.get('/:token', async (req, res) => {
     // Check status
     if (!['approved', 'auto_approved'].includes(request.status)) {
       return res.status(403).json({ error: 'Access not approved' });
+    }
+
+    // Fetch the documents separately using the document_ids array
+    let documents: any[] = [];
+    if (request.document_ids && request.document_ids.length > 0) {
+      const { data: docs, error: docsError } = await supabase
+        .from('documents')
+        .select('id, title, description, file_name, file_type, file_size, access_level')
+        .in('id', request.document_ids);
+
+      if (!docsError && docs) {
+        documents = docs;
+      }
     }
 
     // Track access
@@ -44,10 +60,11 @@ router.get('/:token', async (req, res) => {
       request: {
         id: request.id,
         requester_name: request.requester_name,
-        documents: request.documents,
+        documents: documents,
       },
     });
   } catch (error: any) {
+    console.error('Access route error:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
@@ -91,18 +108,28 @@ router.get('/:token/download/:document_id', async (req, res) => {
       return res.status(404).json({ error: 'Document not found' });
     }
 
-    // NDA is always required for all document access
-    const { data: acceptance } = await supabase
-      .from('nda_acceptances')
-      .select('id')
-      .eq('email', request.requester_email)
+    // Check if NDA is required - only enforce if NDA URL is configured in settings
+    const { data: settings } = await supabase
+      .from('trust_center_settings')
+      .select('nda_url')
+      .limit(1)
       .single();
 
-    if (!acceptance) {
-      return res.status(403).json({
-        error: 'NDA_REQUIRED',
-        message: 'You must accept the Non-Disclosure Agreement before accessing this document.'
-      });
+    const ndaRequired = settings?.nda_url && settings.nda_url.trim() !== '';
+
+    if (ndaRequired) {
+      const { data: acceptance } = await supabase
+        .from('nda_acceptances')
+        .select('id')
+        .eq('email', request.requester_email)
+        .single();
+
+      if (!acceptance) {
+        return res.status(403).json({
+          error: 'NDA_REQUIRED',
+          message: 'You must accept the Non-Disclosure Agreement before accessing this document.'
+        });
+      }
     }
 
     // Serve from local storage (consistent with documents.ts)
@@ -116,6 +143,19 @@ router.get('/:token/download/:document_id', async (req, res) => {
 
     res.setHeader('Content-Disposition', `attachment; filename="${document.file_name}"`);
     res.setHeader('Content-Type', document.file_type || 'application/octet-stream');
+
+    // Log document download
+    await logActivity({
+      adminId: 'public',
+      adminEmail: request.requester_email,
+      actionType: 'document_download',
+      entityType: 'document',
+      entityId: document_id,
+      entityName: document.file_name,
+      description: `Document downloaded by ${request.requester_email}: ${document.file_name}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
 
     return res.sendFile(filePath);
   } catch (error: any) {

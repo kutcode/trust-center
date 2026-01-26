@@ -1,12 +1,12 @@
 # Trust Center
 
-An open-source security trust center platform similar to Plaid's trust center. Built with Next.js 15, Docker, and Supabase, featuring organization-level document approval, magic link access, and comprehensive admin management.
+An open-source security trust center platform. Built with Next.js 15, Docker, and Supabase, featuring organization-level document approval, magic link access, and comprehensive admin management.
 
 ## Features
 
 - **Public Security Documentation**: Display compliance certifications, security updates, and public documents
 - **Document Request System**: Users can request access to restricted documents without creating accounts
-- **Magic Link Access**: Time-limited access links sent via email (Plaid-style, no login required)
+- **Magic Link Access**: Time-limited access links sent via email (no login required)
 - **Organization Whitelisting**: Track approved documents per organization for granular access control
 - **Auto-Approval**: Organizations with previously approved documents get instant access
 - **Admin Console**: Full-featured admin panel for document management, request approval, and customization
