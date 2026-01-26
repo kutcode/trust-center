@@ -6,6 +6,7 @@ import { extractEmailDomain, isPersonalEmailDomain, getOrCreateOrganization, che
 import { generateMagicLinkToken, getMagicLinkExpiration } from '../utils/magicLink';
 import { sendMagicLinkEmail, sendRejectionEmail } from '../utils/email';
 import { AppError } from '../middleware/errorHandler';
+import { logActivity } from '../utils/activityLogger';
 
 const router = express.Router();
 
@@ -92,14 +93,34 @@ router.post('/', async (req, res) => {
         // Dispatch webhook for auto-approved request
         dispatchWebhook('request.created', approvedRequest);
 
+        // Log auto-approval
+        const docTitles = (await supabase
+          .from('documents')
+          .select('title')
+          .in('id', approvedDocs)
+        ).data?.map(d => d.title).join(', ') || 'documents';
+
+        await logActivity({
+          adminId: 'system',
+          adminEmail: 'system@auto-approve',
+          actionType: 'request_auto_approved',
+          entityType: 'request',
+          entityId: approvedRequest.id,
+          entityName: `Request from ${name}`,
+          description: `Auto-approved document request for ${email}: ${docTitles}`,
+          ipAddress: req.ip,
+          userAgent: req.headers['user-agent'],
+        });
+
         // Get full document details including file paths
         const { data: documents } = await supabase
           .from('documents')
           .select('id, title, file_url, file_name, file_type')
           .in('id', approvedDocs);
 
-        // Prepare document data with file paths for email attachments
+        // Prepare document data with file paths and IDs for email
         const documentsForEmail = (documents || []).map(doc => ({
+          id: doc.id,
           title: doc.title,
           filePath: doc.file_url || undefined,
           fileName: doc.file_name || undefined,
@@ -113,6 +134,7 @@ router.post('/', async (req, res) => {
             requesterName: name,
             requesterEmail: email,
             documents: documentsForEmail,
+            magicLinkToken: token,
             magicLinkUrl,
             expirationDate: expiration.toLocaleDateString(),
           });

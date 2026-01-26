@@ -2,6 +2,7 @@ import express from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { supabase } from '../server';
 import { requireAdmin, AuthRequest } from '../middleware/auth';
+import { logActivity } from '../utils/activityLogger';
 
 const router = express.Router();
 
@@ -26,7 +27,7 @@ router.post('/signup', async (req, res) => {
         },
       }
     );
-    
+
     const { data, error } = await adminSupabase.auth.admin.createUser({
       email,
       password,
@@ -99,6 +100,16 @@ router.post('/login', async (req, res) => {
     });
 
     if (error) {
+      // Log failed login attempt
+      await logActivity({
+        adminId: 'system',
+        adminEmail: email,
+        actionType: 'login_failed',
+        entityType: 'auth',
+        description: `Failed login attempt for email: ${email}`,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      });
       return res.status(401).json({ error: error.message });
     }
 
@@ -121,8 +132,29 @@ router.post('/login', async (req, res) => {
       .single();
 
     if (!adminUser) {
+      // Log failed admin access attempt (user exists but not admin)
+      await logActivity({
+        adminId: data.user.id,
+        adminEmail: email,
+        actionType: 'login_failed',
+        entityType: 'auth',
+        description: `Login attempt denied - not an admin user: ${email}`,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      });
       return res.status(403).json({ error: 'Access denied: Admin account required' });
     }
+
+    // Log successful admin login
+    await logActivity({
+      adminId: adminUser.id,
+      adminEmail: adminUser.email,
+      actionType: 'login',
+      entityType: 'auth',
+      description: `Admin logged in: ${adminUser.email}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
 
     res.json({
       user: adminUser,
@@ -136,8 +168,40 @@ router.post('/login', async (req, res) => {
 // Admin logout
 router.post('/logout', requireAdmin, async (req: AuthRequest, res) => {
   try {
+    // Log logout
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'logout',
+      entityType: 'auth',
+      description: `Admin logged out: ${req.admin!.email}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     await supabase.auth.signOut();
     res.json({ message: 'Logged out successfully' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Admin auto-logout (triggered by frontend inactivity timeout)
+router.post('/logout/auto', requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    // Log auto-logout
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'auto_logout',
+      entityType: 'auth',
+      description: `Admin auto-logged out due to inactivity: ${req.admin!.email}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    await supabase.auth.signOut();
+    res.json({ message: 'Auto-logged out due to inactivity' });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

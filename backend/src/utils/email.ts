@@ -6,13 +6,15 @@ import { validateEmailAddress, sanitizeEmailForLogging } from './emailValidation
 export interface MagicLinkEmailData {
   requesterName: string;
   requesterEmail: string;
-  documents: Array<{ 
+  documents: Array<{
+    id: string;          // Document ID for direct download link
     title: string;
     filePath?: string;  // Full path to file (optional)
     fileName?: string;  // Original filename (optional)
     fileType?: string;  // MIME type (optional)
   }>;
-  magicLinkUrl: string;
+  magicLinkToken: string;  // Just the token, not the full URL
+  magicLinkUrl: string;    // Full URL to access page (fallback)
   expirationDate: string;
 }
 
@@ -25,6 +27,7 @@ export const sendMagicLinkEmail = async (data: MagicLinkEmailData): Promise<void
   }
 
   const UPLOADS_DIR = process.env.UPLOADS_DIR || '/app/uploads';
+  const API_URL = process.env.FRONTEND_URL || 'http://localhost:4000';
   const attachments: EmailAttachment[] = [];
   const attachmentErrors: string[] = [];
 
@@ -63,13 +66,30 @@ export const sendMagicLinkEmail = async (data: MagicLinkEmailData): Promise<void
   }
 
   // Build email HTML with attachment info
-  const attachmentInfo = attachments.length > 0 
+  const attachmentInfo = attachments.length > 0
     ? `<p><strong>Documents attached:</strong> ${attachments.length} file(s)</p>`
     : '';
-  
+
   const attachmentWarning = attachmentErrors.length > 0
-    ? `<p style="color: #d32f2f;"><small><strong>Note:</strong> Some documents could not be attached: ${attachmentErrors.join(', ')}. Please use the link below to access them.</small></p>`
+    ? `<p style="color: #d32f2f;"><small><strong>Note:</strong> Some documents could not be attached: ${attachmentErrors.join(', ')}. Please use the download links below.</small></p>`
     : '';
+
+  // Generate individual download links for each document
+  const backendUrl = process.env.API_URL || 'http://localhost:4000';
+  const documentLinks = data.documents.map(doc => {
+    const downloadUrl = `${backendUrl}/api/access/${data.magicLinkToken}/download/${doc.id}`;
+    return `
+      <tr>
+        <td style="padding: 12px; border-bottom: 1px solid #eee;">
+          <strong>${doc.title}</strong>
+          ${doc.fileName ? `<br><small style="color: #666;">${doc.fileName}</small>` : ''}
+        </td>
+        <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right;">
+          <a href="${downloadUrl}" style="display: inline-block; padding: 8px 16px; background-color: #28a745; color: #fff; text-decoration: none; border-radius: 4px; font-size: 14px;">Download</a>
+        </td>
+      </tr>
+    `;
+  }).join('');
 
   const emailHtml = `
     <!DOCTYPE html>
@@ -81,22 +101,25 @@ export const sendMagicLinkEmail = async (data: MagicLinkEmailData): Promise<void
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
         .button { display: inline-block; padding: 12px 24px; background-color: #007bff; color: #fff; text-decoration: none; border-radius: 4px; margin: 20px 0; }
         .footer { margin-top: 30px; font-size: 12px; color: #666; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
       </style>
     </head>
     <body>
       <div class="container">
         <h2>Your Document Request Has Been Approved</h2>
         <p>Hi ${data.requesterName},</p>
-        <p>Your request for the following documents has been approved:</p>
-        <ul>
-          ${data.documents.map(doc => `<li>${doc.title}</li>`).join('')}
-        </ul>
+        <p>Your request has been approved. Click the download buttons below to get your documents:</p>
         ${attachmentInfo}
         ${attachmentWarning}
-        <p>
-          <a href="${data.magicLinkUrl}" class="button">Access Your Documents Online</a>
+        <table>
+          ${documentLinks}
+        </table>
+        <p style="margin-top: 16px; padding: 12px; background-color: #fff3cd; border-radius: 4px; font-size: 14px;">
+          ⏰ <strong>Links expire:</strong> ${data.expirationDate}
         </p>
-        <p><small>This link will expire on ${data.expirationDate}.</small></p>
+        <p style="margin-top: 20px; font-size: 13px; color: #666;">
+          <a href="${data.magicLinkUrl}" style="color: #007bff;">View all documents online</a>
+        </p>
         <div class="footer">
           <p><small>If you didn't request this, please ignore this email.</small></p>
         </div>

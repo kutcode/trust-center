@@ -96,6 +96,7 @@ export interface TrustCenterSettings {
   font_family?: string;
   footer_links?: Array<{ label: string; url: string }>;
   nda_url?: string;
+  admin_nav_order?: string[];  // Custom order for admin sidebar navigation items
 }
 
 export interface KnowledgeBaseItem {

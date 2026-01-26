@@ -61,7 +61,7 @@ export const getSettings = cache(async (): Promise<TrustCenterSettings | null> =
   try {
     const API_URL = getApiUrl();
     const response = await fetch(`${API_URL}/api/settings`, {
-      next: { revalidate: 60 }, // Cache for 60 seconds
+      cache: 'no-store', // Always fetch fresh settings for logo/favicon updates
     });
 
     if (!response.ok) return null;

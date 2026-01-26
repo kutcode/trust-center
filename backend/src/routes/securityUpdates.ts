@@ -1,6 +1,7 @@
 import express from 'express';
 import { supabase } from '../server';
-import { requireAdmin } from '../middleware/auth';
+import { requireAdmin, AuthRequest } from '../middleware/auth';
+import { logActivity } from '../utils/activityLogger';
 
 const router = express.Router();
 
@@ -36,7 +37,7 @@ router.get('/', async (req, res) => {
 });
 
 // Create security update (admin only)
-router.post('/', requireAdmin, async (req, res) => {
+router.post('/', requireAdmin, async (req: AuthRequest, res) => {
   try {
     const { data, error } = await supabase
       .from('security_updates')
@@ -49,6 +50,20 @@ router.post('/', requireAdmin, async (req, res) => {
 
     if (error) throw error;
 
+    // Log security update creation
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'create',
+      entityType: 'security_update',
+      entityId: data.id,
+      entityName: data.title,
+      newValue: data,
+      description: `Created security update: ${data.title}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     res.status(201).json(data);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -56,8 +71,15 @@ router.post('/', requireAdmin, async (req, res) => {
 });
 
 // Update security update (admin only)
-router.patch('/:id', requireAdmin, async (req, res) => {
+router.patch('/:id', requireAdmin, async (req: AuthRequest, res) => {
   try {
+    // Get existing data for comparison
+    const { data: existing } = await supabase
+      .from('security_updates')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+
     const { data, error } = await supabase
       .from('security_updates')
       .update(req.body)
@@ -67,6 +89,21 @@ router.patch('/:id', requireAdmin, async (req, res) => {
 
     if (error) throw error;
 
+    // Log security update edit
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'update',
+      entityType: 'security_update',
+      entityId: data.id,
+      entityName: data.title,
+      oldValue: existing,
+      newValue: data,
+      description: `Updated security update: ${data.title}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     res.json(data);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -74,14 +111,35 @@ router.patch('/:id', requireAdmin, async (req, res) => {
 });
 
 // Delete security update (admin only)
-router.delete('/:id', requireAdmin, async (req, res) => {
+router.delete('/:id', requireAdmin, async (req: AuthRequest, res) => {
   try {
+    // Get existing data for logging
+    const { data: existing } = await supabase
+      .from('security_updates')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+
     const { error } = await supabase
       .from('security_updates')
       .delete()
       .eq('id', req.params.id);
 
     if (error) throw error;
+
+    // Log security update deletion
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'delete',
+      entityType: 'security_update',
+      entityId: req.params.id,
+      entityName: existing?.title || 'Unknown',
+      oldValue: existing,
+      description: `Deleted security update: ${existing?.title || 'Unknown'}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
 
     res.json({ message: 'Security update deleted successfully' });
   } catch (error: any) {
@@ -90,4 +148,3 @@ router.delete('/:id', requireAdmin, async (req, res) => {
 });
 
 export default router;
-

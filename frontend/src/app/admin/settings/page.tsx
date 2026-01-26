@@ -6,6 +6,20 @@ import { apiRequestWithAuth } from '@/lib/api';
 import { TrustCenterSettings } from '@/types';
 import toast from 'react-hot-toast';
 
+// Default admin navigation items
+const DEFAULT_NAV_ITEMS = [
+  { key: 'dashboard', label: 'Dashboard', icon: 'home' },
+  { key: 'controls', label: 'Security Controls', icon: 'shield' },
+  { key: 'documents', label: 'Documents', icon: 'document' },
+  { key: 'certifications', label: 'Certifications', icon: 'badge' },
+  { key: 'security-updates', label: 'Security Updates', icon: 'bell' },
+  { key: 'requests', label: 'Requests', icon: 'clipboard' },
+  { key: 'organizations', label: 'Organizations', icon: 'building' },
+  { key: 'users', label: 'Users', icon: 'users' },
+  { key: 'activity', label: 'Activity Logs', icon: 'log' },
+  { key: 'settings', label: 'Settings', icon: 'cog' },
+];
+
 // Popular Google Fonts
 const googleFonts = [
   'Inter',
@@ -32,7 +46,13 @@ export default function SettingsAdminPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [token, setToken] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'general' | 'branding' | 'footer'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'navigation' | 'branding' | 'footer'>('general');
+
+  // Navigation ordering state
+  const [navOrder, setNavOrder] = useState<string[]>(DEFAULT_NAV_ITEMS.map(item => item.key));
+  const [draggedNavIndex, setDraggedNavIndex] = useState<number | null>(null);
+  const [dragOverNavIndex, setDragOverNavIndex] = useState<number | null>(null);
+  const dragNavNode = useRef<HTMLDivElement | null>(null);
 
   // Footer links state
   const [footerLinks, setFooterLinks] = useState<FooterLink[]>([]);
@@ -52,6 +72,10 @@ export default function SettingsAdminPage() {
           const data = await apiRequestWithAuth<TrustCenterSettings>('/api/admin/settings', session.access_token);
           setSettings(data);
           setFooterLinks(data.footer_links || []);
+          // Load saved nav order or use default
+          if (data.admin_nav_order && data.admin_nav_order.length > 0) {
+            setNavOrder(data.admin_nav_order);
+          }
         } catch (error) {
           console.error('Failed to load settings:', error);
           toast.error('Failed to load settings');
@@ -82,8 +106,17 @@ export default function SettingsAdminPage() {
         body: JSON.stringify({
           ...settings,
           footer_links: footerLinks,
+          admin_nav_order: navOrder,
         }),
       });
+
+      // Revalidate the cache to immediately show updated logo/favicon
+      try {
+        await fetch('/api/revalidate', { method: 'POST' });
+      } catch (e) {
+        console.warn('Cache revalidation failed, changes may take a moment to appear');
+      }
+
       toast.success('Settings saved successfully');
     } catch (error) {
       console.error('Failed to save settings:', error);
@@ -188,6 +221,7 @@ export default function SettingsAdminPage() {
         <nav className="flex gap-6">
           {[
             { id: 'general', label: 'General' },
+            { id: 'navigation', label: 'Navigation' },
             { id: 'branding', label: 'Branding & Colors' },
             { id: 'footer', label: 'Footer & Links' },
           ].map((tab) => (
@@ -271,6 +305,101 @@ export default function SettingsAdminPage() {
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500"
                   placeholder="<h2>About Our Security...</h2><p>We take security seriously...</p>"
                 />
+              </div>
+            </div>
+          )}
+
+          {/* Navigation Tab */}
+          {activeTab === 'navigation' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">Admin Sidebar Navigation</h3>
+                <p className="text-sm text-gray-500 mb-4">
+                  Drag and drop to reorder the navigation items in the admin sidebar.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                {navOrder.map((key, index) => {
+                  const item = DEFAULT_NAV_ITEMS.find(i => i.key === key);
+                  if (!item) return null;
+
+                  return (
+                    <div
+                      key={key}
+                      draggable
+                      onDragStart={(e) => {
+                        setDraggedNavIndex(index);
+                        dragNavNode.current = e.target as HTMLDivElement;
+                        dragNavNode.current.addEventListener('dragend', () => {
+                          if (dragNavNode.current) {
+                            dragNavNode.current.style.opacity = '1';
+                          }
+                          setDraggedNavIndex(null);
+                          setDragOverNavIndex(null);
+                          dragNavNode.current = null;
+                        });
+                        setTimeout(() => {
+                          if (dragNavNode.current) {
+                            dragNavNode.current.style.opacity = '0.5';
+                          }
+                        }, 0);
+                      }}
+                      onDragEnter={() => {
+                        if (draggedNavIndex !== null && index !== draggedNavIndex) {
+                          setDragOverNavIndex(index);
+                        }
+                      }}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        if (draggedNavIndex === null || draggedNavIndex === index) return;
+                        const newOrder = [...navOrder];
+                        const [draggedItem] = newOrder.splice(draggedNavIndex, 1);
+                        newOrder.splice(index, 0, draggedItem);
+                        setNavOrder(newOrder);
+                      }}
+                      className={`flex items-center gap-3 p-3 border rounded-lg transition-all cursor-grab active:cursor-grabbing ${dragOverNavIndex === index
+                          ? 'border-blue-500 border-2 bg-blue-50'
+                          : 'border-gray-200 bg-white hover:bg-gray-50'
+                        } ${draggedNavIndex === index ? 'opacity-50' : ''}`}
+                    >
+                      {/* Drag Handle */}
+                      <div className="flex-shrink-0 text-gray-400">
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                          <circle cx="9" cy="6" r="1.5" />
+                          <circle cx="15" cy="6" r="1.5" />
+                          <circle cx="9" cy="12" r="1.5" />
+                          <circle cx="15" cy="12" r="1.5" />
+                          <circle cx="9" cy="18" r="1.5" />
+                          <circle cx="15" cy="18" r="1.5" />
+                        </svg>
+                      </div>
+
+                      {/* Order Number */}
+                      <span className="w-6 h-6 flex items-center justify-center bg-gray-100 rounded text-sm font-medium text-gray-600">
+                        {index + 1}
+                      </span>
+
+                      {/* Item Label */}
+                      <span className="font-medium text-gray-900">{item.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Reset Button */}
+              <div className="pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setNavOrder(DEFAULT_NAV_ITEMS.map(item => item.key))}
+                  className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Reset to Default Order
+                </button>
               </div>
             </div>
           )}
