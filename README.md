@@ -1,6 +1,6 @@
 # Trust Center
 
-An open-source security trust center platform. Built with Next.js 15, Docker, and Supabase, featuring organization-level document approval, magic link access, and comprehensive admin management.
+An open-source security trust center platform. Built with Next.js 15, Docker, and Supabase, featuring organization-level document approval, magic link access, and comprehensive admin management
 
 ## Features
 
