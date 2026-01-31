@@ -132,6 +132,7 @@ import settingsRoutes from './routes/settings';
 import accessRoutes from './routes/access';
 import controlsRoutes from './routes/controls';
 import adminRoutes from './routes/admin';
+import exportRoutes from './routes/export';
 
 // Mount routes
 app.use('/api/auth', authRoutes);
@@ -146,6 +147,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/access', accessRoutes);
 app.use('/api', controlsRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/export', exportRoutes);
 
 
 // Error handling middleware

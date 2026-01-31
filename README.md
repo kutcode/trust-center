@@ -183,6 +183,15 @@ docker-compose exec supabase-db psql -U postgres -d postgres
 - `GET /api/organizations` - List organizations
 - `PATCH /api/admin/settings` - Update trust center settings
 
+### Export Endpoints (Require Authentication)
+
+- `GET /api/export` - Full Trust Center export (JSON)
+- `GET /api/export/certifications` - Export certifications (JSON/CSV)
+- `GET /api/export/controls` - Export controls and categories (JSON/CSV)
+- `GET /api/export/documents` - Export document metadata (JSON/CSV)
+- `GET /api/export/security-updates` - Export security updates (JSON/CSV)
+- `GET /api/export/subprocessors` - Export subprocessors (JSON/CSV)
+
 See the plan document for complete API documentation.
 
 ## How It Works

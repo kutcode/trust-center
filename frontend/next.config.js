@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Enable standalone output for optimized Docker builds
+  output: 'standalone',
   // Configure images from external sources
   images: {
     remotePatterns: [
@@ -13,8 +15,17 @@ const nextConfig = {
         protocol: 'https',
         hostname: '*.supabase.co',
       },
+      {
+        protocol: 'https',
+        hostname: '*.railway.app',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.onrender.com',
+      },
     ],
   },
 };
 
 module.exports = nextConfig;
+
