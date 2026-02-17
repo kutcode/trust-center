@@ -366,11 +366,10 @@ async function sendWithSMTP(data: EmailData): Promise<void> {
  * Validates email and routes to appropriate provider
  */
 export async function sendEmail(data: EmailData): Promise<void> {
-  // In demo mode, mock all email sends
+  // In demo mode, log but still send real emails if a provider is configured
   if (process.env.DEMO_MODE === 'true') {
     const emailDomain = sanitizeEmailForLogging(data.to);
-    console.log(`[DEMO] Email mock-sent to ${emailDomain}: "${data.subject}"`);
-    return;
+    console.log(`[DEMO] Sending real email to ${emailDomain}: "${data.subject}"`);
   }
 
   // Validate email address
