@@ -50,7 +50,7 @@ export default function DemoBanner() {
                 </div>
             </div>
             {/* Spacer to prevent content from being hidden behind the fixed banner */}
-            <div className="h-10" />
+            <div className="h-9" />
         </>
     );
 }

@@ -266,9 +266,11 @@ export default function AdminSidebar() {
         return pathname.startsWith(href);
     };
 
+    const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+
     return (
         <aside
-            className={`fixed left-0 top-0 h-full bg-slate-900 text-white transition-all duration-300 z-50 flex flex-col ${collapsed ? 'w-16' : 'w-64'
+            className={`fixed left-0 ${isDemoMode ? 'top-9' : 'top-0'} ${isDemoMode ? 'h-[calc(100%-2.25rem)]' : 'h-full'} bg-slate-900 text-white transition-all duration-300 z-50 flex flex-col ${collapsed ? 'w-16' : 'w-64'
                 }`}
         >
             {/* Logo & Collapse Button */}

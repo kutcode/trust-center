@@ -185,7 +185,7 @@ export default function HeaderClient({ companyName, primaryColor, logoUrl }: Hea
 
     return (
         <>
-            <header className={`bg-white shadow-sm border-b border-gray-200 sticky ${isDemoMode ? 'top-10' : 'top-0'} z-40`}>
+            <header className={`bg-white shadow-sm border-b border-gray-200 sticky ${isDemoMode ? 'top-9' : 'top-0'} z-40`}>
                 <div className="container mx-auto px-4 py-3">
                     <nav className="flex items-center justify-between gap-4">
                         {/* Logo */}
