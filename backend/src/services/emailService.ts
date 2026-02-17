@@ -377,9 +377,10 @@ export async function sendEmail(data: EmailData): Promise<void> {
     throw new Error('Invalid email address format');
   }
 
-  // Check blocked domains in production
+  // Check blocked domains in production (skip in demo mode so visitors can test)
   const isProduction = process.env.NODE_ENV === 'production';
-  if (isBlockedDomain(data.to, isProduction)) {
+  const isDemoMode = process.env.DEMO_MODE === 'true';
+  if (!isDemoMode && isBlockedDomain(data.to, isProduction)) {
     throw new Error('Email domain is not allowed');
   }
 
