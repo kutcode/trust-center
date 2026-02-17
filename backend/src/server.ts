@@ -37,6 +37,13 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+// Demo mode middleware (safety guardrails for public demo)
+import { demoModeMiddleware, DEMO_MODE } from './middleware/demoMode';
+if (DEMO_MODE) {
+  console.log('🎭 DEMO MODE is ACTIVE — safety guardrails enabled');
+}
+app.use(demoModeMiddleware);
+
 // Request logging
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);

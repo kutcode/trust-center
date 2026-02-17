@@ -124,17 +124,17 @@ function getSMTPTransporter(): nodemailer.Transporter {
  */
 function sanitizeError(error: Error): Error {
   const message = error.message;
-  
+
   // Remove API keys (Resend keys start with 're_')
   let sanitized = message.replace(/re_[a-zA-Z0-9_-]+/g, '[API_KEY_REDACTED]');
-  
+
   // Remove email addresses
   sanitized = sanitized.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '[EMAIL_REDACTED]');
-  
+
   // Remove passwords or tokens
   sanitized = sanitized.replace(/password[=:]\s*[^\s]+/gi, 'password=[REDACTED]');
   sanitized = sanitized.replace(/token[=:]\s*[^\s]+/gi, 'token=[REDACTED]');
-  
+
   return new Error(sanitized);
 }
 
@@ -366,6 +366,13 @@ async function sendWithSMTP(data: EmailData): Promise<void> {
  * Validates email and routes to appropriate provider
  */
 export async function sendEmail(data: EmailData): Promise<void> {
+  // In demo mode, mock all email sends
+  if (process.env.DEMO_MODE === 'true') {
+    const emailDomain = sanitizeEmailForLogging(data.to);
+    console.log(`[DEMO] Email mock-sent to ${emailDomain}: "${data.subject}"`);
+    return;
+  }
+
   // Validate email address
   if (!validateEmailAddress(data.to)) {
     throw new Error('Invalid email address format');

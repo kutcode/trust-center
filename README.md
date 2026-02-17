@@ -2,6 +2,10 @@
 
 An open-source security trust center platform. Built with Next.js 15, Docker, and Supabase, featuring organization-level document approval, magic link access, and comprehensive admin management.
 
+> 🎯 **[Try the Live Demo →](https://demo.trustcenter.dev)**
+> Explore the full Trust Center experience — public site and admin panel — with sample data. No setup required.
+> Demo credentials: `demo@trustcenter.io` / `demo1234`
+
 ## Features
 
 - **Public Security Documentation**: Display compliance certifications, security updates, and public documents

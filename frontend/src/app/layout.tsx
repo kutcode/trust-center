@@ -4,6 +4,7 @@ import ConditionalLayout from '@/components/layout/ConditionalLayout';
 import ToastProvider from '@/components/providers/ToastProvider';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
+import DemoBanner from '@/components/DemoBanner';
 import { getSettings } from '@/lib/api';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -28,6 +29,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="flex flex-col min-h-screen">
+        <DemoBanner />
         <ConditionalLayout header={<Header />} footer={<Footer />}>
           {children}
           <ToastProvider />

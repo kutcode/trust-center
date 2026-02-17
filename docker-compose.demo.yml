@@ -1,0 +1,55 @@
+# Docker Compose override for demo environment
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.demo.yml up --build
+
+services:
+  backend:
+    environment:
+      NODE_ENV: production
+      DEMO_MODE: "true"
+      DEMO_ADMIN_EMAIL: "demo@trustcenter.io"
+      DEMO_ADMIN_PASSWORD: "demo1234"
+      EMAIL_PROVIDER: mailpit
+      # Override CORS for demo domain
+      FRONTEND_URL: ${DEMO_FRONTEND_URL:-http://localhost:3000}
+
+  frontend:
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_DEMO_MODE: "true"
+      NEXT_PUBLIC_DEMO_EMAIL: "demo@trustcenter.io"
+      NEXT_PUBLIC_DEMO_PASSWORD: "demo1234"
+      NEXT_PUBLIC_API_URL: ${DEMO_API_URL:-http://localhost:4000}
+      NEXT_PUBLIC_SUPABASE_URL: ${DEMO_SUPABASE_URL:-http://localhost:8000}
+
+  # Cron service that resets demo data every hour
+  demo-reset:
+    image: postgres:15-alpine
+    container_name: trust-center-demo-reset
+    environment:
+      PGHOST: supabase-db
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    volumes:
+      - ./scripts/reset-demo.sh:/reset-demo.sh:ro
+      - ./supabase/migrations:/migrations:ro
+    entrypoint: [ "/bin/sh", "-c" ]
+    command:
+      - |
+        echo "Demo reset service started. Will reset every hour."
+        # Initial reset
+        sh /reset-demo.sh
+        # Then repeat every hour
+        while true; do
+          sleep 3600
+          echo "[$(date)] Running scheduled demo reset..."
+          sh /reset-demo.sh
+          echo "[$(date)] Demo reset complete."
+        done
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+    networks:
+      - trust-center-network
+    restart: unless-stopped
