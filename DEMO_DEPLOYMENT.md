@@ -1,130 +1,134 @@
 # 🚀 Live Demo Deployment Guide
 
-Deploy a public demo instance of the Trust Center so users can explore features without local setup.
-
-## Prerequisites
-
-- A [Railway](https://railway.app) account (free tier works)
-- Git repository pushed to GitHub
-- The `feature/live-demo` branch
+Deploy the Trust Center demo using **Supabase Cloud** (database + auth) and **Railway** (backend + frontend).
 
 ## Architecture
 
-The demo runs a streamlined version of the stack:
-
-| Service | Purpose |
-|---------|---------|
-| `supabase-db` | PostgreSQL database |
-| `supabase-auth` | Authentication (GoTrue) |
-| `supabase-kong` | API gateway |
-| `supabase-rest` | PostgREST for DB queries |
-| `supabase-meta` | Postgres metadata |
-| `backend` | Express API server |
-| `frontend` | Next.js web app |
-| `demo-reset` | Hourly database reset |
-
-**Excluded from demo:** pgAdmin, Mailpit, Supabase Studio (not needed for public demo).
-
-## Deploy to Railway
-
-### 1. Create Railway Project
-
-```bash
-# Install Railway CLI (if needed)
-npm install -g @railway/cli
-
-# Login
-railway login
-
-# Create project
-railway init
+```
+┌──────────────────┐     ┌──────────────────┐
+│  Railway Service  │     │  Railway Service  │
+│    (Backend)      │◄───►│    (Frontend)     │
+│  Express API      │     │  Next.js App      │
+└────────┬─────────┘     └──────────────────┘
+         │
+         ▼
+┌──────────────────┐
+│  Supabase Cloud   │
+│  (Free Tier)      │
+│  - PostgreSQL     │
+│  - Auth (GoTrue)  │
+│  - Storage        │
+└──────────────────┘
 ```
 
-### 2. Configure Environment Variables
+## Step 1: Create Supabase Cloud Project
 
-Set these in Railway's dashboard or via CLI:
+1. Go to [supabase.com](https://supabase.com) and create a free account
+2. Create a new project — pick any name and set a database password
+3. Wait for it to provision (~2 minutes)
+4. From **Project Settings → API**, copy:
+   - **Project URL** (e.g., `https://xxxxx.supabase.co`)
+   - **anon public key**
+   - **service_role secret key**
+
+5. Run the migrations against your Supabase DB. Go to **SQL Editor** in the Supabase dashboard and paste + run each migration file from `supabase/migrations/` **in order** (000 through 021).
+
+6. Create the demo admin user:
+   - Go to **Authentication → Users → Add User**
+   - Email: `demo@trustcenter.io`, Password: `demo1234`
+   - Copy the user UUID
+   - In **SQL Editor**, run:
+     ```sql
+     INSERT INTO admin_users (id, email, full_name, role)
+     VALUES ('<user-uuid>', 'demo@trustcenter.io', 'Demo Admin', 'admin');
+     ```
+
+7. Run the demo seed data — paste the INSERT statements from `scripts/reset-demo.sh` (the SQL section) into the SQL Editor.
+
+## Step 2: Deploy Backend to Railway
+
+1. Go to [railway.app](https://railway.app) and connect your GitHub repo
+2. Click **New Service → GitHub Repo → trust-center**
+3. **Important:** In the service settings:
+   - Set **Root Directory** to `/backend`
+   - Railway will detect the `Dockerfile` automatically
+4. Add these **environment variables**:
 
 ```env
-# Demo Mode
+NODE_ENV=production
+PORT=4000
 DEMO_MODE=true
+
+# From Supabase dashboard
+SUPABASE_URL=https://xxxxx.supabase.co
+SUPABASE_ANON_KEY=eyJ...your-anon-key
+SUPABASE_SERVICE_KEY=eyJ...your-service-key
+DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@db.xxxxx.supabase.co:5432/postgres
+JWT_SECRET=your-supabase-jwt-secret
+
+# Email (mocked in demo mode, but still needed)
+EMAIL_PROVIDER=mailpit
+SMTP_FROM=noreply@trustcenter.demo
+
+# CORS — set after frontend deploys
+FRONTEND_URL=https://your-frontend.up.railway.app
+```
+
+5. Deploy and note the generated URL (e.g., `https://trust-center-backend-production.up.railway.app`)
+
+## Step 3: Deploy Frontend to Railway
+
+1. In the same Railway project, click **New Service → GitHub Repo → trust-center**
+2. **Important:** In the service settings:
+   - Set **Root Directory** to `/frontend`
+   - Railway will detect the `Dockerfile` automatically
+3. Add these **environment variables**:
+
+```env
+NODE_ENV=production
 NEXT_PUBLIC_DEMO_MODE=true
 NEXT_PUBLIC_DEMO_EMAIL=demo@trustcenter.io
 NEXT_PUBLIC_DEMO_PASSWORD=demo1234
 
-# Supabase (these use the default demo keys)
-ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
-SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
-JWT_SECRET=super-secret-jwt-token-with-at-least-32-characters-long
+# Backend URL from Step 2
+NEXT_PUBLIC_API_URL=https://your-backend.up.railway.app
+API_URL=https://your-backend.up.railway.app
 
-# URLs (update with your Railway URLs after deployment)
-DEMO_FRONTEND_URL=https://your-app.up.railway.app
-DEMO_API_URL=https://your-api.up.railway.app
-DEMO_SUPABASE_URL=https://your-supabase.up.railway.app
+# Supabase (public keys only)
+NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...your-anon-key
 ```
 
-### 3. Deploy with Docker Compose
+4. Deploy and note the generated URL
 
-```bash
-# Use the demo overlay
-docker-compose -f docker-compose.yml -f docker-compose.demo.yml up --build -d
+## Step 4: Update CORS
+
+Go back to the **backend** service in Railway and update:
+```env
+FRONTEND_URL=https://your-frontend.up.railway.app
 ```
 
-### 4. Create Demo Admin User
+Redeploy the backend.
 
-After the stack is running, create the demo admin:
+## Step 5: Custom Domain (Optional)
 
-```bash
-# Connect to the auth service and create the demo user
-curl -X POST http://localhost:9999/admin/users \
-  -H "Authorization: Bearer YOUR_SERVICE_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "demo@trustcenter.io",
-    "password": "demo1234",
-    "email_confirm": true,
-    "user_metadata": {"full_name": "Demo Admin"}
-  }'
+In Railway:
+1. Go to your frontend service → Settings → Networking → Custom Domain
+2. Add `demo.trustcenter.dev` (or your choice)
+3. Configure DNS as instructed
 
-# Then add to admin_users table
-docker exec trust-center-db psql -U postgres -c "
-  INSERT INTO admin_users (id, email, full_name, role)
-  SELECT id, email, raw_user_meta_data->>'full_name', 'admin'
-  FROM auth.users
-  WHERE email = 'demo@trustcenter.io'
-  ON CONFLICT (id) DO NOTHING;
-"
-```
+## Verification
 
-### 5. Custom Domain (Optional)
+- Visit the frontend URL — you should see the demo banner
+- Click "Try Admin Panel" → login page should pre-fill credentials
+- Click "Login as Demo Admin" → should enter the admin dashboard
+- Browse documents, certifications, settings — all sample data visible
 
-In Railway dashboard → Settings → Domains, add your custom domain (e.g., `demo.trustcenter.dev`).
+## Troubleshooting
 
-## Local Testing
-
-Test the demo setup locally before deploying:
-
-```bash
-# Start demo stack
-docker-compose -f docker-compose.yml -f docker-compose.demo.yml up --build
-
-# Visit:
-# - Public site: http://localhost:3000
-# - Admin panel: http://localhost:3000/admin/login
-# - Demo banner should appear at top of every page
-```
-
-## Monitoring
-
-- **Demo reset logs:** `docker logs trust-center-demo-reset -f`
-- **Backend logs:** `docker logs trust-center-backend -f`
-- **Frontend logs:** `docker logs trust-center-frontend -f`
-
-## How Demo Mode Works
-
-| Feature | Behavior |
-|---------|----------|
-| **Email** | All emails are silently mocked (no real delivery) |
-| **Signup** | Disabled — only pre-created demo admin can log in |
-| **Data** | Resets to clean sample state every hour |
-| **Banner** | Persistent banner on all pages linking to GitHub |
-| **Admin** | Full admin panel access with demo credentials |
+| Issue | Solution |
+|-------|----------|
+| CORS errors | Make sure `FRONTEND_URL` in backend matches frontend URL exactly |
+| Auth failures | Verify `SUPABASE_URL` and keys match your Supabase project |
+| 404 on API calls | Check `NEXT_PUBLIC_API_URL` points to backend Railway URL |
+| Build fails | Check Railway logs — make sure root directory is set correctly |
