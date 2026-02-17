@@ -1,12 +1,12 @@
 import { TrustCenterSettings } from '@/types';
 import { cache } from 'react';
 
-// Use different URLs for server-side (Docker network) vs client-side (browser)
+// Use different URLs for server-side vs client-side
 const getApiUrl = () => {
   // Check if we're on the server
   if (typeof window === 'undefined') {
-    // Server-side: use Docker network URL
-    return process.env.API_URL || 'http://trust-center-backend:4000';
+    // Server-side: prefer API_URL (Docker network), fall back to NEXT_PUBLIC_API_URL (Railway/cloud)
+    return process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
   }
   // Client-side: use public URL
   return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
