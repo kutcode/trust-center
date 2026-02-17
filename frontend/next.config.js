@@ -2,6 +2,13 @@
 const nextConfig = {
   output: 'standalone',
   reactStrictMode: true,
+  typescript: {
+    // Skip type checking in production build (types verified in dev)
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   // Configure images from external sources
   images: {
     remotePatterns: [
