@@ -181,9 +181,11 @@ export default function HeaderClient({ companyName, primaryColor, logoUrl }: Hea
         router.push(result.url);
     };
 
+    const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+
     return (
         <>
-            <header className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
+            <header className={`bg-white shadow-sm border-b border-gray-200 sticky ${isDemoMode ? 'top-10' : 'top-0'} z-40`}>
                 <div className="container mx-auto px-4 py-3">
                     <nav className="flex items-center justify-between gap-4">
                         {/* Logo */}
