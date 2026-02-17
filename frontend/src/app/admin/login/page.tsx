@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 
 const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 const DEMO_EMAIL = process.env.NEXT_PUBLIC_DEMO_EMAIL || 'demo@trustcenter.io';
-const DEMO_PASSWORD = process.env.NEXT_PUBLIC_DEMO_PASSWORD || 'demo1234';
+const DEMO_PASSWORD = process.env.NEXT_PUBLIC_DEMO_PASSWORD || 'demo123';
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState(isDemoMode ? DEMO_EMAIL : '');

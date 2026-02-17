@@ -35,7 +35,7 @@ Deploy the Trust Center demo using **Supabase Cloud** (database + auth) and **Ra
 
 6. Create the demo admin user:
    - Go to **Authentication → Users → Add User**
-   - Email: `demo@trustcenter.io`, Password: `demo1234`
+   - Email: `demo@trustcenter.io`, Password: `demo123`
    - Copy the user UUID
    - In **SQL Editor**, run:
      ```sql
@@ -88,7 +88,7 @@ FRONTEND_URL=https://your-frontend.up.railway.app
 NODE_ENV=production
 NEXT_PUBLIC_DEMO_MODE=true
 NEXT_PUBLIC_DEMO_EMAIL=demo@trustcenter.io
-NEXT_PUBLIC_DEMO_PASSWORD=demo1234
+NEXT_PUBLIC_DEMO_PASSWORD=demo123
 
 # Backend URL from Step 2
 NEXT_PUBLIC_API_URL=https://your-backend.up.railway.app

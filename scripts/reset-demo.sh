@@ -199,4 +199,4 @@ ON CONFLICT DO NOTHING;
 "
 
 echo "=== Demo Reset Complete ==="
-echo "Demo admin: demo@trustcenter.io / demo1234"
+echo "Demo admin: demo@trustcenter.io / demo123"

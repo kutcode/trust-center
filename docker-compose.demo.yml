@@ -7,7 +7,7 @@ services:
       NODE_ENV: production
       DEMO_MODE: "true"
       DEMO_ADMIN_EMAIL: "demo@trustcenter.io"
-      DEMO_ADMIN_PASSWORD: "demo1234"
+      DEMO_ADMIN_PASSWORD: "demo123"
       EMAIL_PROVIDER: mailpit
       # Override CORS for demo domain
       FRONTEND_URL: ${DEMO_FRONTEND_URL:-http://localhost:3000}
@@ -17,7 +17,7 @@ services:
       NODE_ENV: production
       NEXT_PUBLIC_DEMO_MODE: "true"
       NEXT_PUBLIC_DEMO_EMAIL: "demo@trustcenter.io"
-      NEXT_PUBLIC_DEMO_PASSWORD: "demo1234"
+      NEXT_PUBLIC_DEMO_PASSWORD: "demo123"
       NEXT_PUBLIC_API_URL: ${DEMO_API_URL:-http://localhost:4000}
       NEXT_PUBLIC_SUPABASE_URL: ${DEMO_SUPABASE_URL:-http://localhost:8000}
 

@@ -16,6 +16,8 @@ export const DEMO_MODE = process.env.DEMO_MODE === 'true';
 const BLOCKED_ROUTES: Array<{ method: string; pattern: RegExp; message: string }> = [
     // Block signup (demo has fixed admin accounts)
     { method: 'POST', pattern: /^\/api\/auth\/signup$/, message: 'Signup is disabled in demo mode. Use the demo admin credentials to log in.' },
+    // Block deleting admin users (protect demo admin)
+    { method: 'DELETE', pattern: /^\/api\/admin\/users\//, message: 'Deleting users is disabled in demo mode to protect the demo admin account.' },
 ];
 
 // Routes where we allow operations but with limits

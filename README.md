@@ -4,7 +4,7 @@ An open-source security trust center platform. Built with Next.js 15, Docker, an
 
 > 🎯 **[Try the Live Demo →](https://demo.trustcenter.dev)**
 > Explore the full Trust Center experience — public site and admin panel — with sample data. No setup required.
-> Demo credentials: `demo@trustcenter.io` / `demo1234`
+> Demo credentials: `demo@trustcenter.io` / `demo123`
 
 ## Features
 
