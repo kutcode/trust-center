@@ -108,27 +108,30 @@ router.get('/:token/download/:document_id', async (req, res) => {
       return res.status(404).json({ error: 'Document not found' });
     }
 
-    // Check if NDA is required - only enforce if NDA URL is configured in settings
-    const { data: settings } = await supabase
-      .from('trust_center_settings')
-      .select('nda_url')
-      .limit(1)
-      .single();
-
-    const ndaRequired = settings?.nda_url && settings.nda_url.trim() !== '';
-
-    if (ndaRequired) {
-      const { data: acceptance } = await supabase
-        .from('nda_acceptances')
-        .select('id')
-        .eq('email', request.requester_email)
+    // Check if NDA is required - only enforce for auto_approved requests
+    // Admin-approved requests bypass NDA since an admin explicitly approved
+    if (request.status === 'auto_approved') {
+      const { data: settings } = await supabase
+        .from('trust_center_settings')
+        .select('nda_url')
+        .limit(1)
         .single();
 
-      if (!acceptance) {
-        return res.status(403).json({
-          error: 'NDA_REQUIRED',
-          message: 'You must accept the Non-Disclosure Agreement before accessing this document.'
-        });
+      const ndaRequired = settings?.nda_url && settings.nda_url.trim() !== '';
+
+      if (ndaRequired) {
+        const { data: acceptance } = await supabase
+          .from('nda_acceptances')
+          .select('id')
+          .eq('email', request.requester_email)
+          .single();
+
+        if (!acceptance) {
+          return res.status(403).json({
+            error: 'NDA_REQUIRED',
+            message: 'You must accept the Non-Disclosure Agreement before accessing this document.'
+          });
+        }
       }
     }
 
