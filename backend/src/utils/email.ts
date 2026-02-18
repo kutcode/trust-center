@@ -76,7 +76,9 @@ export const sendMagicLinkEmail = async (data: MagicLinkEmailData): Promise<void
 
   // Generate individual download links for each document
   // Use the public-facing backend URL for download links
-  const backendUrl = process.env.BACKEND_PUBLIC_URL || process.env.API_URL || 'http://localhost:4000';
+  // Railway provides RAILWAY_PUBLIC_DOMAIN automatically
+  const railwayDomain = process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null;
+  const backendUrl = process.env.BACKEND_PUBLIC_URL || railwayDomain || process.env.API_URL || 'http://localhost:4000';
   const documentLinks = data.documents.map(doc => {
     const downloadUrl = `${backendUrl}/api/access/${data.magicLinkToken}/download/${doc.id}`;
     return `
