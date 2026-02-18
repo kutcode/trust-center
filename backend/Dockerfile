@@ -13,10 +13,13 @@ COPY . .
 RUN npm run build
 
 # Create uploads directory
-RUN mkdir -p /app/uploads
+RUN mkdir -p /app/uploads/documents
+
+# Make startup script executable
+RUN chmod +x /app/scripts/start.sh
 
 # Expose port
 EXPOSE 4000
 
-# Start production server
-CMD ["node", "dist/server.js"]
+# Use startup script (generates demo PDFs in demo mode, then starts server)
+CMD ["/bin/sh", "/app/scripts/start.sh"]
