@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Install dependencies
 COPY package*.json ./
-RUN npm ci --only=production && npm install typescript @types/node @types/express @types/cors @types/multer @types/jsonwebtoken @types/nodemailer
+RUN npm install --only=production && npm install typescript @types/node @types/express @types/cors @types/multer @types/jsonwebtoken @types/nodemailer
 
 # Copy source code
 COPY . .
