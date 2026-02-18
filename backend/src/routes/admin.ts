@@ -233,8 +233,10 @@ router.patch('/document-requests/:id/approve', requireAdmin, async (req: AuthReq
       };
 
       // Set status to conditional if not already set (first approval)
-      if (!org.status || org.status === 'no_access') {
+      if (!org.status || org.status === 'no_access' || org.status === 'archived') {
         updateData.status = 'conditional';
+        updateData.is_active = true;
+        updateData.revoked_at = null;
       }
 
       await supabase
@@ -894,8 +896,8 @@ router.patch('/organizations/:id/status', requireAdmin, async (req: AuthRequest,
     const { id } = req.params;
     const { status } = req.body;
 
-    if (!status || !['whitelisted', 'conditional', 'no_access'].includes(status)) {
-      return res.status(400).json({ error: 'Status is required and must be whitelisted, conditional, or no_access' });
+    if (!status || !['whitelisted', 'conditional', 'no_access', 'archived'].includes(status)) {
+      return res.status(400).json({ error: 'Status is required and must be whitelisted, conditional, no_access, or archived' });
     }
 
     // Get current org data for logging
@@ -909,12 +911,14 @@ router.patch('/organizations/:id/status', requireAdmin, async (req: AuthRequest,
       status,
     };
 
-    // Set revoked_at when status changes to no_access
-    if (status === 'no_access') {
+    // Set revoked_at when status changes to no_access or archived
+    if (status === 'no_access' || status === 'archived') {
       updateData.revoked_at = new Date().toISOString();
+      updateData.is_active = false;
     } else {
-      // Clear revoked_at when status changes away from no_access
+      // Clear revoked_at and reactivate when status changes to active status
       updateData.revoked_at = null;
+      updateData.is_active = true;
     }
 
     const { data, error } = await supabase
@@ -956,7 +960,7 @@ router.delete('/organizations/:id', requireAdmin, async (req: AuthRequest, res) 
       .from('organizations')
       .update({
         is_active: false,
-        status: 'no_access',
+        status: 'archived',
         revoked_at: new Date().toISOString(),
       })
       .eq('id', id)
@@ -974,14 +978,14 @@ router.delete('/organizations/:id', requireAdmin, async (req: AuthRequest, res) 
       entityId: id,
       entityName: data.name,
       oldValue: { is_active: true },
-      newValue: { is_active: false, status: 'no_access' },
-      description: `Removed organization: ${data.name}`,
+      newValue: { is_active: false, status: 'archived' },
+      description: `Archived organization: ${data.name}`,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
     });
 
     res.json({
-      message: 'Organization revoked successfully. Future access blocked.',
+      message: 'Organization archived successfully. Can be restored later.',
       organization: data
     });
   } catch (error: any) {

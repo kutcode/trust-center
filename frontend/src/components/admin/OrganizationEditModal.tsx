@@ -23,7 +23,7 @@ export default function OrganizationEditModal({
     name: '',
     email_domain: '',
     notes: '',
-    status: 'conditional' as 'whitelisted' | 'conditional' | 'no_access',
+    status: 'conditional' as 'whitelisted' | 'conditional' | 'no_access' | 'archived',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +57,7 @@ export default function OrganizationEditModal({
 
       // Check if status is changing
       const statusChanged = formData.status !== organization.status;
-      
+
       if (statusChanged && !statusChangeConfirm) {
         // Show confirmation dialog
         setStatusChangeConfirm(formData.status);
@@ -104,7 +104,7 @@ export default function OrganizationEditModal({
     }
   };
 
-  const handleStatusChange = (newStatus: 'whitelisted' | 'conditional' | 'no_access') => {
+  const handleStatusChange = (newStatus: 'whitelisted' | 'conditional' | 'no_access' | 'archived') => {
     setFormData({ ...formData, status: newStatus });
   };
 
@@ -116,6 +116,8 @@ export default function OrganizationEditModal({
         return 'Documents approved on a case-by-case basis';
       case 'no_access':
         return 'All requests from this organization will be blocked';
+      case 'archived':
+        return 'Organization is archived and can be restored later';
       default:
         return '';
     }
@@ -148,7 +150,7 @@ export default function OrganizationEditModal({
               <button
                 onClick={() => {
                   setStatusChangeConfirm(null);
-                  handleSubmit({ preventDefault: () => {} } as React.FormEvent);
+                  handleSubmit({ preventDefault: () => { } } as React.FormEvent);
                 }}
                 className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
               >
@@ -206,6 +208,7 @@ export default function OrganizationEditModal({
                 <option value="conditional">Conditional</option>
                 <option value="whitelisted">Whitelisted</option>
                 <option value="no_access">No Access</option>
+                <option value="archived">Archived</option>
               </select>
               <p className="mt-1 text-sm text-gray-600">{getStatusDescription(formData.status)}</p>
             </div>
