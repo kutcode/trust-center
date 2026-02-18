@@ -112,22 +112,10 @@ export const canAutoApproveDocument = async (
 ): Promise<boolean> => {
   const accessCheck = await checkOrganizationAccess(organizationId);
 
-  // Whitelisted organizations auto-approve all documents
+  // Only whitelisted organizations auto-approve documents
+  // Conditional organizations always require manual approval
   if (accessCheck.autoApproveAll) {
     return true;
-  }
-
-  // Conditional organizations only auto-approve documents in their approved list
-  if (accessCheck.status === 'conditional') {
-    const { data: org } = await supabase
-      .from('organizations')
-      .select('approved_document_ids')
-      .eq('id', organizationId)
-      .single();
-
-    if (org && org.approved_document_ids) {
-      return org.approved_document_ids.includes(documentId);
-    }
   }
 
   return false;
