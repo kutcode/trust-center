@@ -73,6 +73,7 @@ export const getOrCreateOrganization = async (
 export const checkOrganizationAccess = async (organizationId: string): Promise<{
   hasAccess: boolean;
   autoApproveAll: boolean;
+  isArchived: boolean;
   status: 'whitelisted' | 'conditional' | 'no_access' | null;
 }> => {
   const { data: org, error } = await supabase
@@ -82,22 +83,24 @@ export const checkOrganizationAccess = async (organizationId: string): Promise<{
     .single();
 
   if (error || !org) {
-    return { hasAccess: false, autoApproveAll: false, status: null };
+    return { hasAccess: false, autoApproveAll: false, isArchived: false, status: null };
   }
 
   // Only block if status is explicitly no_access
   // Archived orgs (is_active=false, status=conditional) can still submit requests
   if (org.status === 'no_access') {
-    return { hasAccess: false, autoApproveAll: false, status: org.status as any };
+    return { hasAccess: false, autoApproveAll: false, isArchived: false, status: org.status as any };
   }
 
-  // Whitelisted organizations auto-approve all documents
-  if (org.status === 'whitelisted') {
-    return { hasAccess: true, autoApproveAll: true, status: 'whitelisted' };
+  const isArchived = !org.is_active;
+
+  // Whitelisted organizations auto-approve all documents (but not if archived)
+  if (org.status === 'whitelisted' && !isArchived) {
+    return { hasAccess: true, autoApproveAll: true, isArchived: false, status: 'whitelisted' };
   }
 
-  // Conditional organizations need case-by-case approval
-  return { hasAccess: true, autoApproveAll: false, status: org.status as any };
+  // Conditional or archived organizations need case-by-case approval
+  return { hasAccess: true, autoApproveAll: false, isArchived, status: org.status as any };
 };
 
 /**

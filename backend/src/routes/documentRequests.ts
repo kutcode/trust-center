@@ -51,6 +51,9 @@ router.post('/', async (req, res) => {
       if (accessCheck.autoApproveAll) {
         approvedDocs = document_ids;
         pendingDocs = [];
+      } else if (accessCheck.isArchived) {
+        // Archived orgs: all docs go to pending, even previously approved ones
+        pendingDocs = document_ids;
       } else {
         // Conditional organizations: only approve documents in approved_document_ids
         for (const docId of document_ids) {
