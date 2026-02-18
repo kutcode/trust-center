@@ -116,6 +116,29 @@ router.get('/:token/download/:document_id', async (req, res) => {
     const filePath = path.join(UPLOADS_DIR, document.file_url);
 
     if (!fs.existsSync(filePath)) {
+      // In demo mode, generate a placeholder file since Railway's filesystem is ephemeral
+      if (process.env.DEMO_MODE === 'true') {
+        console.log(`[DEMO] File not found at ${filePath}, serving placeholder for ${document.file_name}`);
+
+        const placeholderContent = `
+=== DEMO DOCUMENT ===
+Title: ${document.file_name}
+Type: ${document.file_type || 'application/octet-stream'}
+
+This is a placeholder document from the Trust Center demo.
+The original file is not available in the demo environment.
+
+In a production deployment, the actual document would be 
+downloaded here after admin approval.
+
+Thank you for testing the Trust Center!
+===========================
+`;
+        res.setHeader('Content-Disposition', `attachment; filename="${document.file_name}"`);
+        res.setHeader('Content-Type', 'text/plain');
+        return res.send(placeholderContent);
+      }
+
       console.error(`File not found at ${filePath}`);
       return res.status(404).json({ error: 'File not found on server' });
     }
