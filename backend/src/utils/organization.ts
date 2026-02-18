@@ -49,7 +49,7 @@ export const getOrCreateOrganization = async (
 
   // Create new organization
   const orgName = companyName || emailDomain.split('.')[0].charAt(0).toUpperCase() + emailDomain.split('.')[0].slice(1);
-  
+
   const { data: newOrg, error } = await supabase
     .from('organizations')
     .insert({
@@ -85,8 +85,9 @@ export const checkOrganizationAccess = async (organizationId: string): Promise<{
     return { hasAccess: false, autoApproveAll: false, status: null };
   }
 
-  // No access if soft-deleted or status is no_access
-  if (!org.is_active || org.status === 'no_access') {
+  // Only block if status is explicitly no_access
+  // Archived orgs (is_active=false, status=conditional) can still submit requests
+  if (org.status === 'no_access') {
     return { hasAccess: false, autoApproveAll: false, status: org.status as any };
   }
 
