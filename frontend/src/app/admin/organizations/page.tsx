@@ -272,8 +272,9 @@ export default function OrganizationsAdminPage() {
               <p className="text-sm text-gray-700 mb-2">This will:</p>
               <ul className="text-sm text-gray-600 space-y-1 list-disc list-inside">
                 <li>Move the organization to the Archived section</li>
-                <li>Block future document requests</li>
+                <li>Keep their status as Conditional for your review</li>
                 <li>Preserve all audit trail and history</li>
+                <li>You can later set No Access or restore from the Archived tab</li>
               </ul>
             </div>
             <div className="flex gap-3">
