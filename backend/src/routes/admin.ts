@@ -213,11 +213,11 @@ router.patch('/document-requests/:id/approve', requireAdmin, async (req: AuthReq
 
     // If organization exists, add documents to approved list
     if (request.organization_id && request.organizations) {
-      // Check if organization has access (not blocked)
+      // Check if organization has access (only block no_access)
       const org = request.organizations as any;
-      if (org.status === 'no_access' || !org.is_active) {
+      if (org.status === 'no_access') {
         return res.status(403).json({
-          error: 'Cannot approve request. Organization access has been revoked.',
+          error: 'Cannot approve request. Organization has been blocked (No Access).',
           organization_status: org.status
         });
       }
@@ -232,8 +232,8 @@ router.patch('/document-requests/:id/approve', requireAdmin, async (req: AuthReq
         first_approved_at: org.first_approved_at || new Date().toISOString(),
       };
 
-      // Set status to conditional if not already set (first approval)
-      if (!org.status || org.status === 'no_access' || org.status === 'archived') {
+      // Restore archived orgs or set initial status
+      if (!org.status || org.status === 'no_access' || org.status === 'archived' || !org.is_active) {
         updateData.status = 'conditional';
         updateData.is_active = true;
         updateData.revoked_at = null;
