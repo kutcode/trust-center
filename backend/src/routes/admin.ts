@@ -960,7 +960,7 @@ router.delete('/organizations/:id', requireAdmin, async (req: AuthRequest, res) 
       .from('organizations')
       .update({
         is_active: false,
-        status: 'archived',
+        status: 'conditional',
         revoked_at: new Date().toISOString(),
       })
       .eq('id', id)
@@ -978,8 +978,8 @@ router.delete('/organizations/:id', requireAdmin, async (req: AuthRequest, res) 
       entityId: id,
       entityName: data.name,
       oldValue: { is_active: true },
-      newValue: { is_active: false, status: 'archived' },
-      description: `Archived organization: ${data.name}`,
+      newValue: { is_active: false, status: 'conditional' },
+      description: `Archived organization: ${data.name} (pending review)`,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
     });
