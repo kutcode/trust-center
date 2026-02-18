@@ -172,5 +172,52 @@ app.use((req, res) => {
 
 app.listen(PORT, () => {
   console.log(`🚀 Backend server running on port ${PORT}`);
+
+  // In demo mode, generate demo PDFs and seed database
+  if (DEMO_MODE) {
+    seedDemoDocuments();
+  }
 });
 
+async function seedDemoDocuments() {
+  const fs = await import('fs');
+  const path = await import('path');
+  const { execSync } = await import('child_process');
+
+  const UPLOADS_DIR = process.env.UPLOADS_DIR || '/app/uploads';
+  const checkFile = path.default.join(UPLOADS_DIR, 'documents', 'demo-soc2-type2-2025.pdf');
+
+  // Step 1: Generate PDF files if they don't exist
+  if (!fs.default.existsSync(checkFile)) {
+    console.log('[DEMO] Generating demo PDF documents...');
+    try {
+      const scriptPath = path.default.join(__dirname, '..', 'scripts', 'generate-demo-pdfs.js');
+      if (fs.default.existsSync(scriptPath)) {
+        execSync(`node ${scriptPath}`, { stdio: 'inherit', env: process.env as any });
+        console.log('[DEMO] Demo PDFs generated successfully');
+      } else {
+        console.warn('[DEMO] generate-demo-pdfs.js not found at', scriptPath);
+        return;
+      }
+    } catch (err: any) {
+      console.error('[DEMO] Failed to generate PDFs:', err.message);
+      return;
+    }
+  } else {
+    console.log('[DEMO] Demo PDF files already exist');
+  }
+
+  // Step 2: Seed document records into database
+  console.log('[DEMO] Seeding demo document records...');
+  try {
+    const scriptPath = path.default.join(__dirname, '..', 'scripts', 'seed-demo-documents.js');
+    if (fs.default.existsSync(scriptPath)) {
+      execSync(`node ${scriptPath}`, { stdio: 'inherit', env: process.env as any });
+      console.log('[DEMO] Demo document seeding complete');
+    } else {
+      console.warn('[DEMO] seed-demo-documents.js not found at', scriptPath);
+    }
+  } catch (err: any) {
+    console.error('[DEMO] Failed to seed documents:', err.message);
+  }
+}
