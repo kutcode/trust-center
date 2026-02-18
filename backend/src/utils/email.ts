@@ -75,7 +75,8 @@ export const sendMagicLinkEmail = async (data: MagicLinkEmailData): Promise<void
     : '';
 
   // Generate individual download links for each document
-  const backendUrl = process.env.API_URL || 'http://localhost:4000';
+  // Use the public-facing backend URL for download links
+  const backendUrl = process.env.BACKEND_PUBLIC_URL || process.env.API_URL || 'http://localhost:4000';
   const documentLinks = data.documents.map(doc => {
     const downloadUrl = `${backendUrl}/api/access/${data.magicLinkToken}/download/${doc.id}`;
     return `
