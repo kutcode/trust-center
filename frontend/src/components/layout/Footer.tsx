@@ -9,7 +9,7 @@ export default async function Footer() {
 
   return (
     <footer
-      className="mt-auto"
+      className="mt-auto border-t border-gray-200 dark:border-slate-800"
       style={{ backgroundColor: settings?.primary_color ? `${settings.primary_color}10` : '#f9fafb' }}
     >
       <div className="container mx-auto px-4 py-8">
@@ -20,7 +20,7 @@ export default async function Footer() {
               <Link
                 key={index}
                 href={link.url}
-                className="text-gray-600 hover:text-gray-900 transition-colors"
+                className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors"
                 style={{
                   color: settings?.secondary_color || undefined
                 }}
@@ -32,7 +32,7 @@ export default async function Footer() {
         )}
 
         {/* Footer Text */}
-        <p className="text-center text-gray-600 text-sm">
+        <p className="text-center text-gray-600 dark:text-gray-300 text-sm">
           {footerText}
         </p>
 
@@ -45,7 +45,7 @@ export default async function Footer() {
                 href={url as string}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-gray-500 hover:text-gray-700 transition-colors"
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
               >
                 {platform.charAt(0).toUpperCase() + platform.slice(1)}
               </a>

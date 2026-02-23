@@ -58,9 +58,9 @@ function AdminLayoutContent({ children, pathname }: { children: React.ReactNode;
   const breadcrumbs = buildAdminBreadcrumbs(pathname);
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 dark:bg-slate-950">
       <AdminSidebar />
-      <main id="main-content" className={`transition-all duration-300 min-h-screen ${collapsed ? 'ml-16' : 'ml-64'}`}>
+      <main id="main-content" className={`transition-all duration-300 min-h-screen text-gray-900 dark:text-gray-100 ${collapsed ? 'ml-16' : 'ml-64'}`}>
         <div className="p-8">
           <div className="mb-4 flex items-center justify-between gap-4">
             <div className="min-w-0">

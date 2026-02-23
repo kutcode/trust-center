@@ -17,8 +17,8 @@ export default function ProgressBar({
 
   return (
     <div className="w-full" role="status" aria-live="polite">
-      {label && <p className="text-sm text-gray-700 mb-1">{label}</p>}
-      <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+      {label && <p className="text-sm text-gray-700 dark:text-gray-300 mb-1">{label}</p>}
+      <div className="h-2 w-full bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden">
         {indeterminate ? (
           <div className="h-full w-1/3 bg-blue-600 rounded-full animate-pulse" />
         ) : (
