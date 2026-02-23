@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import { SidebarProvider, useSidebar } from '@/contexts/SidebarContext';
 import Breadcrumbs, { BreadcrumbItem } from '@/components/ui/Breadcrumbs';
+import ThemeToggle from '@/components/ui/ThemeToggle';
 
 function toTitle(segment: string): string {
   if (segment === 'admin') return 'Admin';
@@ -61,9 +62,14 @@ function AdminLayoutContent({ children, pathname }: { children: React.ReactNode;
       <AdminSidebar />
       <main id="main-content" className={`transition-all duration-300 min-h-screen ${collapsed ? 'ml-16' : 'ml-64'}`}>
         <div className="p-8">
-          {breadcrumbs.length > 0 && (
-            <Breadcrumbs items={breadcrumbs} className="mb-4" />
-          )}
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              {breadcrumbs.length > 0 && (
+                <Breadcrumbs items={breadcrumbs} />
+              )}
+            </div>
+            <ThemeToggle />
+          </div>
           {children}
         </div>
       </main>

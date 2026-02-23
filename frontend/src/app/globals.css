@@ -2,7 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Force light mode - no dark mode overrides */
 :root {
   --foreground: #111827;
   --background: #ffffff;
@@ -21,10 +20,20 @@
   --brand-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
+.dark {
+  --foreground: #f3f4f6;
+  --background: #0f172a;
+  --muted: #94a3b8;
+  --border: #334155;
+  --input-bg: #111827;
+  --input-border: #475569;
+}
+
 body {
   color: var(--foreground);
   background-color: var(--background);
   font-family: var(--brand-font);
+  transition: background-color 150ms ease, color 150ms ease;
 }
 
 /* Ensure all inputs and forms have proper text colors */
