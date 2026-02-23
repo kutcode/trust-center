@@ -7,6 +7,8 @@ import toast from 'react-hot-toast';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import TableSkeleton from '@/components/ui/TableSkeleton';
+import FormField from '@/components/ui/FormField';
+import { useFormValidation } from '@/hooks/useFormValidation';
 
 interface Certification {
     id: string;
@@ -61,6 +63,31 @@ export default function CertificationsAdminPage() {
         description: '',
         status: 'active' as 'active' | 'inactive',
         certificate_image_url: '',
+    });
+    const {
+        errors: formErrors,
+        validateAll,
+        clearFieldError,
+        clearErrors,
+    } = useFormValidation<typeof form>({
+        name: (value) => (value.trim() ? null : 'Certification name is required'),
+        issuer: (value) => (value.trim() ? null : 'Issuer is required'),
+        certificate_image_url: (value) => {
+            if (!value.trim()) return null;
+            try {
+                new URL(value);
+                return null;
+            } catch {
+                return 'Enter a valid URL';
+            }
+        },
+        expiry_date: (value, values) => {
+            if (!value || !values.issue_date) return null;
+            if (new Date(value) < new Date(values.issue_date)) {
+                return 'Expiry date must be after issue date';
+            }
+            return null;
+        }
     });
 
     useEffect(() => {
@@ -132,6 +159,7 @@ export default function CertificationsAdminPage() {
             status: 'active',
             certificate_image_url: '',
         });
+        clearErrors();
         setShowModal(true);
     };
 
@@ -146,12 +174,17 @@ export default function CertificationsAdminPage() {
             status: cert.status,
             certificate_image_url: cert.certificate_image_url || '',
         });
+        clearErrors();
         setShowModal(true);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!token) return;
+        if (!validateAll(form)) {
+            toast.error('Please fix the form errors');
+            return;
+        }
 
         setSaving(true);
         try {
@@ -441,62 +474,68 @@ export default function CertificationsAdminPage() {
 
                         <form onSubmit={handleSubmit} className="p-6 space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Certification Name <span className="text-red-500">*</span>
-                                </label>
+                                <FormField label="Certification Name" required error={formErrors.name}>
                                 <input
                                     type="text"
                                     required
                                     value={form.name}
-                                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                                    onChange={(e) => {
+                                        setForm({ ...form, name: e.target.value });
+                                        clearFieldError('name');
+                                    }}
                                     placeholder="e.g., SOC 2 Type II, ISO 27001"
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500"
                                 />
+                                </FormField>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Issuer <span className="text-red-500">*</span>
-                                </label>
+                                <FormField label="Issuer" required error={formErrors.issuer}>
                                 <input
                                     type="text"
                                     required
                                     value={form.issuer}
-                                    onChange={(e) => setForm({ ...form, issuer: e.target.value })}
+                                    onChange={(e) => {
+                                        setForm({ ...form, issuer: e.target.value });
+                                        clearFieldError('issuer');
+                                    }}
                                     placeholder="e.g., AICPA, ISO"
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500"
                                 />
+                                </FormField>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Issue Date
-                                    </label>
+                                    <FormField label="Issue Date">
                                     <input
                                         type="date"
                                         value={form.issue_date}
-                                        onChange={(e) => setForm({ ...form, issue_date: e.target.value })}
+                                        onChange={(e) => {
+                                            setForm({ ...form, issue_date: e.target.value });
+                                            clearFieldError('expiry_date');
+                                        }}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500"
                                     />
+                                    </FormField>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Expiry Date
-                                    </label>
+                                    <FormField label="Expiry Date" error={formErrors.expiry_date}>
                                     <input
                                         type="date"
                                         value={form.expiry_date}
-                                        onChange={(e) => setForm({ ...form, expiry_date: e.target.value })}
+                                        onChange={(e) => {
+                                            setForm({ ...form, expiry_date: e.target.value });
+                                            clearFieldError('expiry_date');
+                                        }}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500"
                                     />
+                                    </FormField>
                                 </div>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Description
-                                </label>
+                                <FormField label="Description">
                                 <textarea
                                     rows={3}
                                     value={form.description}
@@ -504,28 +543,30 @@ export default function CertificationsAdminPage() {
                                     placeholder="Brief description of the certification..."
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500 resize-none"
                                 />
+                                </FormField>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Icon/Badge URL
-                                </label>
+                                <FormField
+                                    label="Icon/Badge URL"
+                                    error={formErrors.certificate_image_url}
+                                    helpText="Enter a URL to a badge/icon image. If empty, an emoji icon will be auto-selected based on the certification name."
+                                >
                                 <input
                                     type="url"
                                     value={form.certificate_image_url}
-                                    onChange={(e) => setForm({ ...form, certificate_image_url: e.target.value })}
+                                    onChange={(e) => {
+                                        setForm({ ...form, certificate_image_url: e.target.value });
+                                        clearFieldError('certificate_image_url');
+                                    }}
                                     placeholder="https://example.com/badge.png (leave empty for auto icon)"
                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:ring-2 focus:ring-blue-500"
                                 />
-                                <p className="text-xs text-gray-500 mt-1">
-                                    Enter a URL to a badge/icon image. If empty, an emoji icon will be auto-selected based on the certification name.
-                                </p>
+                                </FormField>
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Status
-                                </label>
+                                <FormField label="Status">
                                 <select
                                     value={form.status}
                                     onChange={(e) => setForm({ ...form, status: e.target.value as 'active' | 'inactive' })}
@@ -534,12 +575,16 @@ export default function CertificationsAdminPage() {
                                     <option value="active">Active (visible to public)</option>
                                     <option value="inactive">Inactive (hidden)</option>
                                 </select>
+                                </FormField>
                             </div>
 
                             <div className="flex gap-3 pt-4">
                                 <button
                                     type="button"
-                                    onClick={() => setShowModal(false)}
+                                    onClick={() => {
+                                        clearErrors();
+                                        setShowModal(false);
+                                    }}
                                     className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 font-medium"
                                 >
                                     Cancel
