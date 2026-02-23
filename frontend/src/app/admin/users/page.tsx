@@ -4,6 +4,10 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { apiRequestWithAuth } from '@/lib/api';
 import Link from 'next/link';
+import Pagination from '@/components/ui/Pagination';
+import SortableHeader from '@/components/ui/SortableHeader';
+import { usePagination } from '@/hooks/usePagination';
+import { useTableSort } from '@/hooks/useTableSort';
 
 interface User {
   id: string;
@@ -29,6 +33,13 @@ export default function UsersAdminPage() {
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  const { sortedItems: sortedUsers, sortField, sortDirection, toggleSort } = useTableSort<User>(
+    users,
+    'created_at',
+    'desc'
+  );
+  const pagination = usePagination(sortedUsers, 10);
 
   useEffect(() => {
     async function loadUsers() {
@@ -150,28 +161,48 @@ export default function UsersAdminPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Email
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Role
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Created
-                </th>
+                <SortableHeader
+                  label="Email"
+                  active={sortField === 'email'}
+                  direction={sortDirection}
+                  onClick={() => toggleSort('email')}
+                  className="px-6 py-3"
+                />
+                <SortableHeader
+                  label="Name"
+                  active={sortField === 'full_name'}
+                  direction={sortDirection}
+                  onClick={() => toggleSort('full_name')}
+                  className="px-6 py-3"
+                />
+                <SortableHeader
+                  label="Role"
+                  active={sortField === 'is_admin'}
+                  direction={sortDirection}
+                  onClick={() => toggleSort('is_admin')}
+                  className="px-6 py-3"
+                />
+                <SortableHeader
+                  label="Status"
+                  active={sortField === 'email_confirmed_at'}
+                  direction={sortDirection}
+                  onClick={() => toggleSort('email_confirmed_at')}
+                  className="px-6 py-3"
+                />
+                <SortableHeader
+                  label="Created"
+                  active={sortField === 'created_at'}
+                  direction={sortDirection}
+                  onClick={() => toggleSort('created_at')}
+                  className="px-6 py-3"
+                />
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {users.map((user) => (
+              {pagination.paginatedItems.map((user) => (
                 <tr key={user.id}>
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">
                     <div className="max-w-xs truncate" title={user.email}>{user.email}</div>
@@ -226,6 +257,14 @@ export default function UsersAdminPage() {
           </tbody>
         </table>
         </div>
+        <Pagination
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.totalItems}
+          startIndex={pagination.startIndex}
+          endIndex={pagination.endIndex}
+          onPageChange={pagination.setPage}
+        />
       </div>
 
       {/* Create User Modal */}
@@ -316,4 +355,3 @@ export default function UsersAdminPage() {
     </>
   );
 }
-

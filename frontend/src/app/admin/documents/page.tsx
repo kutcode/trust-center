@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { apiRequestWithAuth } from '@/lib/api';
@@ -9,6 +9,10 @@ import CategoriesModal from '@/components/admin/CategoriesModal';
 import toast from 'react-hot-toast';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import TableSkeleton from '@/components/ui/TableSkeleton';
+import Pagination from '@/components/ui/Pagination';
+import SortableHeader from '@/components/ui/SortableHeader';
+import { usePagination } from '@/hooks/usePagination';
+import { useTableSort } from '@/hooks/useTableSort';
 
 type StatusFilter = 'all' | 'published' | 'draft' | 'archived';
 
@@ -21,6 +25,7 @@ export default function DocumentsAdminPage() {
   const [showCategoriesModal, setShowCategoriesModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
   const [activeTab, setActiveTab] = useState<StatusFilter>('all');
+  const categoryAccessor = useCallback((doc: Document) => doc.document_categories?.name || '', []);
 
   async function loadData() {
     const supabase = createClient();
@@ -83,6 +88,12 @@ export default function DocumentsAdminPage() {
     if (activeTab === 'all') return true;
     return doc.status === activeTab;
   });
+  const { sortedItems, sortField, sortDirection, toggleSort } = useTableSort<Document>(
+    filteredDocuments,
+    'updated_at',
+    'desc'
+  );
+  const pagination = usePagination(sortedItems, 12);
 
   // Count documents by status
   const statusCounts = {
@@ -176,15 +187,15 @@ export default function DocumentsAdminPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Access Level</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                  <SortableHeader label="Title" active={sortField === 'title'} direction={sortDirection} onClick={() => toggleSort('title')} className="px-6 py-3" />
+                  <SortableHeader label="Category" active={sortField === categoryAccessor} direction={sortDirection} onClick={() => toggleSort(categoryAccessor)} className="px-6 py-3" />
+                  <SortableHeader label="Access Level" active={sortField === 'access_level'} direction={sortDirection} onClick={() => toggleSort('access_level')} className="px-6 py-3" />
+                  <SortableHeader label="Status" active={sortField === 'status'} direction={sortDirection} onClick={() => toggleSort('status')} className="px-6 py-3" />
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredDocuments.map((doc) => (
+                {pagination.paginatedItems.map((doc) => (
                   <tr key={doc.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div className="text-gray-900 max-w-md truncate font-medium" title={doc.title}>{doc.title}</div>
@@ -225,6 +236,14 @@ export default function DocumentsAdminPage() {
             </table>
           )}
         </div>
+        <Pagination
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.totalItems}
+          startIndex={pagination.startIndex}
+          endIndex={pagination.endIndex}
+          onPageChange={pagination.setPage}
+        />
       </div>
 
       {/* Categories Modal */}

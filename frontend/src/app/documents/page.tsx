@@ -6,6 +6,7 @@ import { Document, DocumentCategory } from '@/types';
 import Link from 'next/link';
 import SearchBar from '@/components/SearchBar';
 import RequestDocumentModal from '@/components/RequestDocumentModal';
+import Breadcrumbs from '@/components/ui/Breadcrumbs';
 
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -137,6 +138,13 @@ export default function DocumentsPage() {
       {/* Hero Section */}
       <div className="bg-white border-b border-gray-200">
         <div className="container mx-auto px-4 py-12">
+          <Breadcrumbs
+            className="mb-4"
+            items={[
+              { label: 'Home', href: '/' },
+              { label: 'Documents' },
+            ]}
+          />
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Documents</h1>
           <p className="text-lg text-gray-600 max-w-2xl mb-8">
             Access our compliance, security, and legal documents. Public documents are available immediately, while restricted documents require approval.
@@ -370,4 +378,3 @@ export default function DocumentsPage() {
     </div>
   );
 }
-

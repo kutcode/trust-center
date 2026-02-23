@@ -1,11 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { apiRequestWithAuth } from '@/lib/api';
 import toast from 'react-hot-toast';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import TableSkeleton from '@/components/ui/TableSkeleton';
+import SortableHeader from '@/components/ui/SortableHeader';
+import Pagination from '@/components/ui/Pagination';
+import { useTableSort } from '@/hooks/useTableSort';
+import { usePagination } from '@/hooks/usePagination';
 
 interface SecurityUpdate {
     id: string;
@@ -38,9 +42,9 @@ export default function SecurityUpdatesAdminPage() {
     const [saving, setSaving] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState<SecurityUpdate | null>(null);
 
-    // Sorting state
-    const [sortField, setSortField] = useState<'date' | 'title'>('date');
-    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+    const dateAccessor = useCallback((update: SecurityUpdate) => update.published_at || update.created_at, []);
+    const { sortedItems, sortField, sortDirection, toggleSort } = useTableSort<SecurityUpdate>(updates, dateAccessor, 'desc');
+    const pagination = usePagination(sortedItems, 10);
 
     // Form state
     const [form, setForm] = useState({
@@ -223,75 +227,33 @@ export default function SecurityUpdatesAdminPage() {
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                             <tr>
-                                <th
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-                                    onClick={() => {
-                                        if (sortField === 'title') {
-                                            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-                                        } else {
-                                            setSortField('title');
-                                            setSortDirection('asc');
-                                        }
-                                    }}
-                                >
-                                    <div className="flex items-center gap-1">
-                                        Title
-                                        {sortField === 'title' && (
-                                            <svg className={`w-4 h-4 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                                            </svg>
-                                        )}
-                                    </div>
-                                </th>
+                                <SortableHeader
+                                    label="Title"
+                                    active={sortField === 'title'}
+                                    direction={sortDirection}
+                                    onClick={() => toggleSort('title')}
+                                    className="px-6 py-3"
+                                />
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                                     Severity
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                                     Status
                                 </th>
-                                <th
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-                                    onClick={() => {
-                                        if (sortField === 'date') {
-                                            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-                                        } else {
-                                            setSortField('date');
-                                            setSortDirection('desc');
-                                        }
-                                    }}
-                                >
-                                    <div className="flex items-center gap-1">
-                                        Date
-                                        {sortField === 'date' && (
-                                            <svg className={`w-4 h-4 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                                            </svg>
-                                        )}
-                                    </div>
-                                </th>
+                                <SortableHeader
+                                    label="Date"
+                                    active={sortField === dateAccessor}
+                                    direction={sortDirection}
+                                    onClick={() => toggleSort(dateAccessor)}
+                                    className="px-6 py-3"
+                                />
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                                     Actions
                                 </th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
-                            {[...updates].sort((a, b) => {
-                                let aVal: string, bVal: string;
-
-                                if (sortField === 'date') {
-                                    aVal = a.published_at || a.created_at;
-                                    bVal = b.published_at || b.created_at;
-                                } else {
-                                    aVal = a.title.toLowerCase();
-                                    bVal = b.title.toLowerCase();
-                                }
-
-                                if (sortDirection === 'asc') {
-                                    return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
-                                } else {
-                                    return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
-                                }
-                            }).map((update) => (
+                            {pagination.paginatedItems.map((update) => (
                                 <tr key={update.id} className="hover:bg-gray-50">
                                     <td className="px-6 py-4">
                                         <div>
@@ -356,6 +318,14 @@ export default function SecurityUpdatesAdminPage() {
                         </tbody>
                     </table>
                 )}
+                <Pagination
+                    page={pagination.page}
+                    totalPages={pagination.totalPages}
+                    totalItems={pagination.totalItems}
+                    startIndex={pagination.startIndex}
+                    endIndex={pagination.endIndex}
+                    onPageChange={pagination.setPage}
+                />
             </div>
 
             {/* Add/Edit Modal */}

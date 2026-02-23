@@ -4,6 +4,10 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { apiRequestWithAuth } from '@/lib/api';
+import Pagination from '@/components/ui/Pagination';
+import SortableHeader from '@/components/ui/SortableHeader';
+import { usePagination } from '@/hooks/usePagination';
+import { useTableSort } from '@/hooks/useTableSort';
 
 interface ActivityLog {
     id: string;
@@ -31,6 +35,8 @@ export default function ActivityLogsPage() {
     );
     const [entityFilter, setEntityFilter] = useState<string>('');
     const [actionFilter, setActionFilter] = useState<string>('');
+    const { sortedItems, sortField, sortDirection, toggleSort } = useTableSort<ActivityLog>(logs, 'created_at', 'desc');
+    const pagination = usePagination(sortedItems, 20);
 
     useEffect(() => {
         loadLogs();
@@ -240,25 +246,15 @@ export default function ActivityLogsPage() {
                         <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gray-50">
                                 <tr>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Time
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Action
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Entity
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Description
-                                    </th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Admin
-                                    </th>
+                                    <SortableHeader label="Time" active={sortField === 'created_at'} direction={sortDirection} onClick={() => toggleSort('created_at')} />
+                                    <SortableHeader label="Action" active={sortField === 'action_type'} direction={sortDirection} onClick={() => toggleSort('action_type')} />
+                                    <SortableHeader label="Entity" active={sortField === 'entity_type'} direction={sortDirection} onClick={() => toggleSort('entity_type')} />
+                                    <SortableHeader label="Description" active={sortField === 'description'} direction={sortDirection} onClick={() => toggleSort('description')} />
+                                    <SortableHeader label="Admin" active={sortField === 'admin_email'} direction={sortDirection} onClick={() => toggleSort('admin_email')} />
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
-                                {logs.map((log) => (
+                                {pagination.paginatedItems.map((log) => (
                                     <tr key={log.id} className="hover:bg-gray-50">
                                         <td className="px-4 py-3 whitespace-nowrap">
                                             <span className="text-sm font-mono text-gray-900">
@@ -298,12 +294,20 @@ export default function ActivityLogsPage() {
                         </table>
                     </div>
                 )}
+                <Pagination
+                    page={pagination.page}
+                    totalPages={pagination.totalPages}
+                    totalItems={pagination.totalItems}
+                    startIndex={pagination.startIndex}
+                    endIndex={pagination.endIndex}
+                    onPageChange={pagination.setPage}
+                />
             </div>
 
             {/* Summary */}
             {!loading && logs.length > 0 && (
                 <div className="text-sm text-gray-500 text-center">
-                    Showing {logs.length} log{logs.length !== 1 ? 's' : ''} from {startDate} to {endDate}
+                    Showing {pagination.totalItems} log{pagination.totalItems !== 1 ? 's' : ''} from {startDate} to {endDate}
                 </div>
             )}
         </div>

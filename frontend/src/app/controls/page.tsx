@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { apiRequest } from '@/lib/api';
 import toast from 'react-hot-toast';
+import Breadcrumbs from '@/components/ui/Breadcrumbs';
 
 interface ControlCategory {
     id: string;
@@ -129,6 +130,13 @@ export default function ControlsPage() {
             {/* Header */}
             <div className="bg-white border-b border-gray-200">
                 <div className="max-w-7xl mx-auto px-4 py-8">
+                    <Breadcrumbs
+                        className="mb-3"
+                        items={[
+                            { label: 'Home', href: '/' },
+                            { label: 'Security Controls' },
+                        ]}
+                    />
                     <h1 className="text-3xl font-bold text-gray-900">Security Controls</h1>
                     <p className="text-gray-600 mt-2 max-w-2xl">
                         Our comprehensive security controls ensure your data is protected at every level.

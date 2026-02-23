@@ -5,6 +5,10 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { apiRequestWithAuth } from '@/lib/api';
 import { DocumentRequest } from '@/types';
+import Pagination from '@/components/ui/Pagination';
+import SortableHeader from '@/components/ui/SortableHeader';
+import { usePagination } from '@/hooks/usePagination';
+import { useTableSort } from '@/hooks/useTableSort';
 
 // Extend DocumentRequest type to include expiration fields
 interface ExtendedDocumentRequest extends DocumentRequest {
@@ -159,6 +163,12 @@ export default function RequestsAdminPage() {
   const filteredRequests = filter === 'all'
     ? requests
     : requests.filter(r => r.status === filter);
+  const { sortedItems: sortedRequests, sortField, sortDirection, toggleSort } = useTableSort<ExtendedDocumentRequest>(
+    filteredRequests,
+    'created_at',
+    'desc'
+  );
+  const pagination = usePagination(sortedRequests, 10);
 
   const formatExpiration = (expiresAt: string | undefined) => {
     if (!expiresAt) return null;
@@ -278,23 +288,23 @@ export default function RequestsAdminPage() {
                     />
                   </th>
                 )}
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Requester</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Company</th>
+                <SortableHeader label="Requester" active={sortField === 'requester_name'} direction={sortDirection} onClick={() => toggleSort('requester_name')} className="px-6 py-3" />
+                <SortableHeader label="Company" active={sortField === 'requester_company'} direction={sortDirection} onClick={() => toggleSort('requester_company')} className="px-6 py-3" />
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Documents</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expires</th>
+                <SortableHeader label="Status" active={sortField === 'status'} direction={sortDirection} onClick={() => toggleSort('status')} className="px-6 py-3" />
+                <SortableHeader label="Created" active={sortField === 'created_at'} direction={sortDirection} onClick={() => toggleSort('created_at')} className="px-6 py-3" />
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={filter === 'pending' && pendingRequests.length > 0 ? 7 : 6} className="px-6 py-12 text-center text-gray-500">
                     No requests found
                   </td>
                 </tr>
               ) : (
-                filteredRequests.map((request) => {
+                pagination.paginatedItems.map((request) => {
                   const expInfo = formatExpiration(request.access_expires_at);
                   return (
                     <tr key={request.id} className="hover:bg-gray-50">
@@ -343,7 +353,9 @@ export default function RequestsAdminPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        {request.status === 'approved' || request.status === 'auto_approved' ? (
+                        <div className="space-y-1">
+                        <div className="text-sm text-gray-700">{new Date(request.created_at).toLocaleDateString()}</div>
+                        {(request.status === 'approved' || request.status === 'auto_approved') ? (
                           expInfo ? (
                             <span className={`text-sm ${expInfo.color}`}>
                               {expInfo.label}
@@ -354,6 +366,7 @@ export default function RequestsAdminPage() {
                         ) : (
                           <span className="text-gray-400">—</span>
                         )}
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         {request.status === 'pending' && (
@@ -380,6 +393,14 @@ export default function RequestsAdminPage() {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.totalItems}
+          startIndex={pagination.startIndex}
+          endIndex={pagination.endIndex}
+          onPageChange={pagination.setPage}
+        />
       </div>
 
       {/* Approval Modal with Expiration Options */}
