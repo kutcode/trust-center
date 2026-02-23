@@ -97,7 +97,19 @@ export default function UploadDocumentPage() {
 
   return (
     <>
-      <h1 className="text-4xl font-bold mb-8 text-gray-900">Upload New Document</h1>
+      <div className="flex items-center justify-between mb-8 gap-4">
+        <h1 className="text-4xl font-bold text-gray-900">Upload New Document</h1>
+        <button
+          type="button"
+          onClick={() => router.push('/admin/documents')}
+          className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to Documents
+        </button>
+      </div>
 
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
@@ -208,4 +220,3 @@ export default function UploadDocumentPage() {
     </>
   );
 }
-
