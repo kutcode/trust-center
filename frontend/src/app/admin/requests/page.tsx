@@ -9,6 +9,7 @@ import Pagination from '@/components/ui/Pagination';
 import SortableHeader from '@/components/ui/SortableHeader';
 import { usePagination } from '@/hooks/usePagination';
 import { useTableSort } from '@/hooks/useTableSort';
+import InputModal from '@/components/ui/InputModal';
 
 // Extend DocumentRequest type to include expiration fields
 interface ExtendedDocumentRequest extends DocumentRequest {
@@ -33,6 +34,12 @@ export default function RequestsAdminPage() {
   } | null>(null);
   const [expirationDays, setExpirationDays] = useState<number | null>(null);
   const [approving, setApproving] = useState(false);
+  const [denyModal, setDenyModal] = useState<
+    | { mode: 'single'; requestId: string; requesterName: string }
+    | { mode: 'bulk'; count: number }
+    | null
+  >(null);
+  const [denying, setDenying] = useState(false);
 
   async function loadRequests(accessToken: string) {
     try {
@@ -86,19 +93,8 @@ export default function RequestsAdminPage() {
     }
   };
 
-  const handleDeny = async (requestId: string) => {
-    if (!token) return;
-
-    const reason = prompt('Reason for denial (optional):');
-    try {
-      await apiRequestWithAuth(`/api/admin/document-requests/${requestId}/deny`, token, {
-        method: 'PATCH',
-        body: JSON.stringify({ reason }),
-      });
-      await loadRequests(token);
-    } catch (error) {
-      console.error('Failed to deny request:', error);
-    }
+  const openDenyModal = (request: { id: string; requester_name: string }) => {
+    setDenyModal({ mode: 'single', requestId: request.id, requesterName: request.requester_name });
   };
 
   // Bulk operations
@@ -144,18 +140,35 @@ export default function RequestsAdminPage() {
 
   const handleBulkDeny = async () => {
     if (!token || selectedPendingIds.length === 0) return;
+    setDenyModal({ mode: 'bulk', count: selectedPendingIds.length });
+  };
 
-    const reason = prompt('Reason for denial (optional):');
-    setBulkProcessing(true);
+  const handleDenyConfirm = async (reason: string) => {
+    if (!token || !denyModal) return;
+
+    setDenying(true);
+    if (denyModal.mode === 'bulk') {
+      setBulkProcessing(true);
+    }
+
     try {
-      await apiRequestWithAuth('/api/admin/document-requests/batch-deny', token, {
-        method: 'POST',
-        body: JSON.stringify({ request_ids: selectedPendingIds, reason }),
-      });
+      if (denyModal.mode === 'single') {
+        await apiRequestWithAuth(`/api/admin/document-requests/${denyModal.requestId}/deny`, token, {
+          method: 'PATCH',
+          body: JSON.stringify({ reason }),
+        });
+      } else {
+        await apiRequestWithAuth('/api/admin/document-requests/batch-deny', token, {
+          method: 'POST',
+          body: JSON.stringify({ request_ids: selectedPendingIds, reason }),
+        });
+      }
       await loadRequests(token);
+      setDenyModal(null);
     } catch (error) {
-      console.error('Failed to bulk deny:', error);
+      console.error('Failed to deny request(s):', error);
     } finally {
+      setDenying(false);
       setBulkProcessing(false);
     }
   };
@@ -195,6 +208,23 @@ export default function RequestsAdminPage() {
 
   return (
     <div className="space-y-6">
+      <InputModal
+        key={denyModal ? `${denyModal.mode}-${denyModal.mode === 'single' ? denyModal.requestId : denyModal.count}` : 'deny-closed'}
+        isOpen={!!denyModal}
+        onClose={() => setDenyModal(null)}
+        onConfirm={handleDenyConfirm}
+        title={denyModal?.mode === 'bulk' ? 'Bulk Deny Requests' : 'Deny Request'}
+        message={
+          denyModal?.mode === 'bulk'
+            ? `Add an optional denial reason for ${denyModal.count} selected request${denyModal.count === 1 ? '' : 's'}.`
+            : denyModal?.mode === 'single'
+              ? `Add an optional denial reason for ${denyModal.requesterName}.`
+              : undefined
+        }
+        placeholder="Reason for denial (optional)"
+        confirmLabel={denyModal?.mode === 'bulk' ? 'Deny Selected' : 'Deny Request'}
+        isLoading={denying}
+      />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Document Requests</h1>
@@ -378,7 +408,7 @@ export default function RequestsAdminPage() {
                               Approve
                             </button>
                             <button
-                              onClick={() => handleDeny(request.id)}
+                              onClick={() => openDenyModal(request)}
                               className="px-3 py-1 bg-red-100 text-red-700 rounded text-sm font-medium hover:bg-red-200"
                             >
                               Deny

@@ -8,6 +8,7 @@ import Pagination from '@/components/ui/Pagination';
 import SortableHeader from '@/components/ui/SortableHeader';
 import { usePagination } from '@/hooks/usePagination';
 import { useTableSort } from '@/hooks/useTableSort';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 
 interface User {
   id: string;
@@ -33,6 +34,7 @@ export default function UsersAdminPage() {
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [deleteConfirmUser, setDeleteConfirmUser] = useState<{ id: string; email: string } | null>(null);
 
   const { sortedItems: sortedUsers, sortField, sortDirection, toggleSort } = useTableSort<User>(
     users,
@@ -112,7 +114,6 @@ export default function UsersAdminPage() {
 
   const handleDeleteUser = async (userId: string) => {
     if (!token) return;
-    if (!confirm('Are you sure you want to delete this user?')) return;
 
     try {
       await apiRequestWithAuth(`/api/admin/users/${userId}`, token, {
@@ -123,6 +124,7 @@ export default function UsersAdminPage() {
       const data = await apiRequestWithAuth<User[]>('/api/admin/users', token);
       setUsers(data);
       setSuccess('User deleted successfully');
+      setDeleteConfirmUser(null);
     } catch (err: any) {
       setError(err.message || 'Failed to delete user');
     }
@@ -134,6 +136,14 @@ export default function UsersAdminPage() {
 
   return (
     <>
+      <ConfirmModal
+        isOpen={!!deleteConfirmUser}
+        onClose={() => setDeleteConfirmUser(null)}
+        onConfirm={() => deleteConfirmUser && handleDeleteUser(deleteConfirmUser.id)}
+        title="Delete User"
+        message={`Are you sure you want to delete ${deleteConfirmUser?.email || 'this user'}?`}
+        confirmLabel="Delete User"
+      />
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
         <button
@@ -239,7 +249,7 @@ export default function UsersAdminPage() {
                     {user.is_admin ? 'Remove Admin' : 'Make Admin'}
                   </button>
                   <button
-                    onClick={() => handleDeleteUser(user.id)}
+                    onClick={() => setDeleteConfirmUser({ id: user.id, email: user.email })}
                     className="text-red-600 hover:text-red-900"
                   >
                     Delete

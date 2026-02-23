@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X, MessageSquare } from 'lucide-react';
 
 interface InputModalProps {
@@ -12,6 +12,7 @@ interface InputModalProps {
     placeholder?: string;
     confirmLabel?: string;
     isLoading?: boolean;
+    initialValue?: string;
 }
 
 export default function InputModal({
@@ -23,8 +24,15 @@ export default function InputModal({
     placeholder = 'Type here...',
     confirmLabel = 'Submit',
     isLoading = false,
+    initialValue = '',
 }: InputModalProps) {
-    const [value, setValue] = useState('');
+    const [value, setValue] = useState(initialValue);
+
+    useEffect(() => {
+        if (isOpen) {
+            setValue(initialValue);
+        }
+    }, [isOpen, initialValue]);
 
     if (!isOpen) return null;
 

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { apiRequestWithAuth } from '@/lib/api';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import toast from 'react-hot-toast';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 
 interface ControlCategory {
     id: string;
@@ -37,6 +38,12 @@ export default function AdminControlsPage() {
 
     const [categoryForm, setCategoryForm] = useState({ name: '', description: '', icon: '🔒', banner_image: '' });
     const [controlForm, setControlForm] = useState({ title: '', description: '', category_id: '' });
+    const [deleteConfirm, setDeleteConfirm] = useState<
+        | { type: 'category'; id: string; label: string }
+        | { type: 'control'; id: string; label: string }
+        | null
+    >(null);
+    const [deleting, setDeleting] = useState(false);
 
     useEffect(() => {
         loadData();
@@ -149,7 +156,7 @@ export default function AdminControlsPage() {
                 toast.success('Category created');
             }
             setShowCategoryModal(false);
-            setCategoryForm({ name: '', description: '', icon: '🔒' });
+            setCategoryForm({ name: '', description: '', icon: '🔒', banner_image: '' });
             setEditingCategory(null);
             loadData();
         } catch (error: any) {
@@ -158,15 +165,18 @@ export default function AdminControlsPage() {
     }
 
     async function deleteCategory(id: string) {
-        if (!confirm('Delete this category? All controls in it will also be deleted.')) return;
         try {
+            setDeleting(true);
             const freshToken = await getToken();
             if (!freshToken) throw new Error('Not authenticated');
             await apiRequestWithAuth(`/api/admin/control-categories/${id}`, freshToken, { method: 'DELETE' });
             toast.success('Category deleted');
+            setDeleteConfirm(null);
             loadData();
         } catch (error: any) {
             toast.error(error.message || 'Failed to delete category');
+        } finally {
+            setDeleting(false);
         }
     }
 
@@ -197,15 +207,18 @@ export default function AdminControlsPage() {
     }
 
     async function deleteControl(id: string) {
-        if (!confirm('Delete this control?')) return;
         try {
+            setDeleting(true);
             const freshToken = await getToken();
             if (!freshToken) throw new Error('Not authenticated');
             await apiRequestWithAuth(`/api/admin/controls/${id}`, freshToken, { method: 'DELETE' });
             toast.success('Control deleted');
+            setDeleteConfirm(null);
             loadData();
         } catch (error: any) {
             toast.error(error.message || 'Failed to delete control');
+        } finally {
+            setDeleting(false);
         }
     }
 
@@ -219,6 +232,26 @@ export default function AdminControlsPage() {
 
     return (
         <div className="space-y-6">
+            <ConfirmModal
+                isOpen={!!deleteConfirm}
+                onClose={() => setDeleteConfirm(null)}
+                onConfirm={() => {
+                    if (!deleteConfirm) return;
+                    if (deleteConfirm.type === 'category') {
+                        void deleteCategory(deleteConfirm.id);
+                    } else {
+                        void deleteControl(deleteConfirm.id);
+                    }
+                }}
+                title={deleteConfirm?.type === 'category' ? 'Delete Category' : 'Delete Control'}
+                message={
+                    deleteConfirm?.type === 'category'
+                        ? `Delete "${deleteConfirm.label}"? All controls in it will also be deleted.`
+                        : `Delete "${deleteConfirm?.label}"?`
+                }
+                confirmLabel="Delete"
+                isLoading={deleting}
+            />
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Security Controls</h1>
@@ -226,7 +259,7 @@ export default function AdminControlsPage() {
                 </div>
                 <button
                     onClick={() => {
-                        setCategoryForm({ name: '', description: '', icon: '🔒' });
+                        setCategoryForm({ name: '', description: '', icon: '🔒', banner_image: '' });
                         setEditingCategory(null);
                         setShowCategoryModal(true);
                     }}
@@ -246,7 +279,7 @@ export default function AdminControlsPage() {
                     <p className="text-gray-500 mb-4">Create your first category to start adding security controls.</p>
                     <button
                         onClick={() => {
-                            setCategoryForm({ name: '', description: '', icon: '🔒' });
+                            setCategoryForm({ name: '', description: '', icon: '🔒', banner_image: '' });
                             setEditingCategory(null);
                             setShowCategoryModal(true);
                         }}
@@ -313,6 +346,7 @@ export default function AdminControlsPage() {
                                                                         name: category.name,
                                                                         description: category.description || '',
                                                                         icon: category.icon || '🔒',
+                                                                        banner_image: '',
                                                                     });
                                                                     setEditingCategory(category);
                                                                     setShowCategoryModal(true);
@@ -322,7 +356,7 @@ export default function AdminControlsPage() {
                                                                 Edit
                                                             </button>
                                                             <button
-                                                                onClick={() => deleteCategory(category.id)}
+                                                                onClick={() => setDeleteConfirm({ type: 'category', id: category.id, label: category.name })}
                                                                 className="px-3 py-1.5 text-sm bg-red-50 text-red-600 rounded hover:bg-red-100"
                                                             >
                                                                 Delete
@@ -395,7 +429,7 @@ export default function AdminControlsPage() {
                                                                                                 onClick={(e) => {
                                                                                                     e.stopPropagation();
                                                                                                     e.preventDefault();
-                                                                                                    deleteControl(control.id);
+                                                                                                    setDeleteConfirm({ type: 'control', id: control.id, label: control.title });
                                                                                                 }}
                                                                                                 className="text-sm text-red-500 hover:text-red-700"
                                                                                             >
