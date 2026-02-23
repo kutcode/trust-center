@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { X, MessageSquare } from 'lucide-react';
 
 interface InputModalProps {
@@ -34,18 +35,18 @@ export default function InputModal({
         }
     }, [isOpen, initialValue]);
 
-    if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="w-full max-w-md bg-white rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <Dialog open={isOpen} onClose={isLoading ? () => undefined : onClose} className="relative z-50">
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" aria-hidden="true" />
+            <div className="fixed inset-0 flex items-center justify-center p-4">
+            <DialogPanel className="w-full max-w-md bg-white rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                 <div className="p-6">
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                        <DialogTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                             <MessageSquare className="w-5 h-5 text-blue-500" />
                             {title}
-                        </h3>
-                        <button onClick={onClose} disabled={isLoading} className="text-gray-400 hover:text-gray-500">
+                        </DialogTitle>
+                        <button onClick={onClose} disabled={isLoading} className="text-gray-400 hover:text-gray-500" aria-label="Close dialog">
                             <X className="w-5 h-5" />
                         </button>
                     </div>
@@ -82,7 +83,8 @@ export default function InputModal({
                         </button>
                     </div>
                 </div>
+            </DialogPanel>
             </div>
-        </div>
+        </Dialog>
     );
 }

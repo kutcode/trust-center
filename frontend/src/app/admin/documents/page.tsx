@@ -11,6 +11,7 @@ import ConfirmModal from '@/components/ui/ConfirmModal';
 import TableSkeleton from '@/components/ui/TableSkeleton';
 import Pagination from '@/components/ui/Pagination';
 import SortableHeader from '@/components/ui/SortableHeader';
+import LiveRegion from '@/components/ui/LiveRegion';
 import { usePagination } from '@/hooks/usePagination';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useQueryParam } from '@/hooks/useQueryParam';
@@ -124,6 +125,9 @@ export default function DocumentsAdminPage() {
       />
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+        <LiveRegion
+          message={`Showing ${filteredDocuments.length} ${activeTab === 'all' ? '' : `${activeTab} `}document${filteredDocuments.length === 1 ? '' : 's'} in admin documents.`}
+        />
         <h1 className="text-4xl font-bold text-gray-900">Document Management</h1>
         <div className="flex gap-3">
           <button

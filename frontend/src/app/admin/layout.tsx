@@ -59,7 +59,7 @@ function AdminLayoutContent({ children, pathname }: { children: React.ReactNode;
   return (
     <div className="min-h-screen bg-gray-100">
       <AdminSidebar />
-      <main className={`transition-all duration-300 min-h-screen ${collapsed ? 'ml-16' : 'ml-64'}`}>
+      <main id="main-content" className={`transition-all duration-300 min-h-screen ${collapsed ? 'ml-16' : 'ml-64'}`}>
         <div className="p-8">
           {breadcrumbs.length > 0 && (
             <Breadcrumbs items={breadcrumbs} className="mb-4" />

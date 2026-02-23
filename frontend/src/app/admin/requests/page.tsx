@@ -11,6 +11,7 @@ import { usePagination } from '@/hooks/usePagination';
 import { useTableSort } from '@/hooks/useTableSort';
 import { useQueryParam } from '@/hooks/useQueryParam';
 import InputModal from '@/components/ui/InputModal';
+import LiveRegion from '@/components/ui/LiveRegion';
 
 // Extend DocumentRequest type to include expiration fields
 interface ExtendedDocumentRequest extends DocumentRequest {
@@ -213,6 +214,9 @@ export default function RequestsAdminPage() {
 
   return (
     <div className="space-y-6">
+      <LiveRegion
+        message={`Showing ${filteredRequests.length} document request${filteredRequests.length === 1 ? '' : 's'} for ${filter} status.`}
+      />
       <InputModal
         key={denyModal ? `${denyModal.mode}-${denyModal.mode === 'single' ? denyModal.requestId : denyModal.count}` : 'deny-closed'}
         isOpen={!!denyModal}

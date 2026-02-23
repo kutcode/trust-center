@@ -7,6 +7,7 @@ import Link from 'next/link';
 import SearchBar from '@/components/SearchBar';
 import RequestDocumentModal from '@/components/RequestDocumentModal';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import LiveRegion from '@/components/ui/LiveRegion';
 import { useQueryParam } from '@/hooks/useQueryParam';
 
 export default function DocumentsPage() {
@@ -138,6 +139,9 @@ export default function DocumentsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <LiveRegion
+        message={`Showing ${filteredDocuments.length} document${filteredDocuments.length === 1 ? '' : 's'}${selectedCategory ? ' in selected category' : ''}${searchQuery ? ` matching ${searchQuery}` : ''}.`}
+      />
       {/* Hero Section */}
       <div className="bg-white border-b border-gray-200">
         <div className="container mx-auto px-4 py-12">
