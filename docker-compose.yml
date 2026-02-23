@@ -192,6 +192,15 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-noreply@trustcenter.local}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      SALESFORCE_CLIENT_ID: ${SALESFORCE_CLIENT_ID:-}
+      SALESFORCE_CLIENT_SECRET: ${SALESFORCE_CLIENT_SECRET:-}
+      SALESFORCE_REDIRECT_URI: ${SALESFORCE_REDIRECT_URI:-http://localhost:4000/api/admin/integrations/salesforce/callback}
+      SALESFORCE_AUTH_BASE_URL: ${SALESFORCE_AUTH_BASE_URL:-https://login.salesforce.com}
+      SALESFORCE_API_VERSION: ${SALESFORCE_API_VERSION:-v59.0}
+      SALESFORCE_STATUS_FIELD: ${SALESFORCE_STATUS_FIELD:-Type}
+      SALESFORCE_ALLOWED_STATUSES: ${SALESFORCE_ALLOWED_STATUSES:-Customer,Active Customer}
+      SALESFORCE_DOMAIN_FIELD: ${SALESFORCE_DOMAIN_FIELD:-Website}
     volumes:
       - ./backend:/app
       - /app/node_modules
@@ -221,8 +230,7 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
-      - /app/.next
-    command: npm run dev
+    command: sh -c "rm -rf .next && npm run dev"
     depends_on:
       - backend
     networks:
@@ -264,4 +272,3 @@ volumes:
 networks:
   trust-center-network:
     driver: bridge
-
