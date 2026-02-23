@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { apiRequestWithAuth } from '@/lib/api';
 import { DocumentCategory } from '@/types';
+import FormField from '@/components/ui/FormField';
+import { useFormValidation } from '@/hooks/useFormValidation';
 
 export default function UploadDocumentPage() {
   const router = useRouter();
@@ -21,6 +23,11 @@ export default function UploadDocumentPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [token, setToken] = useState<string | null>(null);
+  const [fileError, setFileError] = useState('');
+  const { errors: formErrors, validateAll, clearFieldError, clearErrors } = useFormValidation<typeof formData>({
+    title: (value) => (value.trim() ? null : 'Title is required'),
+    category_id: (value) => (value ? null : 'Category is required'),
+  });
 
   useEffect(() => {
     async function loadCategories() {
@@ -42,7 +49,16 @@ export default function UploadDocumentPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file || !token) return;
+    if (!token) return;
+
+    const isValid = validateAll(formData);
+    if (!file) {
+      setFileError('Please select a file to upload');
+    }
+    if (!isValid || !file) {
+      setError('Please fix the highlighted form fields.');
+      return;
+    }
 
     setLoading(true);
     setError('');
@@ -119,39 +135,41 @@ export default function UploadDocumentPage() {
 
       <div className="bg-white rounded-lg shadow p-6">
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label htmlFor="file" className="block text-sm font-medium mb-2 text-gray-700">
-              File *
-            </label>
+          <FormField
+            label="File"
+            htmlFor="file"
+            required
+            error={fileError}
+            helpText="Accepted formats: PDF, DOCX, PNG, JPG (max 50MB)"
+          >
             <input
               type="file"
               id="file"
               required
               accept=".pdf,.docx,.png,.jpg,.jpeg"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              onChange={(e) => {
+                setFile(e.target.files?.[0] || null);
+                setFileError('');
+              }}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
             />
-            <p className="text-sm text-gray-600 mt-1">Accepted formats: PDF, DOCX, PNG, JPG (max 50MB)</p>
-          </div>
+          </FormField>
 
-          <div>
-            <label htmlFor="title" className="block text-sm font-medium mb-2 text-gray-700">
-              Title *
-            </label>
+          <FormField label="Title" htmlFor="title" required error={formErrors.title}>
             <input
               type="text"
               id="title"
               required
               value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, title: e.target.value });
+                clearFieldError('title');
+              }}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
             />
-          </div>
+          </FormField>
 
-          <div>
-            <label htmlFor="description" className="block text-sm font-medium mb-2 text-gray-700">
-              Description
-            </label>
+          <FormField label="Description" htmlFor="description">
             <textarea
               id="description"
               rows={4}
@@ -159,17 +177,17 @@ export default function UploadDocumentPage() {
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
             />
-          </div>
+          </FormField>
 
-          <div>
-            <label htmlFor="category_id" className="block text-sm font-medium mb-2 text-gray-700">
-              Category *
-            </label>
+          <FormField label="Category" htmlFor="category_id" required error={formErrors.category_id}>
             <select
               id="category_id"
               required
               value={formData.category_id}
-              onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+              onChange={(e) => {
+                setFormData({ ...formData, category_id: e.target.value });
+                clearFieldError('category_id');
+              }}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
             >
               <option value="">Select a category</option>
@@ -179,12 +197,14 @@ export default function UploadDocumentPage() {
                 </option>
               ))}
             </select>
-          </div>
+          </FormField>
 
-          <div>
-            <label htmlFor="access_level" className="block text-sm font-medium mb-2 text-gray-700">
-              Access Level *
-            </label>
+          <FormField
+            label="Access Level"
+            htmlFor="access_level"
+            required
+            helpText="Note: All restricted documents require NDA acceptance before download."
+          >
             <select
               id="access_level"
               required
@@ -195,10 +215,7 @@ export default function UploadDocumentPage() {
               <option value="public">Public (anyone can download)</option>
               <option value="restricted">Restricted (requires approval)</option>
             </select>
-            <p className="text-xs text-gray-500 mt-1">
-              Note: All restricted documents require NDA acceptance before download.
-            </p>
-          </div>
+          </FormField>
 
           <div className="flex gap-4">
             <button
@@ -210,6 +227,7 @@ export default function UploadDocumentPage() {
             </button>
             <Link
               href="/admin/documents"
+              onClick={() => clearErrors()}
               className="bg-gray-200 text-gray-900 px-6 py-3 rounded-lg font-semibold hover:bg-gray-300"
             >
               Cancel

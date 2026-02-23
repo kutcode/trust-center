@@ -9,6 +9,9 @@ import SortableHeader from '@/components/ui/SortableHeader';
 import { usePagination } from '@/hooks/usePagination';
 import { useTableSort } from '@/hooks/useTableSort';
 import ConfirmModal from '@/components/ui/ConfirmModal';
+import FormField from '@/components/ui/FormField';
+import PasswordStrengthIndicator from '@/components/ui/PasswordStrengthIndicator';
+import { useFormValidation } from '@/hooks/useFormValidation';
 
 interface User {
   id: string;
@@ -35,6 +38,22 @@ export default function UsersAdminPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [deleteConfirmUser, setDeleteConfirmUser] = useState<{ id: string; email: string } | null>(null);
+  const { errors: formErrors, validateAll, clearFieldError, clearErrors } = useFormValidation<typeof formData>({
+    email: (value) => {
+      if (!value.trim()) return 'Email is required';
+      const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+      return isValidEmail ? null : 'Enter a valid email address';
+    },
+    password: (value) => {
+      if (!value) return 'Password is required';
+      if (value.length < 8) return 'Password must be at least 8 characters';
+      return null;
+    },
+    admin_role: (value, values) => {
+      if (values.is_admin && !value) return 'Admin role is required';
+      return null;
+    },
+  });
 
   const { sortedItems: sortedUsers, sortField, sortDirection, toggleSort } = useTableSort<User>(
     users,
@@ -66,6 +85,11 @@ export default function UsersAdminPage() {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
+
+    if (!validateAll(formData)) {
+      setError('Please fix the highlighted form fields.');
+      return;
+    }
 
     setError('');
     setSuccess('');
@@ -147,7 +171,10 @@ export default function UsersAdminPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
         <button
-          onClick={() => setShowCreateModal(true)}
+          onClick={() => {
+            clearErrors();
+            setShowCreateModal(true);
+          }}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap"
         >
           Create User
@@ -284,37 +311,46 @@ export default function UsersAdminPage() {
             <h2 className="text-2xl font-bold mb-4 text-gray-900">Create New User</h2>
             
             <form onSubmit={handleCreateUser} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2 text-gray-700">Email *</label>
+              <FormField label="Email" required error={formErrors.email}>
                 <input
                   type="email"
                   required
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, email: e.target.value });
+                    clearFieldError('email');
+                  }}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
                 />
-              </div>
+              </FormField>
 
-              <div>
-                <label className="block text-sm font-medium mb-2 text-gray-700">Password *</label>
+              <FormField
+                label="Password"
+                required
+                error={formErrors.password}
+                helpText="Use at least 8 characters with a mix of letters, numbers, and symbols."
+              >
                 <input
                   type="password"
                   required
                   value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, password: e.target.value });
+                    clearFieldError('password');
+                  }}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
                 />
-              </div>
+                <PasswordStrengthIndicator password={formData.password} />
+              </FormField>
 
-              <div>
-                <label className="block text-sm font-medium mb-2 text-gray-700">Full Name</label>
+              <FormField label="Full Name">
                 <input
                   type="text"
                   value={formData.full_name}
                   onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
                 />
-              </div>
+              </FormField>
 
               <div className="flex items-center">
                 <input
@@ -330,17 +366,19 @@ export default function UsersAdminPage() {
               </div>
 
               {formData.is_admin && (
-                <div>
-                  <label className="block text-sm font-medium mb-2 text-gray-700">Admin Role</label>
+                <FormField label="Admin Role" error={formErrors.admin_role}>
                   <select
                     value={formData.admin_role}
-                    onChange={(e) => setFormData({ ...formData, admin_role: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, admin_role: e.target.value });
+                      clearFieldError('admin_role');
+                    }}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
                   >
                     <option value="admin">Admin</option>
                     <option value="super_admin">Super Admin</option>
                   </select>
-                </div>
+                </FormField>
               )}
 
               <div className="flex gap-4 pt-4">
@@ -352,7 +390,10 @@ export default function UsersAdminPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={() => {
+                    clearErrors();
+                    setShowCreateModal(false);
+                  }}
                   className="flex-1 bg-gray-200 text-gray-900 px-4 py-2 rounded-lg hover:bg-gray-300"
                 >
                   Cancel

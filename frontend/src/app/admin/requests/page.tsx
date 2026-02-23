@@ -12,6 +12,7 @@ import { useTableSort } from '@/hooks/useTableSort';
 import { useQueryParam } from '@/hooks/useQueryParam';
 import InputModal from '@/components/ui/InputModal';
 import LiveRegion from '@/components/ui/LiveRegion';
+import ProgressBar from '@/components/ui/ProgressBar';
 
 // Extend DocumentRequest type to include expiration fields
 interface ExtendedDocumentRequest extends DocumentRequest {
@@ -272,11 +273,12 @@ export default function RequestsAdminPage() {
 
       {/* Bulk action bar */}
       {selectedPendingIds.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex items-center justify-between">
-          <span className="text-blue-800 font-medium">
-            {selectedPendingIds.length} request{selectedPendingIds.length !== 1 ? 's' : ''} selected
-          </span>
-          <div className="flex gap-2">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-blue-800 font-medium">
+              {selectedPendingIds.length} request{selectedPendingIds.length !== 1 ? 's' : ''} selected
+            </span>
+            <div className="flex gap-2">
             <button
               onClick={handleBulkApprove}
               disabled={bulkProcessing}
@@ -307,7 +309,14 @@ export default function RequestsAdminPage() {
             >
               Clear
             </button>
+            </div>
           </div>
+          {bulkProcessing && (
+            <ProgressBar
+              indeterminate
+              label="Processing selected requests..."
+            />
+          )}
         </div>
       )}
 
