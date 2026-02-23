@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import './globals.css';
 import ConditionalLayout from '@/components/layout/ConditionalLayout';
 import ToastProvider from '@/components/providers/ToastProvider';
-import ThemeProvider from '@/components/providers/ThemeProvider';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import DemoBanner from '@/components/DemoBanner';
@@ -30,19 +29,17 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="flex flex-col min-h-screen">
-        <ThemeProvider>
-          <a
-            href="#main-content"
-            className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-white focus:text-gray-900 focus:rounded-md focus:shadow-lg dark:focus:bg-gray-900 dark:focus:text-white"
-          >
-            Skip to main content
-          </a>
-          <DemoBanner />
-          <ConditionalLayout header={<Header />} footer={<Footer />}>
-            {children}
-            <ToastProvider />
-          </ConditionalLayout>
-        </ThemeProvider>
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-white focus:text-gray-900 focus:rounded-md focus:shadow-lg"
+        >
+          Skip to main content
+        </a>
+        <DemoBanner />
+        <ConditionalLayout header={<Header />} footer={<Footer />}>
+          {children}
+          <ToastProvider />
+        </ConditionalLayout>
       </body>
     </html>
   );
