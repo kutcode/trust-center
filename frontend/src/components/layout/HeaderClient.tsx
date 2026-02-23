@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiRequest } from '@/lib/api';
 import GlobalRequestDocumentModal from '@/components/GlobalRequestDocumentModal';
-import ThemeToggle from '@/components/ui/ThemeToggle';
 
 interface SearchResult {
     id: string;
@@ -186,7 +185,7 @@ export default function HeaderClient({ companyName, primaryColor, logoUrl }: Hea
 
     return (
         <>
-            <header className={`bg-white dark:bg-slate-950 shadow-sm border-b border-gray-200 dark:border-slate-800 sticky ${isDemoMode ? 'top-9' : 'top-0'} z-40`}>
+            <header className={`bg-white shadow-sm border-b border-gray-200 sticky ${isDemoMode ? 'top-9' : 'top-0'} z-40`}>
                 <div className="container mx-auto px-4 py-3">
                     <nav className="flex items-center justify-between gap-4">
                         {/* Logo */}
@@ -232,11 +231,11 @@ export default function HeaderClient({ companyName, primaryColor, logoUrl }: Hea
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     onFocus={() => searchQuery.length >= 2 && setShowSearchResults(true)}
-                                    className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-slate-700 rounded-lg bg-gray-50 dark:bg-slate-900 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white dark:focus:bg-slate-900 transition-all"
+                                    className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
                                 />
                                 {isSearching && (
                                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                        <svg className="animate-spin w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24">
+                                        <svg className="animate-spin w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24">
                                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                                         </svg>
@@ -246,15 +245,15 @@ export default function HeaderClient({ companyName, primaryColor, logoUrl }: Hea
 
                             {/* Search Results Dropdown */}
                             {showSearchResults && searchResults.length > 0 && (
-                                <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-700 rounded-lg shadow-lg max-h-96 overflow-y-auto z-50">
-                                    <div className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-slate-800">
+                                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-96 overflow-y-auto z-50">
+                                    <div className="px-4 py-2 text-xs text-gray-500 border-b border-gray-100">
                                         {searchResults.length} result{searchResults.length !== 1 ? 's' : ''}
                                     </div>
                                     {searchResults.map((result) => (
                                         <button
                                             key={`${result.type}-${result.id}`}
                                             onClick={() => handleResultClick(result)}
-                                            className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-slate-800 border-b border-gray-50 dark:border-slate-800 last:border-b-0 flex items-start gap-3"
+                                            className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-50 last:border-b-0 flex items-start gap-3"
                                         >
                                             <div className={`p-1.5 rounded ${getTypeBadgeColor(result.type)}`}>
                                                 {getTypeIcon(result.type)}
@@ -285,10 +284,6 @@ export default function HeaderClient({ companyName, primaryColor, logoUrl }: Hea
                                     No results found for "{searchQuery}"
                                 </div>
                             )}
-                        </div>
-
-                        <div className="hidden md:flex items-center">
-                            <ThemeToggle />
                         </div>
 
                         {/* Navigation Links */}

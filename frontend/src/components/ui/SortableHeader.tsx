@@ -17,12 +17,12 @@ export default function SortableHeader({
 }: SortableHeaderProps) {
   return (
     <th
-      className={`px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider select-none ${className}`}
+      className={`px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider select-none ${className}`}
     >
       <button
         type="button"
         onClick={onClick}
-        className="inline-flex items-center gap-1 hover:text-gray-700 dark:hover:text-gray-200"
+        className="inline-flex items-center gap-1 hover:text-gray-700"
         aria-label={`Sort by ${label}`}
       >
         <span>{label}</span>
@@ -40,3 +40,4 @@ export default function SortableHeader({
     </th>
   );
 }
+

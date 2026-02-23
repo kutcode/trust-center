@@ -23,11 +23,11 @@ export default function Pagination({
   for (let p = min; p <= max; p += 1) pages.push(p);
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-      <p className="text-sm text-gray-600 dark:text-gray-300">
-        Showing <span className="font-medium text-gray-900 dark:text-gray-100">{startIndex}</span> to{' '}
-        <span className="font-medium text-gray-900 dark:text-gray-100">{endIndex}</span> of{' '}
-        <span className="font-medium text-gray-900 dark:text-gray-100">{totalItems}</span>
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-gray-200 bg-white">
+      <p className="text-sm text-gray-600">
+        Showing <span className="font-medium text-gray-900">{startIndex}</span> to{' '}
+        <span className="font-medium text-gray-900">{endIndex}</span> of{' '}
+        <span className="font-medium text-gray-900">{totalItems}</span>
       </p>
 
       <div className="flex items-center gap-1">
@@ -35,7 +35,7 @@ export default function Pagination({
           type="button"
           onClick={() => onPageChange(page - 1)}
           disabled={page <= 1}
-          className="px-3 py-1.5 text-sm rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-950 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-3 py-1.5 text-sm rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Prev
         </button>
@@ -45,11 +45,11 @@ export default function Pagination({
             <button
               type="button"
               onClick={() => onPageChange(1)}
-              className="px-3 py-1.5 text-sm rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-950 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-800"
+              className="px-3 py-1.5 text-sm rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
             >
               1
             </button>
-            {min > 2 && <span className="px-1 text-gray-400 dark:text-gray-500">...</span>}
+            {min > 2 && <span className="px-1 text-gray-400">...</span>}
           </>
         )}
 
@@ -61,7 +61,7 @@ export default function Pagination({
             className={`px-3 py-1.5 text-sm rounded border ${
               p === page
                 ? 'border-blue-600 bg-blue-600 text-white'
-                : 'border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-950 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-800'
+                : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
             }`}
           >
             {p}
@@ -70,11 +70,11 @@ export default function Pagination({
 
         {max < totalPages && (
           <>
-            {max < totalPages - 1 && <span className="px-1 text-gray-400 dark:text-gray-500">...</span>}
+            {max < totalPages - 1 && <span className="px-1 text-gray-400">...</span>}
             <button
               type="button"
               onClick={() => onPageChange(totalPages)}
-              className="px-3 py-1.5 text-sm rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-950 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-800"
+              className="px-3 py-1.5 text-sm rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
             >
               {totalPages}
             </button>
@@ -85,7 +85,7 @@ export default function Pagination({
           type="button"
           onClick={() => onPageChange(page + 1)}
           disabled={page >= totalPages}
-          className="px-3 py-1.5 text-sm rounded border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-950 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-3 py-1.5 text-sm rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Next
         </button>
@@ -93,3 +93,4 @@ export default function Pagination({
     </div>
   );
 }
+

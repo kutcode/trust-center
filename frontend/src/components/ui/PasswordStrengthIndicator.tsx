@@ -37,12 +37,12 @@ export default function PasswordStrengthIndicator({
                   : score === 3
                     ? 'bg-blue-500'
                     : 'bg-green-500'
-              : 'bg-gray-200 dark:bg-slate-700'
+              : 'bg-gray-200'
               }`}
           />
         ))}
       </div>
-      <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">Password strength: {label}</p>
+      <p className="mt-1 text-xs text-gray-600">Password strength: {label}</p>
     </div>
   );
 }
