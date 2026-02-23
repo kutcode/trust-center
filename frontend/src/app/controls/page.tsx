@@ -119,16 +119,16 @@ export default function ControlsPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex items-center justify-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent"></div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-gray-50 dark:bg-slate-950">
             {/* Header */}
-            <div className="bg-white border-b border-gray-200">
+            <div className="bg-white dark:bg-slate-950 border-b border-gray-200 dark:border-slate-800">
                 <div className="max-w-7xl mx-auto px-4 py-8">
                     <Breadcrumbs
                         className="mb-3"
@@ -137,8 +137,8 @@ export default function ControlsPage() {
                             { label: 'Security Controls' },
                         ]}
                     />
-                    <h1 className="text-3xl font-bold text-gray-900">Security Controls</h1>
-                    <p className="text-gray-600 mt-2 max-w-2xl">
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Security Controls</h1>
+                    <p className="text-gray-600 dark:text-gray-300 mt-2 max-w-2xl">
                         Our comprehensive security controls ensure your data is protected at every level.
                         These controls demonstrate our commitment to security and compliance.
                     </p>
@@ -148,10 +148,10 @@ export default function ControlsPage() {
             {/* Main Content */}
             <div className="max-w-7xl mx-auto px-4 py-8">
                 {categories.length === 0 ? (
-                    <div className="text-center py-16 bg-white rounded-lg border border-gray-200">
+                    <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-700">
                         <div className="text-4xl mb-4">🔐</div>
-                        <h2 className="text-xl font-semibold text-gray-900 mb-2">No Security Controls Yet</h2>
-                        <p className="text-gray-500">Security controls will be displayed here once they are configured.</p>
+                        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">No Security Controls Yet</h2>
+                        <p className="text-gray-500 dark:text-gray-400">Security controls will be displayed here once they are configured.</p>
                     </div>
                 ) : (
                     <div className="flex gap-8">
@@ -164,7 +164,7 @@ export default function ControlsPage() {
                                         onClick={() => scrollToSection(category.id)}
                                         className={`w-full text-left px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-3 ${activeCategory === category.id
                                             ? 'bg-blue-50 text-blue-700 border-l-4 border-blue-600'
-                                            : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                                            : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white'
                                             }`}
                                     >
                                         <span className="text-lg">{getCategoryIcon(category.icon)}</span>
@@ -192,7 +192,7 @@ export default function ControlsPage() {
                                     >
                                         {/* Category Header */}
                                         <div
-                                            className="rounded-t-xl px-6 py-8 relative overflow-hidden bg-gray-100 text-gray-900"
+                                            className="rounded-t-xl px-6 py-8 relative overflow-hidden bg-gray-100 dark:bg-slate-800 text-gray-900 dark:text-gray-100"
                                         >
                                             <div className="relative z-10 flex items-center justify-between">
                                                 <div className="flex items-center gap-4">
@@ -200,7 +200,7 @@ export default function ControlsPage() {
                                                     <div>
                                                         <h2 className="text-2xl font-bold">{category.name}</h2>
                                                         {category.description && (
-                                                            <p className="text-base mt-1 text-gray-500">
+                                                            <p className="text-base mt-1 text-gray-500 dark:text-gray-300">
                                                                 {category.description}
                                                             </p>
                                                         )}
@@ -210,7 +210,7 @@ export default function ControlsPage() {
                                                 <div className="relative group/tooltip">
                                                     <button
                                                         onClick={() => copyToClipboard(category.id, 'category', category.name)}
-                                                        className="p-2 rounded-lg transition-all hover:bg-gray-200 text-gray-500 hover:text-gray-700"
+                                                        className="p-2 rounded-lg transition-all hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                                                         aria-label="Copy link to this section"
                                                     >
                                                         {copiedId === category.id ? (
@@ -231,9 +231,9 @@ export default function ControlsPage() {
                                         </div>
 
                                         {/* Controls List */}
-                                        <div className="bg-white rounded-b-xl border border-t-0 border-gray-200 divide-y divide-gray-100">
+                                        <div className="bg-white dark:bg-slate-900 rounded-b-xl border border-t-0 border-gray-200 dark:border-slate-700 divide-y divide-gray-100 dark:divide-slate-800">
                                             {categoryControls.length === 0 ? (
-                                                <div className="px-6 py-8 text-center text-gray-500">
+                                                <div className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                                                     No controls in this category yet.
                                                 </div>
                                             ) : (
@@ -264,11 +264,11 @@ export default function ControlsPage() {
 
                                                             {/* Control Content */}
                                                             <div className="flex-1">
-                                                                <h3 className="text-base font-semibold text-gray-900">
+                                                                <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">
                                                                     {control.title}
                                                                 </h3>
                                                                 {control.description && (
-                                                                    <p className="text-gray-600 text-sm mt-1 leading-relaxed">
+                                                                    <p className="text-gray-600 dark:text-gray-300 text-sm mt-1 leading-relaxed">
                                                                         {control.description}
                                                                     </p>
                                                                 )}
@@ -278,7 +278,7 @@ export default function ControlsPage() {
                                                             <div className="relative group/tooltip">
                                                                 <button
                                                                     onClick={() => copyToClipboard(controlSlug, 'control', control.title)}
-                                                                    className="p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-gray-100 text-gray-400 hover:text-gray-600"
+                                                                    className="p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-200"
                                                                     aria-label="Copy link to this control"
                                                                 >
                                                                     {copiedId === controlSlug ? (
