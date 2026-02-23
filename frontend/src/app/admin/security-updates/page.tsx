@@ -13,8 +13,8 @@ import { usePagination } from '@/hooks/usePagination';
 
 interface SecurityUpdate {
     id: string;
-    title: string;
-    content: string;
+    title: string | null;
+    content: string | null;
     severity: 'low' | 'medium' | 'high' | 'critical' | null;
     published_at: string | null;
     created_at: string;
@@ -31,6 +31,13 @@ const severityOptions = [
 function getSeverityColor(severity: string | null): string {
     const option = severityOptions.find(o => o.value === severity);
     return option?.color || 'bg-gray-100 text-gray-700';
+}
+
+function safeDateLabel(value: string | null | undefined): string {
+    if (!value) return '—';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '—';
+    return value.includes('T') ? value.split('T')[0] : date.toISOString().split('T')[0];
 }
 
 export default function SecurityUpdatesAdminPage() {
@@ -94,8 +101,8 @@ export default function SecurityUpdatesAdminPage() {
     const openEditModal = (update: SecurityUpdate) => {
         setEditingUpdate(update);
         setForm({
-            title: update.title,
-            content: update.content,
+            title: update.title || '',
+            content: update.content || '',
             severity: update.severity || '',
             published_at: update.published_at ? update.published_at.split('T')[0] : '',
         });
@@ -257,9 +264,10 @@ export default function SecurityUpdatesAdminPage() {
                                 <tr key={update.id} className="hover:bg-gray-50">
                                     <td className="px-6 py-4">
                                         <div>
-                                            <p className="font-medium text-gray-900">{update.title}</p>
+                                            <p className="font-medium text-gray-900">{update.title || 'Untitled Update'}</p>
                                             <p className="text-sm text-gray-500 truncate max-w-md">
-                                                {update.content.replace(/<[^>]*>/g, '').substring(0, 100)}...
+                                                {((update.content || '').replace(/<[^>]*>/g, '').trim() || 'No content').substring(0, 100)}
+                                                {((update.content || '').replace(/<[^>]*>/g, '').trim().length > 100) ? '...' : ''}
                                             </p>
                                         </div>
                                     </td>
@@ -286,8 +294,8 @@ export default function SecurityUpdatesAdminPage() {
                                     <td className="px-6 py-4">
                                         <span className="text-sm text-gray-600">
                                             {update.published_at
-                                                ? update.published_at.split('T')[0]
-                                                : update.created_at.split('T')[0] + ' (created)'
+                                                ? safeDateLabel(update.published_at)
+                                                : `${safeDateLabel(update.created_at)} (created)`
                                             }
                                         </span>
                                     </td>

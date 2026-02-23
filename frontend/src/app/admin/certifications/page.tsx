@@ -12,8 +12,8 @@ import { useFormValidation } from '@/hooks/useFormValidation';
 
 interface Certification {
     id: string;
-    name: string;
-    issuer: string;
+    name: string | null;
+    issuer: string | null;
     issue_date: string | null;
     expiry_date: string | null;
     certificate_image_url: string | null;
@@ -38,7 +38,7 @@ const certificationBadges: { [key: string]: { icon: string; color: string } } = 
 };
 
 function getBadge(name: string) {
-    const lowerName = name.toLowerCase();
+    const lowerName = (name || '').toLowerCase();
     for (const [key, badge] of Object.entries(certificationBadges)) {
         if (lowerName.includes(key)) return badge;
     }
@@ -166,8 +166,8 @@ export default function CertificationsAdminPage() {
     const openEditModal = (cert: Certification) => {
         setEditingCert(cert);
         setForm({
-            name: cert.name,
-            issuer: cert.issuer,
+            name: cert.name || '',
+            issuer: cert.issuer || '',
             issue_date: cert.issue_date || '',
             expiry_date: cert.expiry_date || '',
             description: cert.description || '',
@@ -381,7 +381,7 @@ export default function CertificationsAdminPage() {
                                                                         {badge.icon}
                                                                     </span>
                                                                     <div>
-                                                                        <p className="font-medium text-gray-900">{cert.name}</p>
+                                                                        <p className="font-medium text-gray-900">{cert.name || 'Untitled Certification'}</p>
                                                                         {cert.description && (
                                                                             <p className="text-sm text-gray-500 truncate max-w-xs">{cert.description}</p>
                                                                         )}
@@ -389,7 +389,7 @@ export default function CertificationsAdminPage() {
                                                                 </div>
                                                             </td>
                                                             <td className="px-4 py-4">
-                                                                <span className="text-sm text-gray-700">{cert.issuer}</span>
+                                                                <span className="text-sm text-gray-700">{cert.issuer || 'Unknown issuer'}</span>
                                                             </td>
                                                             <td className="px-4 py-4">
                                                                 <div className="flex flex-col gap-1">
