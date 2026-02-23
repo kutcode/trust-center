@@ -13,6 +13,7 @@ import Pagination from '@/components/ui/Pagination';
 import SortableHeader from '@/components/ui/SortableHeader';
 import { usePagination } from '@/hooks/usePagination';
 import { useTableSort } from '@/hooks/useTableSort';
+import { useQueryParam } from '@/hooks/useQueryParam';
 
 type StatusFilter = 'all' | 'published' | 'draft' | 'archived';
 
@@ -24,7 +25,11 @@ export default function DocumentsAdminPage() {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [showCategoriesModal, setShowCategoriesModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
-  const [activeTab, setActiveTab] = useState<StatusFilter>('all');
+  const [activeTabParam, setActiveTabParam] = useQueryParam('status');
+  const activeTab: StatusFilter =
+    activeTabParam === 'published' || activeTabParam === 'draft' || activeTabParam === 'archived'
+      ? activeTabParam
+      : 'all';
   const categoryAccessor = useCallback((doc: Document) => doc.document_categories?.name || '', []);
 
   async function loadData() {
@@ -146,7 +151,7 @@ export default function DocumentsAdminPage() {
             {(['all', 'published', 'draft', 'archived'] as StatusFilter[]).map((tab) => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => setActiveTabParam(tab === 'all' ? null : tab)}
                 className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === tab
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'

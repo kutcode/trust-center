@@ -9,6 +9,7 @@ import Pagination from '@/components/ui/Pagination';
 import SortableHeader from '@/components/ui/SortableHeader';
 import { usePagination } from '@/hooks/usePagination';
 import { useTableSort } from '@/hooks/useTableSort';
+import { useQueryParam } from '@/hooks/useQueryParam';
 import InputModal from '@/components/ui/InputModal';
 
 // Extend DocumentRequest type to include expiration fields
@@ -23,9 +24,13 @@ export default function RequestsAdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [token, setToken] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'denied'>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [filterParam, setFilterParam] = useQueryParam('status');
+  const filter: 'all' | 'pending' | 'approved' | 'denied' =
+    filterParam === 'pending' || filterParam === 'approved' || filterParam === 'denied'
+      ? filterParam
+      : 'all';
 
   // Approval modal state
   const [approvalModal, setApprovalModal] = useState<{
@@ -245,7 +250,7 @@ export default function RequestsAdminPage() {
         {(['all', 'pending', 'approved', 'denied'] as const).map((f) => (
           <button
             key={f}
-            onClick={() => setFilter(f)}
+            onClick={() => setFilterParam(f === 'all' ? null : f)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === f
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
