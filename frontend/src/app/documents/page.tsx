@@ -117,7 +117,7 @@ export default function DocumentsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-slate-950">
+      <div className="min-h-screen bg-gray-50">
         <div className="container mx-auto px-4 py-16">
           <div className="animate-pulse">
             <div className="h-12 bg-gray-200 rounded w-64 mb-8"></div>
@@ -138,12 +138,12 @@ export default function DocumentsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-950">
+    <div className="min-h-screen bg-gray-50">
       <LiveRegion
         message={`Showing ${filteredDocuments.length} document${filteredDocuments.length === 1 ? '' : 's'}${selectedCategory ? ' in selected category' : ''}${searchQuery ? ` matching ${searchQuery}` : ''}.`}
       />
       {/* Hero Section */}
-      <div className="bg-white dark:bg-slate-950 border-b border-gray-200 dark:border-slate-800">
+      <div className="bg-white border-b border-gray-200">
         <div className="container mx-auto px-4 py-12">
           <Breadcrumbs
             className="mb-4"
@@ -152,8 +152,8 @@ export default function DocumentsPage() {
               { label: 'Documents' },
             ]}
           />
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-4">Documents</h1>
-          <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">Documents</h1>
+          <p className="text-lg text-gray-600 max-w-2xl mb-8">
             Access our compliance, security, and legal documents. Public documents are available immediately, while restricted documents require approval.
           </p>
 
@@ -169,17 +169,17 @@ export default function DocumentsPage() {
       <div className="container mx-auto px-4 py-8">
         {/* Category Tabs */}
         {categories.length > 0 && (
-          <div className="mb-8 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-t-lg px-4">
+          <div className="mb-8 border-b border-gray-200 bg-white rounded-t-lg px-4">
             <nav className="flex space-x-8 overflow-x-auto">
               <button
                 onClick={() => setSelectedCategoryParam(null)}
                 className={`py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${selectedCategory === null
                   ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-slate-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
               >
                 All Documents
-                <span className="ml-2 px-2 py-0.5 text-xs bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300 rounded-full">
+                <span className="ml-2 px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">
                   {documents.length}
                 </span>
               </button>
@@ -191,11 +191,11 @@ export default function DocumentsPage() {
                     onClick={() => setSelectedCategoryParam(category.id)}
                     className={`py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${selectedCategory === category.id
                       ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-slate-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                       }`}
                   >
                     {category.name}
-                    <span className="ml-2 px-2 py-0.5 text-xs bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300 rounded-full">
+                    <span className="ml-2 px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">
                       {count}
                     </span>
                   </button>
@@ -208,8 +208,8 @@ export default function DocumentsPage() {
         {/* Search Results Info */}
         {searchQuery && (
           <div className="mb-6 flex items-center justify-between">
-            <p className="text-gray-600 dark:text-gray-300">
-              Found <span className="font-semibold text-gray-900 dark:text-gray-100">{filteredDocuments.length}</span> document{filteredDocuments.length !== 1 ? 's' : ''} matching "<span className="font-medium">{searchQuery}</span>"
+            <p className="text-gray-600">
+              Found <span className="font-semibold text-gray-900">{filteredDocuments.length}</span> document{filteredDocuments.length !== 1 ? 's' : ''} matching "<span className="font-medium">{searchQuery}</span>"
             </p>
             <button
               onClick={() => setSearchQueryParam(null)}
@@ -224,27 +224,27 @@ export default function DocumentsPage() {
         {publicDocs.length > 0 && (
           <section className="mb-12">
             <div className="mb-6">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-1">Public Documents</h2>
-              <p className="text-gray-600 dark:text-gray-300 text-sm">Available for immediate download</p>
+              <h2 className="text-xl font-semibold text-gray-900 mb-1">Public Documents</h2>
+              <p className="text-gray-600 text-sm">Available for immediate download</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {publicDocs.map((doc) => (
                 <div
                   key={doc.id}
                   id={`doc-${doc.id}`}
-                  className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 p-6 hover:shadow-lg hover:border-gray-300 dark:hover:border-slate-600 transition-all duration-200"
+                  className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg hover:border-gray-300 transition-all duration-200"
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-2">
                       <div className="text-3xl">{getFileIcon(doc.file_type)}</div>
-                      <span className="px-2 py-0.5 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-slate-800 rounded">
+                      <span className="px-2 py-0.5 text-xs font-semibold text-gray-700 bg-gray-100 rounded">
                         {getFileTypeLabel(doc.file_type)}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => copyLinkToDocument(doc.id, doc.title)}
-                        className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 rounded transition-colors"
+                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
                         title="Copy link to this document"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -256,12 +256,12 @@ export default function DocumentsPage() {
                       </span>
                     </div>
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">{doc.title}</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{doc.title}</h3>
                   {doc.description && (
-                    <p className="text-gray-600 dark:text-gray-300 text-sm mb-3 line-clamp-2">{doc.description}</p>
+                    <p className="text-gray-600 text-sm mb-3 line-clamp-2">{doc.description}</p>
                   )}
                   <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
+                    <div className="flex items-center text-xs text-gray-500">
                       <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
@@ -287,27 +287,27 @@ export default function DocumentsPage() {
         {restrictedDocs.length > 0 && (
           <section>
             <div className="mb-6">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-1">Restricted Documents</h2>
-              <p className="text-gray-600 dark:text-gray-300 text-sm">Request access to view these documents</p>
+              <h2 className="text-xl font-semibold text-gray-900 mb-1">Restricted Documents</h2>
+              <p className="text-gray-600 text-sm">Request access to view these documents</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {restrictedDocs.map((doc) => (
                 <div
                   key={doc.id}
                   id={`doc-${doc.id}`}
-                  className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 p-6 hover:shadow-lg hover:border-gray-300 dark:hover:border-slate-600 transition-all duration-200"
+                  className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg hover:border-gray-300 transition-all duration-200"
                 >
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-2">
                       <div className="text-3xl">{getFileIcon(doc.file_type)}</div>
-                      <span className="px-2 py-0.5 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-slate-800 rounded">
+                      <span className="px-2 py-0.5 text-xs font-semibold text-gray-700 bg-gray-100 rounded">
                         {getFileTypeLabel(doc.file_type)}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => copyLinkToDocument(doc.id, doc.title)}
-                        className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-slate-800 rounded transition-colors"
+                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
                         title="Copy link to this document"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -322,12 +322,12 @@ export default function DocumentsPage() {
                       </span>
                     </div>
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">{doc.title}</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{doc.title}</h3>
                   {doc.description && (
-                    <p className="text-gray-600 dark:text-gray-300 text-sm mb-3 line-clamp-2">{doc.description}</p>
+                    <p className="text-gray-600 text-sm mb-3 line-clamp-2">{doc.description}</p>
                   )}
                   <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
+                    <div className="flex items-center text-xs text-gray-500">
                       <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
@@ -351,10 +351,10 @@ export default function DocumentsPage() {
 
         {/* Empty State */}
         {filteredDocuments.length === 0 && (
-          <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700">
+          <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
             <div className="text-6xl mb-4">📄</div>
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">No documents found</h3>
-            <p className="text-gray-600 dark:text-gray-300">
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">No documents found</h3>
+            <p className="text-gray-600">
               {searchQuery
                 ? 'Try adjusting your search terms or clearing filters.'
                 : selectedCategory
@@ -367,7 +367,7 @@ export default function DocumentsPage() {
 
       {/* Toast Notification */}
       {showToast && (
-        <div className="fixed bottom-4 right-4 bg-gray-900 dark:bg-black text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-slide-up z-50 border border-transparent dark:border-slate-700">
+        <div className="fixed bottom-4 right-4 bg-gray-900 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-slide-up z-50">
           <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>

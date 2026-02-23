@@ -237,15 +237,15 @@ export default function RequestsAdminPage() {
       />
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Document Requests</h1>
-          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
+          <h1 className="text-2xl font-bold text-gray-900">Document Requests</h1>
+          <p className="text-gray-500 text-sm mt-1">
             Manage access requests from users
           </p>
         </div>
       </div>
 
       {error && (
-        <div className="bg-red-100 dark:bg-red-950/40 border border-red-400 dark:border-red-900 text-red-700 dark:text-red-300 px-4 py-3 rounded">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
           {error}
         </div>
       )}
@@ -258,7 +258,7 @@ export default function RequestsAdminPage() {
             onClick={() => setFilterParam(f === 'all' ? null : f)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === f
                 ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-slate-700'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
           >
             {f.charAt(0).toUpperCase() + f.slice(1)}
@@ -273,9 +273,9 @@ export default function RequestsAdminPage() {
 
       {/* Bulk action bar */}
       {selectedPendingIds.length > 0 && (
-        <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900 rounded-lg px-4 py-3 space-y-3">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-blue-800 dark:text-blue-200 font-medium">
+            <span className="text-blue-800 font-medium">
               {selectedPendingIds.length} request{selectedPendingIds.length !== 1 ? 's' : ''} selected
             </span>
             <div className="flex gap-2">
@@ -305,7 +305,7 @@ export default function RequestsAdminPage() {
             </button>
             <button
               onClick={() => setSelectedIds(new Set())}
-              className="px-4 py-2 bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-100 rounded-lg text-sm font-medium hover:bg-gray-300 dark:hover:bg-slate-600"
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-300"
             >
               Clear
             </button>
@@ -321,10 +321,10 @@ export default function RequestsAdminPage() {
       )}
 
       {/* Table */}
-      <div className="bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-700 overflow-hidden">
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
-            <thead className="bg-gray-50 dark:bg-slate-800">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
               <tr>
                 {filter === 'pending' && pendingRequests.length > 0 && (
                   <th className="px-4 py-3 w-12">
@@ -338,16 +338,16 @@ export default function RequestsAdminPage() {
                 )}
                 <SortableHeader label="Requester" active={sortField === 'requester_name'} direction={sortDirection} onClick={() => toggleSort('requester_name')} className="px-6 py-3" />
                 <SortableHeader label="Company" active={sortField === 'requester_company'} direction={sortDirection} onClick={() => toggleSort('requester_company')} className="px-6 py-3" />
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Documents</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Documents</th>
                 <SortableHeader label="Status" active={sortField === 'status'} direction={sortDirection} onClick={() => toggleSort('status')} className="px-6 py-3" />
                 <SortableHeader label="Created" active={sortField === 'created_at'} direction={sortDirection} onClick={() => toggleSort('created_at')} className="px-6 py-3" />
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
-            <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-200 dark:divide-slate-700">
+            <tbody className="bg-white divide-y divide-gray-200">
               {filteredRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={filter === 'pending' && pendingRequests.length > 0 ? 7 : 6} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
+                  <td colSpan={filter === 'pending' && pendingRequests.length > 0 ? 7 : 6} className="px-6 py-12 text-center text-gray-500">
                     No requests found
                   </td>
                 </tr>
@@ -355,7 +355,7 @@ export default function RequestsAdminPage() {
                 pagination.paginatedItems.map((request) => {
                   const expInfo = formatExpiration(request.access_expires_at);
                   return (
-                    <tr key={request.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/80">
+                    <tr key={request.id} className="hover:bg-gray-50">
                       {filter === 'pending' && pendingRequests.length > 0 && (
                         <td className="px-4 py-4">
                           {request.status === 'pending' && (
@@ -369,14 +369,14 @@ export default function RequestsAdminPage() {
                         </td>
                       )}
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-gray-900 dark:text-gray-100 font-medium">{request.requester_name}</div>
-                        <div className="text-sm text-gray-600 dark:text-gray-300 truncate max-w-xs">{request.requester_email}</div>
+                        <div className="text-gray-900 font-medium">{request.requester_name}</div>
+                        <div className="text-sm text-gray-600 truncate max-w-xs">{request.requester_email}</div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-gray-900 dark:text-gray-100 max-w-xs truncate">{request.requester_company}</div>
+                        <div className="text-gray-900 max-w-xs truncate">{request.requester_company}</div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900 dark:text-gray-100 max-w-md">
+                        <div className="text-sm text-gray-900 max-w-md">
                           {request.documents && request.documents.length > 0 ? (
                             <div className="space-y-1">
                               {request.documents.map((doc, idx) => (
@@ -402,17 +402,17 @@ export default function RequestsAdminPage() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="space-y-1">
-                        <div className="text-sm text-gray-700 dark:text-gray-300">{new Date(request.created_at).toLocaleDateString()}</div>
+                        <div className="text-sm text-gray-700">{new Date(request.created_at).toLocaleDateString()}</div>
                         {(request.status === 'approved' || request.status === 'auto_approved') ? (
                           expInfo ? (
                             <span className={`text-sm ${expInfo.color}`}>
                               {expInfo.label}
                             </span>
                           ) : (
-                            <span className="text-sm text-gray-400 dark:text-gray-500">Permanent</span>
+                            <span className="text-sm text-gray-400">Permanent</span>
                           )
                         ) : (
-                          <span className="text-gray-400 dark:text-gray-500">—</span>
+                          <span className="text-gray-400">—</span>
                         )}
                         </div>
                       </td>
@@ -454,14 +454,14 @@ export default function RequestsAdminPage() {
       {/* Approval Modal with Expiration Options */}
       {approvalModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-slate-900 border border-transparent dark:border-slate-700 rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">Approve Request</h2>
-            <p className="text-gray-600 dark:text-gray-300 mb-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+            <h2 className="text-lg font-bold text-gray-900 mb-2">Approve Request</h2>
+            <p className="text-gray-600 mb-4">
               Approve access for <strong>{approvalModal.requesterName}</strong>
             </p>
 
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Access Duration
               </label>
               <div className="grid grid-cols-2 gap-2">
@@ -476,7 +476,7 @@ export default function RequestsAdminPage() {
                     onClick={() => setExpirationDays(option.value)}
                     className={`px-4 py-3 rounded-lg border text-sm font-medium transition-colors ${expirationDays === option.value
                         ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-white dark:bg-slate-950 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-800'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                       }`}
                   >
                     {option.label}
@@ -484,7 +484,7 @@ export default function RequestsAdminPage() {
                 ))}
               </div>
               {expirationDays && (
-                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                <p className="mt-2 text-sm text-gray-500">
                   Access will expire on{' '}
                   {new Date(Date.now() + expirationDays * 24 * 60 * 60 * 1000).toLocaleDateString()}
                 </p>
@@ -494,7 +494,7 @@ export default function RequestsAdminPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => setApprovalModal(null)}
-                className="flex-1 px-4 py-2 bg-gray-200 dark:bg-slate-700 text-gray-800 dark:text-gray-100 rounded-lg hover:bg-gray-300 dark:hover:bg-slate-600 font-medium"
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 font-medium"
               >
                 Cancel
               </button>
