@@ -17,8 +17,21 @@ const DEFAULT_NAV_ITEMS = [
   { key: 'organizations', label: 'Organizations', icon: 'building' },
   { key: 'users', label: 'Users', icon: 'users' },
   { key: 'activity', label: 'Activity Logs', icon: 'log' },
+  { key: 'integrations', label: 'Integrations', icon: 'plug' },
   { key: 'settings', label: 'Settings', icon: 'cog' },
 ];
+
+const NAV_DEFAULT_KEYS = DEFAULT_NAV_ITEMS.map(item => item.key);
+
+function mergeNavOrder(savedOrder?: string[]): string[] {
+  if (!savedOrder || savedOrder.length === 0) {
+    return NAV_DEFAULT_KEYS;
+  }
+
+  const validSaved = savedOrder.filter(key => NAV_DEFAULT_KEYS.includes(key));
+  const missing = NAV_DEFAULT_KEYS.filter(key => !validSaved.includes(key));
+  return [...validSaved, ...missing];
+}
 
 // Popular Google Fonts
 const googleFonts = [
@@ -49,7 +62,7 @@ export default function SettingsAdminPage() {
   const [activeTab, setActiveTab] = useState<'general' | 'navigation' | 'branding' | 'footer'>('general');
 
   // Navigation ordering state
-  const [navOrder, setNavOrder] = useState<string[]>(DEFAULT_NAV_ITEMS.map(item => item.key));
+  const [navOrder, setNavOrder] = useState<string[]>(NAV_DEFAULT_KEYS);
   const [draggedNavIndex, setDraggedNavIndex] = useState<number | null>(null);
   const [dragOverNavIndex, setDragOverNavIndex] = useState<number | null>(null);
   const dragNavNode = useRef<HTMLDivElement | null>(null);
@@ -73,9 +86,7 @@ export default function SettingsAdminPage() {
           setSettings(data);
           setFooterLinks(data.footer_links || []);
           // Load saved nav order or use default
-          if (data.admin_nav_order && data.admin_nav_order.length > 0) {
-            setNavOrder(data.admin_nav_order);
-          }
+          setNavOrder(mergeNavOrder(data.admin_nav_order));
         } catch (error) {
           console.error('Failed to load settings:', error);
           toast.error('Failed to load settings');
@@ -392,7 +403,7 @@ export default function SettingsAdminPage() {
               <div className="pt-4 border-t border-gray-200">
                 <button
                   type="button"
-                  onClick={() => setNavOrder(DEFAULT_NAV_ITEMS.map(item => item.key))}
+                  onClick={() => setNavOrder(NAV_DEFAULT_KEYS)}
                   className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-2"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -697,4 +708,3 @@ export default function SettingsAdminPage() {
     </div>
   );
 }
-

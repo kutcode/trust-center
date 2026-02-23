@@ -222,6 +222,16 @@ export default function AdminSidebar() {
             ),
         },
         {
+            key: 'integrations',
+            href: '/admin/integrations',
+            label: 'Integrations',
+            icon: (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l4-4 4 4m0 6l-4 4-4-4M3 12h18" />
+                </svg>
+            ),
+        },
+        {
             key: 'settings',
             href: '/admin/settings',
             label: 'Settings',
