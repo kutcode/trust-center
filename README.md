@@ -1,6 +1,6 @@
-# Trust Center
+# The Open GRC Trust Center
 
-An open-source security trust center platform. Built with Next.js 15, Docker, and Supabase, featuring organization-level document approval, magic link access, and comprehensive admin management
+An open-source security trust center platform for **The Open GRC** ecosystem, available under **[theopengrc.com](https://theopengrc.com)**. Built with Next.js 15, Docker, and Supabase, featuring organization-level document approval, magic link access, and comprehensive admin management.
 
 > 🎯 **[Try the Live Demo →](https://demo.trustcenter.dev)**
 > Explore the full Trust Center experience — public site and admin panel — with sample data. No setup required.
@@ -14,6 +14,7 @@ An open-source security trust center platform. Built with Next.js 15, Docker, an
 - **Organization Whitelisting**: Track approved documents per organization for granular access control
 - **Auto-Approval**: Organizations with previously approved documents get instant access
 - **Admin Console**: Full-featured admin panel for document management, request approval, and customization
+- **Salesforce Integration (OAuth)**: Connect Salesforce and sync customer/account status to automatically manage organization access
 - **Trust Center Customization**: Customize branding, colors, hero section, and content
 - **Multi-Layer Security**: Role-based access control with database, API, frontend, and storage protection
 
@@ -66,12 +67,15 @@ An open-source security trust center platform. Built with Next.js 15, Docker, an
 
 ## Email Configuration
 
-The Trust Center uses **Resend** for secure, production-ready email delivery with high deliverability to Gmail, Hotmail, Yahoo, and other major providers.
+This project supports multiple email providers through `EMAIL_PROVIDER`:
+- `mailpit` for local development/testing (default)
+- `resend` for production/live delivery (recommended)
+- `smtp` and `sendgrid` as optional alternatives
 
 ### Quick Setup
 
 1. **For Development** (emails captured locally):
-   - No configuration needed! Emails are automatically captured by Mailpit
+   - No configuration needed: emails are captured by Mailpit
    - View emails at http://localhost:8025
 
 2. **For Production** (real email delivery):
@@ -81,7 +85,7 @@ The Trust Center uses **Resend** for secure, production-ready email delivery wit
      ```env
      EMAIL_PROVIDER=resend
      RESEND_API_KEY=re_your_api_key_here
-     SMTP_FROM=noreply@yourdomain.com
+     SMTP_FROM=noreply@theopengrc.com
      ```
    - Restart backend: `docker-compose up -d --force-recreate backend`
 
@@ -138,9 +142,43 @@ See `.env.example` for all available environment variables:
 - `JWT_SECRET`: Secret for JWT tokens
 - `ANON_KEY`: Supabase anonymous key
 - `SERVICE_KEY`: Supabase service role key
-- `SMTP_*`: Email configuration for magic links
+- `EMAIL_PROVIDER`: Email backend (`mailpit`, `resend`, `smtp`, `sendgrid`)
+- `RESEND_API_KEY`: Required when `EMAIL_PROVIDER=resend`
+- `SMTP_*`: SMTP configuration (used by `smtp`, and host/port for mailpit capture)
 - `FRONTEND_URL`: Frontend URL
-- `BACKEND_URL`: Backend API URL
+- `ALLOW_ADMIN_SIGNUP`: Keep `false` by default; temporary bootstrap only
+- `ADMIN_SIGNUP_TOKEN`: Optional bootstrap token for admin signup endpoint
+- `ENABLE_TEST_EMAIL`: Keep `false` unless explicitly testing admin-only test endpoint
+- `SALESFORCE_CLIENT_ID`, `SALESFORCE_CLIENT_SECRET`, `SALESFORCE_REDIRECT_URI`: Salesforce OAuth Connected App config
+- `SALESFORCE_STATUS_FIELD`, `SALESFORCE_ALLOWED_STATUSES`, `SALESFORCE_DOMAIN_FIELD`: Customer status -> organization access mapping
+
+## Salesforce Integration
+
+The project now includes an admin integration for Salesforce using OAuth 2.0 Connected Apps.
+
+### Why OAuth instead of API key
+- Salesforce does not provide a durable "API key only" integration for this workflow
+- OAuth with refresh tokens is the standard, secure, long-lived approach
+- Supports secure token rotation and revocation
+
+### Flow
+1. Admin saves Salesforce credentials in `Admin -> Integrations`
+2. Admin calls `GET /api/admin/integrations/salesforce/connect-url`
+3. Admin authorizes in Salesforce
+4. Salesforce redirects to `SALESFORCE_REDIRECT_URI`
+5. Backend stores active Salesforce connection
+6. Admin runs `POST /api/admin/integrations/salesforce/sync`
+
+### Sync behavior
+- Pulls `Account` and `Contact` records from Salesforce
+- Maps accounts to Trust Center organizations by:
+  - account website domain (`SALESFORCE_DOMAIN_FIELD`, default `Website`)
+  - contact email domains
+- Uses account status field (`SALESFORCE_STATUS_FIELD`, default `Type`)
+- If status is in `SALESFORCE_ALLOWED_STATUSES`, organization is set to `whitelisted`
+- Otherwise organization is set to `no_access`
+
+Full setup guide: `docs/SALESFORCE_SETUP.md`
 
 ## Development
 
@@ -186,6 +224,11 @@ docker-compose exec supabase-db psql -U postgres -d postgres
 - `POST /api/documents` - Upload document
 - `GET /api/organizations` - List organizations
 - `PATCH /api/admin/settings` - Update trust center settings
+- `GET /api/admin/integrations/salesforce/status` - Salesforce integration status
+- `GET /api/admin/integrations/salesforce/config` - Read Salesforce integration config (admin)
+- `PUT /api/admin/integrations/salesforce/config` - Save Salesforce integration config (admin)
+- `GET /api/admin/integrations/salesforce/connect-url` - Generate Salesforce OAuth URL
+- `POST /api/admin/integrations/salesforce/sync` - Sync Salesforce customer data to organizations
 
 See the plan document for complete API documentation.
 
@@ -224,7 +267,9 @@ See the plan document for complete API documentation.
 2. **HTTPS**: Use reverse proxy (nginx/traefik) for HTTPS
 3. **Database**: Use managed PostgreSQL or Supabase Cloud
 4. **Storage**: Configure Supabase Storage for production
-5. **Email**: Configure SMTP for production email delivery
+5. **Email**: Configure production email delivery provider
+   - Recommended for this project: `EMAIL_PROVIDER=resend`
+   - Keep `EMAIL_PROVIDER=mailpit` in local/dev
 6. **Secrets**: Use secret management (Docker secrets, Kubernetes secrets, etc.)
 
 ### Docker Production Build
@@ -267,4 +312,3 @@ For issues and questions:
 - [ ] API rate limiting improvements
 - [ ] Webhook support for integrations
 - [ ] Advanced document versioning UI
-
