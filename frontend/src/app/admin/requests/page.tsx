@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { apiRequestWithAuth } from '@/lib/api';
@@ -20,7 +20,7 @@ interface ExtendedDocumentRequest extends DocumentRequest {
   expiration_days?: number;
 }
 
-export default function RequestsAdminPage() {
+function RequestsAdminPageContent() {
   const router = useRouter();
   const [requests, setRequests] = useState<ExtendedDocumentRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -513,5 +513,21 @@ export default function RequestsAdminPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function RequestsAdminPageFallback() {
+  return (
+    <div className="flex items-center justify-center py-12">
+      <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent"></div>
+    </div>
+  );
+}
+
+export default function RequestsAdminPage() {
+  return (
+    <Suspense fallback={<RequestsAdminPageFallback />}>
+      <RequestsAdminPageContent />
+    </Suspense>
   );
 }

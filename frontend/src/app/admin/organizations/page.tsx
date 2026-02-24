@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { apiRequestWithAuth } from '@/lib/api';
 import { Organization } from '@/types';
@@ -9,7 +9,7 @@ import { useQueryParam } from '@/hooks/useQueryParam';
 
 type StatusFilter = 'all' | 'whitelisted' | 'conditional' | 'no_access' | 'archived';
 
-export default function OrganizationsAdminPage() {
+function OrganizationsAdminPageContent() {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [archivedOrganizations, setArchivedOrganizations] = useState<Organization[]>([]);
   const [filteredOrganizations, setFilteredOrganizations] = useState<Organization[]>([]);
@@ -314,5 +314,21 @@ export default function OrganizationsAdminPage() {
         />
       )}
     </>
+  );
+}
+
+function OrganizationsAdminPageFallback() {
+  return (
+    <div className="flex items-center justify-center min-h-[400px]">
+      <div className="text-gray-900">Loading organizations...</div>
+    </div>
+  );
+}
+
+export default function OrganizationsAdminPage() {
+  return (
+    <Suspense fallback={<OrganizationsAdminPageFallback />}>
+      <OrganizationsAdminPageContent />
+    </Suspense>
   );
 }

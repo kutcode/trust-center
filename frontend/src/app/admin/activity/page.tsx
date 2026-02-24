@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { apiRequestWithAuth } from '@/lib/api';
@@ -24,7 +24,7 @@ interface ActivityLog {
     created_at: string;
 }
 
-export default function ActivityLogsPage() {
+function ActivityLogsPageContent() {
     const router = useRouter();
     const defaultStartDate = useMemo(
         () => new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -320,5 +320,21 @@ export default function ActivityLogsPage() {
                 </div>
             )}
         </div>
+    );
+}
+
+function ActivityLogsPageFallback() {
+    return (
+        <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent"></div>
+        </div>
+    );
+}
+
+export default function ActivityLogsPage() {
+    return (
+        <Suspense fallback={<ActivityLogsPageFallback />}>
+            <ActivityLogsPageContent />
+        </Suspense>
     );
 }
