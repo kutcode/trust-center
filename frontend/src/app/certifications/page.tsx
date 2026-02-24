@@ -2,6 +2,7 @@ import { apiRequest } from '@/lib/api';
 import { Certification } from '@/types';
 import Image from 'next/image';
 import Link from 'next/link';
+import Breadcrumbs from '@/components/ui/Breadcrumbs';
 
 async function getCertifications(): Promise<Certification[]> {
   try {
@@ -57,13 +58,13 @@ export default async function CertificationsPage() {
       {/* Hero Section */}
       <div className="bg-white border-b border-gray-200">
         <div className="container mx-auto px-4 py-16">
-          <div className="flex items-center gap-3 mb-4">
-            <Link href="/" className="text-gray-500 hover:text-gray-700">
-              Home
-            </Link>
-            <span className="text-gray-400">/</span>
-            <span className="text-gray-900">Certifications</span>
-          </div>
+          <Breadcrumbs
+            className="mb-4"
+            items={[
+              { label: 'Home', href: '/' },
+              { label: 'Certifications' },
+            ]}
+          />
           <h1 className="text-5xl font-bold text-gray-900 mb-4">Compliance Certifications</h1>
           <p className="text-xl text-gray-600 max-w-2xl">
             Our security and compliance certifications demonstrate our commitment to protecting your data.
@@ -113,7 +114,7 @@ export default async function CertificationsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {certifications.map((cert) => {
                 const badge = getBadge(cert.name);
-                const validity = getValidityStatus(cert.expiry_date);
+                const validity = getValidityStatus(cert.expiry_date || null);
 
                 return (
                   <div

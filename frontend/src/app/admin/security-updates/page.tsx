@@ -1,16 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { apiRequestWithAuth } from '@/lib/api';
 import toast from 'react-hot-toast';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import TableSkeleton from '@/components/ui/TableSkeleton';
+import SortableHeader from '@/components/ui/SortableHeader';
+import Pagination from '@/components/ui/Pagination';
+import { useTableSort } from '@/hooks/useTableSort';
+import { usePagination } from '@/hooks/usePagination';
 
 interface SecurityUpdate {
     id: string;
-    title: string;
-    content: string;
+    title: string | null;
+    content: string | null;
     severity: 'low' | 'medium' | 'high' | 'critical' | null;
     published_at: string | null;
     created_at: string;
@@ -29,6 +33,17 @@ function getSeverityColor(severity: string | null): string {
     return option?.color || 'bg-gray-100 text-gray-700';
 }
 
+function safeDateLabel(value: unknown): string {
+    if (typeof value !== 'string' || !value) return '—';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '—';
+    return value.includes('T') ? value.split('T')[0] : date.toISOString().split('T')[0];
+}
+
+function toText(value: unknown): string {
+    return typeof value === 'string' ? value : '';
+}
+
 export default function SecurityUpdatesAdminPage() {
     const [updates, setUpdates] = useState<SecurityUpdate[]>([]);
     const [loading, setLoading] = useState(true);
@@ -38,9 +53,12 @@ export default function SecurityUpdatesAdminPage() {
     const [saving, setSaving] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState<SecurityUpdate | null>(null);
 
-    // Sorting state
-    const [sortField, setSortField] = useState<'date' | 'title'>('date');
-    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+    const dateAccessor = useCallback(
+        (update: SecurityUpdate | undefined | null) => update?.published_at || update?.created_at || '',
+        []
+    );
+    const { sortedItems, sortField, sortDirection, toggleSort } = useTableSort<SecurityUpdate>(updates, dateAccessor, 'desc');
+    const pagination = usePagination(sortedItems, 10);
 
     // Form state
     const [form, setForm] = useState({
@@ -63,11 +81,20 @@ export default function SecurityUpdatesAdminPage() {
             if (!session) return;
 
             setToken(session.access_token);
-            const data = await apiRequestWithAuth<SecurityUpdate[]>(
+            const data = await apiRequestWithAuth<any[]>(
                 '/api/security-updates?include_unpublished=true',
                 session.access_token
             );
-            setUpdates(data);
+            setUpdates(
+                (Array.isArray(data) ? data : []).map((row) => ({
+                    id: String(row?.id ?? crypto.randomUUID()),
+                    title: typeof row?.title === 'string' ? row.title : null,
+                    content: typeof row?.content === 'string' ? row.content : null,
+                    severity: ['low', 'medium', 'high', 'critical'].includes(row?.severity) ? row.severity : null,
+                    published_at: typeof row?.published_at === 'string' ? row.published_at : null,
+                    created_at: typeof row?.created_at === 'string' ? row.created_at : new Date().toISOString(),
+                }))
+            );
         } catch (error) {
             console.error('Failed to load security updates:', error);
             toast.error('Failed to load security updates');
@@ -90,8 +117,8 @@ export default function SecurityUpdatesAdminPage() {
     const openEditModal = (update: SecurityUpdate) => {
         setEditingUpdate(update);
         setForm({
-            title: update.title,
-            content: update.content,
+            title: update.title || '',
+            content: update.content || '',
             severity: update.severity || '',
             published_at: update.published_at ? update.published_at.split('T')[0] : '',
         });
@@ -223,81 +250,47 @@ export default function SecurityUpdatesAdminPage() {
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                             <tr>
-                                <th
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-                                    onClick={() => {
-                                        if (sortField === 'title') {
-                                            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-                                        } else {
-                                            setSortField('title');
-                                            setSortDirection('asc');
-                                        }
-                                    }}
-                                >
-                                    <div className="flex items-center gap-1">
-                                        Title
-                                        {sortField === 'title' && (
-                                            <svg className={`w-4 h-4 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                                            </svg>
-                                        )}
-                                    </div>
-                                </th>
+                                <SortableHeader
+                                    label="Title"
+                                    active={sortField === 'title'}
+                                    direction={sortDirection}
+                                    onClick={() => toggleSort('title')}
+                                    className="px-6 py-3"
+                                />
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                                     Severity
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                                     Status
                                 </th>
-                                <th
-                                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100"
-                                    onClick={() => {
-                                        if (sortField === 'date') {
-                                            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-                                        } else {
-                                            setSortField('date');
-                                            setSortDirection('desc');
-                                        }
-                                    }}
-                                >
-                                    <div className="flex items-center gap-1">
-                                        Date
-                                        {sortField === 'date' && (
-                                            <svg className={`w-4 h-4 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                                            </svg>
-                                        )}
-                                    </div>
-                                </th>
+                                <SortableHeader
+                                    label="Date"
+                                    active={sortField === dateAccessor}
+                                    direction={sortDirection}
+                                    onClick={() => toggleSort(dateAccessor)}
+                                    className="px-6 py-3"
+                                />
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                                     Actions
                                 </th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
-                            {[...updates].sort((a, b) => {
-                                let aVal: string, bVal: string;
-
-                                if (sortField === 'date') {
-                                    aVal = a.published_at || a.created_at;
-                                    bVal = b.published_at || b.created_at;
-                                } else {
-                                    aVal = a.title.toLowerCase();
-                                    bVal = b.title.toLowerCase();
-                                }
-
-                                if (sortDirection === 'asc') {
-                                    return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
-                                } else {
-                                    return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
-                                }
-                            }).map((update) => (
+                            {pagination.paginatedItems.map((update) => (
                                 <tr key={update.id} className="hover:bg-gray-50">
                                     <td className="px-6 py-4">
                                         <div>
-                                            <p className="font-medium text-gray-900">{update.title}</p>
+                                            <p className="font-medium text-gray-900">{update.title || 'Untitled Update'}</p>
                                             <p className="text-sm text-gray-500 truncate max-w-md">
-                                                {update.content.replace(/<[^>]*>/g, '').substring(0, 100)}...
+                                                {(() => {
+                                                    const preview = toText(update.content).replace(/<[^>]*>/g, '').trim();
+                                                    const text = preview || 'No content';
+                                                    return text.substring(0, 100);
+                                                })()}
+                                                {(() => {
+                                                    const preview = toText(update.content).replace(/<[^>]*>/g, '').trim();
+                                                    return preview.length > 100 ? '...' : '';
+                                                })()}
                                             </p>
                                         </div>
                                     </td>
@@ -324,8 +317,8 @@ export default function SecurityUpdatesAdminPage() {
                                     <td className="px-6 py-4">
                                         <span className="text-sm text-gray-600">
                                             {update.published_at
-                                                ? update.published_at.split('T')[0]
-                                                : update.created_at.split('T')[0] + ' (created)'
+                                                ? safeDateLabel(update.published_at)
+                                                : `${safeDateLabel(update.created_at)} (created)`
                                             }
                                         </span>
                                     </td>
@@ -356,6 +349,14 @@ export default function SecurityUpdatesAdminPage() {
                         </tbody>
                     </table>
                 )}
+                <Pagination
+                    page={pagination.page}
+                    totalPages={pagination.totalPages}
+                    totalItems={pagination.totalItems}
+                    startIndex={pagination.startIndex}
+                    endIndex={pagination.endIndex}
+                    onPageChange={pagination.setPage}
+                />
             </div>
 
             {/* Add/Edit Modal */}

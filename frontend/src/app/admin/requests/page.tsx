@@ -5,6 +5,14 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { apiRequestWithAuth } from '@/lib/api';
 import { DocumentRequest } from '@/types';
+import Pagination from '@/components/ui/Pagination';
+import SortableHeader from '@/components/ui/SortableHeader';
+import { usePagination } from '@/hooks/usePagination';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useQueryParam } from '@/hooks/useQueryParam';
+import InputModal from '@/components/ui/InputModal';
+import LiveRegion from '@/components/ui/LiveRegion';
+import ProgressBar from '@/components/ui/ProgressBar';
 
 // Extend DocumentRequest type to include expiration fields
 interface ExtendedDocumentRequest extends DocumentRequest {
@@ -18,9 +26,13 @@ export default function RequestsAdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [token, setToken] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'denied'>('all');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [filterParam, setFilterParam] = useQueryParam('status');
+  const filter: 'all' | 'pending' | 'approved' | 'denied' =
+    filterParam === 'pending' || filterParam === 'approved' || filterParam === 'denied'
+      ? filterParam
+      : 'all';
 
   // Approval modal state
   const [approvalModal, setApprovalModal] = useState<{
@@ -29,6 +41,12 @@ export default function RequestsAdminPage() {
   } | null>(null);
   const [expirationDays, setExpirationDays] = useState<number | null>(null);
   const [approving, setApproving] = useState(false);
+  const [denyModal, setDenyModal] = useState<
+    | { mode: 'single'; requestId: string; requesterName: string }
+    | { mode: 'bulk'; count: number }
+    | null
+  >(null);
+  const [denying, setDenying] = useState(false);
 
   async function loadRequests(accessToken: string) {
     try {
@@ -82,19 +100,8 @@ export default function RequestsAdminPage() {
     }
   };
 
-  const handleDeny = async (requestId: string) => {
-    if (!token) return;
-
-    const reason = prompt('Reason for denial (optional):');
-    try {
-      await apiRequestWithAuth(`/api/admin/document-requests/${requestId}/deny`, token, {
-        method: 'PATCH',
-        body: JSON.stringify({ reason }),
-      });
-      await loadRequests(token);
-    } catch (error) {
-      console.error('Failed to deny request:', error);
-    }
+  const openDenyModal = (request: { id: string; requester_name: string }) => {
+    setDenyModal({ mode: 'single', requestId: request.id, requesterName: request.requester_name });
   };
 
   // Bulk operations
@@ -140,18 +147,35 @@ export default function RequestsAdminPage() {
 
   const handleBulkDeny = async () => {
     if (!token || selectedPendingIds.length === 0) return;
+    setDenyModal({ mode: 'bulk', count: selectedPendingIds.length });
+  };
 
-    const reason = prompt('Reason for denial (optional):');
-    setBulkProcessing(true);
+  const handleDenyConfirm = async (reason: string) => {
+    if (!token || !denyModal) return;
+
+    setDenying(true);
+    if (denyModal.mode === 'bulk') {
+      setBulkProcessing(true);
+    }
+
     try {
-      await apiRequestWithAuth('/api/admin/document-requests/batch-deny', token, {
-        method: 'POST',
-        body: JSON.stringify({ request_ids: selectedPendingIds, reason }),
-      });
+      if (denyModal.mode === 'single') {
+        await apiRequestWithAuth(`/api/admin/document-requests/${denyModal.requestId}/deny`, token, {
+          method: 'PATCH',
+          body: JSON.stringify({ reason }),
+        });
+      } else {
+        await apiRequestWithAuth('/api/admin/document-requests/batch-deny', token, {
+          method: 'POST',
+          body: JSON.stringify({ request_ids: selectedPendingIds, reason }),
+        });
+      }
       await loadRequests(token);
+      setDenyModal(null);
     } catch (error) {
-      console.error('Failed to bulk deny:', error);
+      console.error('Failed to deny request(s):', error);
     } finally {
+      setDenying(false);
       setBulkProcessing(false);
     }
   };
@@ -159,6 +183,12 @@ export default function RequestsAdminPage() {
   const filteredRequests = filter === 'all'
     ? requests
     : requests.filter(r => r.status === filter);
+  const { sortedItems: sortedRequests, sortField, sortDirection, toggleSort } = useTableSort<ExtendedDocumentRequest>(
+    filteredRequests,
+    'created_at',
+    'desc'
+  );
+  const pagination = usePagination(sortedRequests, 10);
 
   const formatExpiration = (expiresAt: string | undefined) => {
     if (!expiresAt) return null;
@@ -185,6 +215,26 @@ export default function RequestsAdminPage() {
 
   return (
     <div className="space-y-6">
+      <LiveRegion
+        message={`Showing ${filteredRequests.length} document request${filteredRequests.length === 1 ? '' : 's'} for ${filter} status.`}
+      />
+      <InputModal
+        key={denyModal ? `${denyModal.mode}-${denyModal.mode === 'single' ? denyModal.requestId : denyModal.count}` : 'deny-closed'}
+        isOpen={!!denyModal}
+        onClose={() => setDenyModal(null)}
+        onConfirm={handleDenyConfirm}
+        title={denyModal?.mode === 'bulk' ? 'Bulk Deny Requests' : 'Deny Request'}
+        message={
+          denyModal?.mode === 'bulk'
+            ? `Add an optional denial reason for ${denyModal.count} selected request${denyModal.count === 1 ? '' : 's'}.`
+            : denyModal?.mode === 'single'
+              ? `Add an optional denial reason for ${denyModal.requesterName}.`
+              : undefined
+        }
+        placeholder="Reason for denial (optional)"
+        confirmLabel={denyModal?.mode === 'bulk' ? 'Deny Selected' : 'Deny Request'}
+        isLoading={denying}
+      />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Document Requests</h1>
@@ -205,7 +255,7 @@ export default function RequestsAdminPage() {
         {(['all', 'pending', 'approved', 'denied'] as const).map((f) => (
           <button
             key={f}
-            onClick={() => setFilter(f)}
+            onClick={() => setFilterParam(f === 'all' ? null : f)}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === f
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -223,11 +273,12 @@ export default function RequestsAdminPage() {
 
       {/* Bulk action bar */}
       {selectedPendingIds.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex items-center justify-between">
-          <span className="text-blue-800 font-medium">
-            {selectedPendingIds.length} request{selectedPendingIds.length !== 1 ? 's' : ''} selected
-          </span>
-          <div className="flex gap-2">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-blue-800 font-medium">
+              {selectedPendingIds.length} request{selectedPendingIds.length !== 1 ? 's' : ''} selected
+            </span>
+            <div className="flex gap-2">
             <button
               onClick={handleBulkApprove}
               disabled={bulkProcessing}
@@ -258,7 +309,14 @@ export default function RequestsAdminPage() {
             >
               Clear
             </button>
+            </div>
           </div>
+          {bulkProcessing && (
+            <ProgressBar
+              indeterminate
+              label="Processing selected requests..."
+            />
+          )}
         </div>
       )}
 
@@ -278,23 +336,23 @@ export default function RequestsAdminPage() {
                     />
                   </th>
                 )}
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Requester</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Company</th>
+                <SortableHeader label="Requester" active={sortField === 'requester_name'} direction={sortDirection} onClick={() => toggleSort('requester_name')} className="px-6 py-3" />
+                <SortableHeader label="Company" active={sortField === 'requester_company'} direction={sortDirection} onClick={() => toggleSort('requester_company')} className="px-6 py-3" />
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Documents</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expires</th>
+                <SortableHeader label="Status" active={sortField === 'status'} direction={sortDirection} onClick={() => toggleSort('status')} className="px-6 py-3" />
+                <SortableHeader label="Created" active={sortField === 'created_at'} direction={sortDirection} onClick={() => toggleSort('created_at')} className="px-6 py-3" />
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={filter === 'pending' && pendingRequests.length > 0 ? 7 : 6} className="px-6 py-12 text-center text-gray-500">
                     No requests found
                   </td>
                 </tr>
               ) : (
-                filteredRequests.map((request) => {
+                pagination.paginatedItems.map((request) => {
                   const expInfo = formatExpiration(request.access_expires_at);
                   return (
                     <tr key={request.id} className="hover:bg-gray-50">
@@ -343,7 +401,9 @@ export default function RequestsAdminPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        {request.status === 'approved' || request.status === 'auto_approved' ? (
+                        <div className="space-y-1">
+                        <div className="text-sm text-gray-700">{new Date(request.created_at).toLocaleDateString()}</div>
+                        {(request.status === 'approved' || request.status === 'auto_approved') ? (
                           expInfo ? (
                             <span className={`text-sm ${expInfo.color}`}>
                               {expInfo.label}
@@ -354,6 +414,7 @@ export default function RequestsAdminPage() {
                         ) : (
                           <span className="text-gray-400">—</span>
                         )}
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         {request.status === 'pending' && (
@@ -365,7 +426,7 @@ export default function RequestsAdminPage() {
                               Approve
                             </button>
                             <button
-                              onClick={() => handleDeny(request.id)}
+                              onClick={() => openDenyModal(request)}
                               className="px-3 py-1 bg-red-100 text-red-700 rounded text-sm font-medium hover:bg-red-200"
                             >
                               Deny
@@ -380,6 +441,14 @@ export default function RequestsAdminPage() {
             </tbody>
           </table>
         </div>
+        <Pagination
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.totalItems}
+          startIndex={pagination.startIndex}
+          endIndex={pagination.endIndex}
+          onPageChange={pagination.setPage}
+        />
       </div>
 
       {/* Approval Modal with Expiration Options */}

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { apiRequestWithAuth } from '@/lib/api';
 import { Organization } from '@/types';
 import OrganizationEditModal from '@/components/admin/OrganizationEditModal';
+import { useQueryParam } from '@/hooks/useQueryParam';
 
 type StatusFilter = 'all' | 'whitelisted' | 'conditional' | 'no_access' | 'archived';
 
@@ -14,7 +15,14 @@ export default function OrganizationsAdminPage() {
   const [filteredOrganizations, setFilteredOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [statusFilterParam, setStatusFilterParam] = useQueryParam('status');
+  const statusFilter: StatusFilter =
+    statusFilterParam === 'whitelisted' ||
+    statusFilterParam === 'conditional' ||
+    statusFilterParam === 'no_access' ||
+    statusFilterParam === 'archived'
+      ? statusFilterParam
+      : 'all';
   const [editingOrg, setEditingOrg] = useState<Organization | null>(null);
   const [removingOrg, setRemovingOrg] = useState<Organization | null>(null);
   const [processingOrg, setProcessingOrg] = useState<string | null>(null);
@@ -147,7 +155,7 @@ export default function OrganizationsAdminPage() {
           {(['all', 'whitelisted', 'conditional', 'no_access', 'archived'] as StatusFilter[]).map((filter) => (
             <button
               key={filter}
-              onClick={() => setStatusFilter(filter)}
+              onClick={() => setStatusFilterParam(filter === 'all' ? null : filter)}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${statusFilter === filter
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -308,4 +316,3 @@ export default function OrganizationsAdminPage() {
     </>
   );
 }
-

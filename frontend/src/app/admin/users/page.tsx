@@ -4,6 +4,14 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { apiRequestWithAuth } from '@/lib/api';
 import Link from 'next/link';
+import Pagination from '@/components/ui/Pagination';
+import SortableHeader from '@/components/ui/SortableHeader';
+import { usePagination } from '@/hooks/usePagination';
+import { useTableSort } from '@/hooks/useTableSort';
+import ConfirmModal from '@/components/ui/ConfirmModal';
+import FormField from '@/components/ui/FormField';
+import PasswordStrengthIndicator from '@/components/ui/PasswordStrengthIndicator';
+import { useFormValidation } from '@/hooks/useFormValidation';
 
 interface User {
   id: string;
@@ -29,6 +37,30 @@ export default function UsersAdminPage() {
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [deleteConfirmUser, setDeleteConfirmUser] = useState<{ id: string; email: string } | null>(null);
+  const { errors: formErrors, validateAll, clearFieldError, clearErrors } = useFormValidation<typeof formData>({
+    email: (value) => {
+      if (!value.trim()) return 'Email is required';
+      const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+      return isValidEmail ? null : 'Enter a valid email address';
+    },
+    password: (value) => {
+      if (!value) return 'Password is required';
+      if (value.length < 8) return 'Password must be at least 8 characters';
+      return null;
+    },
+    admin_role: (value, values) => {
+      if (values.is_admin && !value) return 'Admin role is required';
+      return null;
+    },
+  });
+
+  const { sortedItems: sortedUsers, sortField, sortDirection, toggleSort } = useTableSort<User>(
+    users,
+    'created_at',
+    'desc'
+  );
+  const pagination = usePagination(sortedUsers, 10);
 
   useEffect(() => {
     async function loadUsers() {
@@ -53,6 +85,11 @@ export default function UsersAdminPage() {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
+
+    if (!validateAll(formData)) {
+      setError('Please fix the highlighted form fields.');
+      return;
+    }
 
     setError('');
     setSuccess('');
@@ -101,7 +138,6 @@ export default function UsersAdminPage() {
 
   const handleDeleteUser = async (userId: string) => {
     if (!token) return;
-    if (!confirm('Are you sure you want to delete this user?')) return;
 
     try {
       await apiRequestWithAuth(`/api/admin/users/${userId}`, token, {
@@ -112,6 +148,7 @@ export default function UsersAdminPage() {
       const data = await apiRequestWithAuth<User[]>('/api/admin/users', token);
       setUsers(data);
       setSuccess('User deleted successfully');
+      setDeleteConfirmUser(null);
     } catch (err: any) {
       setError(err.message || 'Failed to delete user');
     }
@@ -123,10 +160,21 @@ export default function UsersAdminPage() {
 
   return (
     <>
+      <ConfirmModal
+        isOpen={!!deleteConfirmUser}
+        onClose={() => setDeleteConfirmUser(null)}
+        onConfirm={() => deleteConfirmUser && handleDeleteUser(deleteConfirmUser.id)}
+        title="Delete User"
+        message={`Are you sure you want to delete ${deleteConfirmUser?.email || 'this user'}?`}
+        confirmLabel="Delete User"
+      />
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
         <button
-          onClick={() => setShowCreateModal(true)}
+          onClick={() => {
+            clearErrors();
+            setShowCreateModal(true);
+          }}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap"
         >
           Create User
@@ -150,28 +198,48 @@ export default function UsersAdminPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Email
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Role
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Created
-                </th>
+                <SortableHeader
+                  label="Email"
+                  active={sortField === 'email'}
+                  direction={sortDirection}
+                  onClick={() => toggleSort('email')}
+                  className="px-6 py-3"
+                />
+                <SortableHeader
+                  label="Name"
+                  active={sortField === 'full_name'}
+                  direction={sortDirection}
+                  onClick={() => toggleSort('full_name')}
+                  className="px-6 py-3"
+                />
+                <SortableHeader
+                  label="Role"
+                  active={sortField === 'is_admin'}
+                  direction={sortDirection}
+                  onClick={() => toggleSort('is_admin')}
+                  className="px-6 py-3"
+                />
+                <SortableHeader
+                  label="Status"
+                  active={sortField === 'email_confirmed_at'}
+                  direction={sortDirection}
+                  onClick={() => toggleSort('email_confirmed_at')}
+                  className="px-6 py-3"
+                />
+                <SortableHeader
+                  label="Created"
+                  active={sortField === 'created_at'}
+                  direction={sortDirection}
+                  onClick={() => toggleSort('created_at')}
+                  className="px-6 py-3"
+                />
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {users.map((user) => (
+              {pagination.paginatedItems.map((user) => (
                 <tr key={user.id}>
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">
                     <div className="max-w-xs truncate" title={user.email}>{user.email}</div>
@@ -208,7 +276,7 @@ export default function UsersAdminPage() {
                     {user.is_admin ? 'Remove Admin' : 'Make Admin'}
                   </button>
                   <button
-                    onClick={() => handleDeleteUser(user.id)}
+                    onClick={() => setDeleteConfirmUser({ id: user.id, email: user.email })}
                     className="text-red-600 hover:text-red-900"
                   >
                     Delete
@@ -226,6 +294,14 @@ export default function UsersAdminPage() {
           </tbody>
         </table>
         </div>
+        <Pagination
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.totalItems}
+          startIndex={pagination.startIndex}
+          endIndex={pagination.endIndex}
+          onPageChange={pagination.setPage}
+        />
       </div>
 
       {/* Create User Modal */}
@@ -235,37 +311,46 @@ export default function UsersAdminPage() {
             <h2 className="text-2xl font-bold mb-4 text-gray-900">Create New User</h2>
             
             <form onSubmit={handleCreateUser} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2 text-gray-700">Email *</label>
+              <FormField label="Email" required error={formErrors.email}>
                 <input
                   type="email"
                   required
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, email: e.target.value });
+                    clearFieldError('email');
+                  }}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
                 />
-              </div>
+              </FormField>
 
-              <div>
-                <label className="block text-sm font-medium mb-2 text-gray-700">Password *</label>
+              <FormField
+                label="Password"
+                required
+                error={formErrors.password}
+                helpText="Use at least 8 characters with a mix of letters, numbers, and symbols."
+              >
                 <input
                   type="password"
                   required
                   value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, password: e.target.value });
+                    clearFieldError('password');
+                  }}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
                 />
-              </div>
+                <PasswordStrengthIndicator password={formData.password} />
+              </FormField>
 
-              <div>
-                <label className="block text-sm font-medium mb-2 text-gray-700">Full Name</label>
+              <FormField label="Full Name">
                 <input
                   type="text"
                   value={formData.full_name}
                   onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
                 />
-              </div>
+              </FormField>
 
               <div className="flex items-center">
                 <input
@@ -281,17 +366,19 @@ export default function UsersAdminPage() {
               </div>
 
               {formData.is_admin && (
-                <div>
-                  <label className="block text-sm font-medium mb-2 text-gray-700">Admin Role</label>
+                <FormField label="Admin Role" error={formErrors.admin_role}>
                   <select
                     value={formData.admin_role}
-                    onChange={(e) => setFormData({ ...formData, admin_role: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, admin_role: e.target.value });
+                      clearFieldError('admin_role');
+                    }}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
                   >
                     <option value="admin">Admin</option>
                     <option value="super_admin">Super Admin</option>
                   </select>
-                </div>
+                </FormField>
               )}
 
               <div className="flex gap-4 pt-4">
@@ -303,7 +390,10 @@ export default function UsersAdminPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={() => {
+                    clearErrors();
+                    setShowCreateModal(false);
+                  }}
                   className="flex-1 bg-gray-200 text-gray-900 px-4 py-2 rounded-lg hover:bg-gray-300"
                 >
                   Cancel
@@ -316,4 +406,3 @@ export default function UsersAdminPage() {
     </>
   );
 }
-

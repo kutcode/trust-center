@@ -5,19 +5,26 @@ import { useState } from 'react';
 interface SearchBarProps {
     onSearch: (query: string) => void;
     placeholder?: string;
+    value?: string;
 }
 
-export default function SearchBar({ onSearch, placeholder = 'Search documents...' }: SearchBarProps) {
-    const [query, setQuery] = useState('');
+export default function SearchBar({ onSearch, placeholder = 'Search documents...', value }: SearchBarProps) {
+    const [internalQuery, setInternalQuery] = useState('');
+    const isControlled = typeof value === 'string';
+    const query = isControlled ? value : internalQuery;
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.target.value;
-        setQuery(value);
-        onSearch(value);
+        const nextValue = e.target.value;
+        if (!isControlled) {
+            setInternalQuery(nextValue);
+        }
+        onSearch(nextValue);
     };
 
     const handleClear = () => {
-        setQuery('');
+        if (!isControlled) {
+            setInternalQuery('');
+        }
         onSearch('');
     };
 

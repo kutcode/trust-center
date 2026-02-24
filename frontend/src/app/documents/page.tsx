@@ -6,12 +6,17 @@ import { Document, DocumentCategory } from '@/types';
 import Link from 'next/link';
 import SearchBar from '@/components/SearchBar';
 import RequestDocumentModal from '@/components/RequestDocumentModal';
+import Breadcrumbs from '@/components/ui/Breadcrumbs';
+import LiveRegion from '@/components/ui/LiveRegion';
+import { useQueryParam } from '@/hooks/useQueryParam';
 
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [categories, setCategories] = useState<DocumentCategory[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategoryParam, setSelectedCategoryParam] = useQueryParam('category');
+  const [searchQueryParam, setSearchQueryParam] = useQueryParam('q');
+  const selectedCategory = selectedCategoryParam;
+  const searchQuery = searchQueryParam || '';
   const [loading, setLoading] = useState(true);
   const [modalDocument, setModalDocument] = useState<Document | null>(null);
   const [showToast, setShowToast] = useState(false);
@@ -134,9 +139,19 @@ export default function DocumentsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <LiveRegion
+        message={`Showing ${filteredDocuments.length} document${filteredDocuments.length === 1 ? '' : 's'}${selectedCategory ? ' in selected category' : ''}${searchQuery ? ` matching ${searchQuery}` : ''}.`}
+      />
       {/* Hero Section */}
       <div className="bg-white border-b border-gray-200">
         <div className="container mx-auto px-4 py-12">
+          <Breadcrumbs
+            className="mb-4"
+            items={[
+              { label: 'Home', href: '/' },
+              { label: 'Documents' },
+            ]}
+          />
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Documents</h1>
           <p className="text-lg text-gray-600 max-w-2xl mb-8">
             Access our compliance, security, and legal documents. Public documents are available immediately, while restricted documents require approval.
@@ -144,7 +159,8 @@ export default function DocumentsPage() {
 
           {/* Search Bar */}
           <SearchBar
-            onSearch={setSearchQuery}
+            value={searchQuery}
+            onSearch={(value) => setSearchQueryParam(value || null)}
             placeholder="Search documents by name or description..."
           />
         </div>
@@ -156,7 +172,7 @@ export default function DocumentsPage() {
           <div className="mb-8 border-b border-gray-200 bg-white rounded-t-lg px-4">
             <nav className="flex space-x-8 overflow-x-auto">
               <button
-                onClick={() => setSelectedCategory(null)}
+                onClick={() => setSelectedCategoryParam(null)}
                 className={`py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${selectedCategory === null
                   ? 'border-blue-600 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -172,7 +188,7 @@ export default function DocumentsPage() {
                 return (
                   <button
                     key={category.id}
-                    onClick={() => setSelectedCategory(category.id)}
+                    onClick={() => setSelectedCategoryParam(category.id)}
                     className={`py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${selectedCategory === category.id
                       ? 'border-blue-600 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -196,7 +212,7 @@ export default function DocumentsPage() {
               Found <span className="font-semibold text-gray-900">{filteredDocuments.length}</span> document{filteredDocuments.length !== 1 ? 's' : ''} matching "<span className="font-medium">{searchQuery}</span>"
             </p>
             <button
-              onClick={() => setSearchQuery('')}
+              onClick={() => setSearchQueryParam(null)}
               className="text-sm text-blue-600 hover:text-blue-700"
             >
               Clear search
@@ -370,4 +386,3 @@ export default function DocumentsPage() {
     </div>
   );
 }
-

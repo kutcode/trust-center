@@ -19,14 +19,16 @@ export default function ConditionalLayout({
 
   if (isAdminRoute) {
     // Admin routes have their own layout with AdminNav
-    return <main className="flex-grow">{children}</main>;
+    return <div className="flex-grow">{children}</div>;
   }
 
   // Public routes get Header and Footer
   return (
     <>
       {header}
-      <main className="flex-grow">{children}</main>
+      <main id="main-content" className="flex-grow">
+        {children}
+      </main>
       {footer}
     </>
   );

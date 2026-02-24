@@ -1,5 +1,6 @@
 import { apiRequest } from '@/lib/api';
 import { SecurityUpdate } from '@/types';
+import Breadcrumbs from '@/components/ui/Breadcrumbs';
 
 async function getSecurityUpdates(): Promise<SecurityUpdate[]> {
   try {
@@ -32,6 +33,13 @@ export default async function SecurityUpdatesPage() {
       {/* Hero Section */}
       <div className="bg-white border-b border-gray-200">
         <div className="container mx-auto px-4 py-16">
+          <Breadcrumbs
+            className="mb-4"
+            items={[
+              { label: 'Home', href: '/' },
+              { label: 'Security Updates' },
+            ]}
+          />
           <h1 className="text-5xl font-bold text-gray-900 mb-4">Security Updates</h1>
           <p className="text-xl text-gray-600 max-w-2xl">
             Stay informed about the latest security advisories and updates.
@@ -75,4 +83,3 @@ export default async function SecurityUpdatesPage() {
     </div>
   );
 }
-

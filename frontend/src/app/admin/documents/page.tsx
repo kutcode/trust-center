@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { apiRequestWithAuth } from '@/lib/api';
@@ -9,6 +9,12 @@ import CategoriesModal from '@/components/admin/CategoriesModal';
 import toast from 'react-hot-toast';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import TableSkeleton from '@/components/ui/TableSkeleton';
+import Pagination from '@/components/ui/Pagination';
+import SortableHeader from '@/components/ui/SortableHeader';
+import LiveRegion from '@/components/ui/LiveRegion';
+import { usePagination } from '@/hooks/usePagination';
+import { useTableSort } from '@/hooks/useTableSort';
+import { useQueryParam } from '@/hooks/useQueryParam';
 
 type StatusFilter = 'all' | 'published' | 'draft' | 'archived';
 
@@ -20,7 +26,12 @@ export default function DocumentsAdminPage() {
   const [deleting, setDeleting] = useState<string | null>(null);
   const [showCategoriesModal, setShowCategoriesModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
-  const [activeTab, setActiveTab] = useState<StatusFilter>('all');
+  const [activeTabParam, setActiveTabParam] = useQueryParam('status');
+  const activeTab: StatusFilter =
+    activeTabParam === 'published' || activeTabParam === 'draft' || activeTabParam === 'archived'
+      ? activeTabParam
+      : 'all';
+  const categoryAccessor = useCallback((doc: Document) => doc.document_categories?.name || '', []);
 
   async function loadData() {
     const supabase = createClient();
@@ -83,6 +94,12 @@ export default function DocumentsAdminPage() {
     if (activeTab === 'all') return true;
     return doc.status === activeTab;
   });
+  const { sortedItems, sortField, sortDirection, toggleSort } = useTableSort<Document>(
+    filteredDocuments,
+    'updated_at',
+    'desc'
+  );
+  const pagination = usePagination(sortedItems, 12);
 
   // Count documents by status
   const statusCounts = {
@@ -108,6 +125,9 @@ export default function DocumentsAdminPage() {
       />
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+        <LiveRegion
+          message={`Showing ${filteredDocuments.length} ${activeTab === 'all' ? '' : `${activeTab} `}document${filteredDocuments.length === 1 ? '' : 's'} in admin documents.`}
+        />
         <h1 className="text-4xl font-bold text-gray-900">Document Management</h1>
         <div className="flex gap-3">
           <button
@@ -135,7 +155,7 @@ export default function DocumentsAdminPage() {
             {(['all', 'published', 'draft', 'archived'] as StatusFilter[]).map((tab) => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => setActiveTabParam(tab === 'all' ? null : tab)}
                 className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === tab
                   ? 'border-blue-500 text-blue-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -176,15 +196,15 @@ export default function DocumentsAdminPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Access Level</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                  <SortableHeader label="Title" active={sortField === 'title'} direction={sortDirection} onClick={() => toggleSort('title')} className="px-6 py-3" />
+                  <SortableHeader label="Category" active={sortField === categoryAccessor} direction={sortDirection} onClick={() => toggleSort(categoryAccessor)} className="px-6 py-3" />
+                  <SortableHeader label="Access Level" active={sortField === 'access_level'} direction={sortDirection} onClick={() => toggleSort('access_level')} className="px-6 py-3" />
+                  <SortableHeader label="Status" active={sortField === 'status'} direction={sortDirection} onClick={() => toggleSort('status')} className="px-6 py-3" />
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredDocuments.map((doc) => (
+                {pagination.paginatedItems.map((doc) => (
                   <tr key={doc.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div className="text-gray-900 max-w-md truncate font-medium" title={doc.title}>{doc.title}</div>
@@ -225,6 +245,14 @@ export default function DocumentsAdminPage() {
             </table>
           )}
         </div>
+        <Pagination
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.totalItems}
+          startIndex={pagination.startIndex}
+          endIndex={pagination.endIndex}
+          onPageChange={pagination.setPage}
+        />
       </div>
 
       {/* Categories Modal */}

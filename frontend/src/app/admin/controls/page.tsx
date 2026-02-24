@@ -5,6 +5,9 @@ import { createClient } from '@/lib/supabase/client';
 import { apiRequestWithAuth } from '@/lib/api';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import toast from 'react-hot-toast';
+import ConfirmModal from '@/components/ui/ConfirmModal';
+import FormField from '@/components/ui/FormField';
+import { useFormValidation } from '@/hooks/useFormValidation';
 
 interface ControlCategory {
     id: string;
@@ -37,6 +40,29 @@ export default function AdminControlsPage() {
 
     const [categoryForm, setCategoryForm] = useState({ name: '', description: '', icon: '🔒', banner_image: '' });
     const [controlForm, setControlForm] = useState({ title: '', description: '', category_id: '' });
+    const [deleteConfirm, setDeleteConfirm] = useState<
+        | { type: 'category'; id: string; label: string }
+        | { type: 'control'; id: string; label: string }
+        | null
+    >(null);
+    const [deleting, setDeleting] = useState(false);
+    const {
+        errors: categoryErrors,
+        validateAll: validateCategoryForm,
+        clearFieldError: clearCategoryFieldError,
+        clearErrors: clearCategoryErrors,
+    } = useFormValidation<typeof categoryForm>({
+        name: (value) => (value.trim() ? null : 'Category name is required'),
+    });
+    const {
+        errors: controlErrors,
+        validateAll: validateControlForm,
+        clearFieldError: clearControlFieldError,
+        clearErrors: clearControlErrors,
+    } = useFormValidation<typeof controlForm>({
+        title: (value) => (value.trim() ? null : 'Control title is required'),
+        category_id: (value) => (value ? null : 'Category is required'),
+    });
 
     useEffect(() => {
         loadData();
@@ -133,6 +159,10 @@ export default function AdminControlsPage() {
 
     async function saveCategory() {
         try {
+            if (!validateCategoryForm(categoryForm)) {
+                toast.error('Please fix the category form errors');
+                return;
+            }
             const freshToken = await getToken();
             if (!freshToken) throw new Error('Not authenticated');
             if (editingCategory) {
@@ -149,8 +179,9 @@ export default function AdminControlsPage() {
                 toast.success('Category created');
             }
             setShowCategoryModal(false);
-            setCategoryForm({ name: '', description: '', icon: '🔒' });
+            setCategoryForm({ name: '', description: '', icon: '🔒', banner_image: '' });
             setEditingCategory(null);
+            clearCategoryErrors();
             loadData();
         } catch (error: any) {
             toast.error(error.message || 'Failed to save category');
@@ -158,20 +189,27 @@ export default function AdminControlsPage() {
     }
 
     async function deleteCategory(id: string) {
-        if (!confirm('Delete this category? All controls in it will also be deleted.')) return;
         try {
+            setDeleting(true);
             const freshToken = await getToken();
             if (!freshToken) throw new Error('Not authenticated');
             await apiRequestWithAuth(`/api/admin/control-categories/${id}`, freshToken, { method: 'DELETE' });
             toast.success('Category deleted');
+            setDeleteConfirm(null);
             loadData();
         } catch (error: any) {
             toast.error(error.message || 'Failed to delete category');
+        } finally {
+            setDeleting(false);
         }
     }
 
     async function saveControl() {
         try {
+            if (!validateControlForm(controlForm)) {
+                toast.error('Please fix the control form errors');
+                return;
+            }
             const freshToken = await getToken();
             if (!freshToken) throw new Error('Not authenticated');
             if (editingControl) {
@@ -190,6 +228,7 @@ export default function AdminControlsPage() {
             setShowControlModal(false);
             setControlForm({ title: '', description: '', category_id: '' });
             setEditingControl(null);
+            clearControlErrors();
             loadData();
         } catch (error: any) {
             toast.error(error.message || 'Failed to save control');
@@ -197,15 +236,18 @@ export default function AdminControlsPage() {
     }
 
     async function deleteControl(id: string) {
-        if (!confirm('Delete this control?')) return;
         try {
+            setDeleting(true);
             const freshToken = await getToken();
             if (!freshToken) throw new Error('Not authenticated');
             await apiRequestWithAuth(`/api/admin/controls/${id}`, freshToken, { method: 'DELETE' });
             toast.success('Control deleted');
+            setDeleteConfirm(null);
             loadData();
         } catch (error: any) {
             toast.error(error.message || 'Failed to delete control');
+        } finally {
+            setDeleting(false);
         }
     }
 
@@ -219,6 +261,26 @@ export default function AdminControlsPage() {
 
     return (
         <div className="space-y-6">
+            <ConfirmModal
+                isOpen={!!deleteConfirm}
+                onClose={() => setDeleteConfirm(null)}
+                onConfirm={() => {
+                    if (!deleteConfirm) return;
+                    if (deleteConfirm.type === 'category') {
+                        void deleteCategory(deleteConfirm.id);
+                    } else {
+                        void deleteControl(deleteConfirm.id);
+                    }
+                }}
+                title={deleteConfirm?.type === 'category' ? 'Delete Category' : 'Delete Control'}
+                message={
+                    deleteConfirm?.type === 'category'
+                        ? `Delete "${deleteConfirm.label}"? All controls in it will also be deleted.`
+                        : `Delete "${deleteConfirm?.label}"?`
+                }
+                confirmLabel="Delete"
+                isLoading={deleting}
+            />
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Security Controls</h1>
@@ -226,8 +288,9 @@ export default function AdminControlsPage() {
                 </div>
                 <button
                     onClick={() => {
-                        setCategoryForm({ name: '', description: '', icon: '🔒' });
+                        setCategoryForm({ name: '', description: '', icon: '🔒', banner_image: '' });
                         setEditingCategory(null);
+                        clearCategoryErrors();
                         setShowCategoryModal(true);
                     }}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
@@ -246,8 +309,9 @@ export default function AdminControlsPage() {
                     <p className="text-gray-500 mb-4">Create your first category to start adding security controls.</p>
                     <button
                         onClick={() => {
-                            setCategoryForm({ name: '', description: '', icon: '🔒' });
+                            setCategoryForm({ name: '', description: '', icon: '🔒', banner_image: '' });
                             setEditingCategory(null);
+                            clearCategoryErrors();
                             setShowCategoryModal(true);
                         }}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -313,8 +377,10 @@ export default function AdminControlsPage() {
                                                                         name: category.name,
                                                                         description: category.description || '',
                                                                         icon: category.icon || '🔒',
+                                                                        banner_image: '',
                                                                     });
                                                                     setEditingCategory(category);
+                                                                    clearCategoryErrors();
                                                                     setShowCategoryModal(true);
                                                                 }}
                                                                 className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
@@ -322,7 +388,7 @@ export default function AdminControlsPage() {
                                                                 Edit
                                                             </button>
                                                             <button
-                                                                onClick={() => deleteCategory(category.id)}
+                                                                onClick={() => setDeleteConfirm({ type: 'category', id: category.id, label: category.name })}
                                                                 className="px-3 py-1.5 text-sm bg-red-50 text-red-600 rounded hover:bg-red-100"
                                                             >
                                                                 Delete
@@ -385,6 +451,7 @@ export default function AdminControlsPage() {
                                                                                                         category_id: control.category_id,
                                                                                                     });
                                                                                                     setEditingControl(control);
+                                                                                                    clearControlErrors();
                                                                                                     setShowControlModal(true);
                                                                                                 }}
                                                                                                 className="text-sm text-gray-500 hover:text-gray-700"
@@ -395,7 +462,7 @@ export default function AdminControlsPage() {
                                                                                                 onClick={(e) => {
                                                                                                     e.stopPropagation();
                                                                                                     e.preventDefault();
-                                                                                                    deleteControl(control.id);
+                                                                                                    setDeleteConfirm({ type: 'control', id: control.id, label: control.title });
                                                                                                 }}
                                                                                                 className="text-sm text-red-500 hover:text-red-700"
                                                                                             >
@@ -434,7 +501,7 @@ export default function AdminControlsPage() {
                             <h3 className="text-lg font-semibold mb-4">
                                 {editingCategory ? 'Edit Category' : 'Add Category'}
                             </h3>
-                            <div className="space-y-4">
+                                <div className="space-y-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Icon</label>
                                     <div className="flex flex-wrap gap-2">
@@ -453,18 +520,19 @@ export default function AdminControlsPage() {
                                         ))}
                                     </div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                                <FormField label="Name" required error={categoryErrors.name}>
                                     <input
                                         type="text"
                                         value={categoryForm.name}
-                                        onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
+                                        onChange={(e) => {
+                                            setCategoryForm({ ...categoryForm, name: e.target.value });
+                                            clearCategoryFieldError('name');
+                                        }}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                         placeholder="e.g., Access Management"
                                     />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                </FormField>
+                                <FormField label="Description">
                                     <textarea
                                         value={categoryForm.description}
                                         onChange={(e) => setCategoryForm({ ...categoryForm, description: e.target.value })}
@@ -472,18 +540,21 @@ export default function AdminControlsPage() {
                                         rows={3}
                                         placeholder="Describe this category..."
                                     />
-                                </div>
+                                </FormField>
                             </div>
                             <div className="flex justify-end gap-3 mt-6">
                                 <button
-                                    onClick={() => setShowCategoryModal(false)}
+                                    onClick={() => {
+                                        clearCategoryErrors();
+                                        setShowCategoryModal(false);
+                                    }}
                                     className="px-4 py-2 text-gray-600 hover:text-gray-800"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={saveCategory}
-                                    disabled={!categoryForm.name}
+                                    disabled={!categoryForm.name.trim()}
                                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
                                 >
                                     {editingCategory ? 'Save Changes' : 'Create Category'}
@@ -503,18 +574,19 @@ export default function AdminControlsPage() {
                                 {editingControl ? 'Edit Control' : 'Add Control'}
                             </h3>
                             <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+                                <FormField label="Title" required error={controlErrors.title}>
                                     <input
                                         type="text"
                                         value={controlForm.title}
-                                        onChange={(e) => setControlForm({ ...controlForm, title: e.target.value })}
+                                        onChange={(e) => {
+                                            setControlForm({ ...controlForm, title: e.target.value });
+                                            clearControlFieldError('title');
+                                        }}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                         placeholder="e.g., SOC 2 Type II Report"
                                     />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                </FormField>
+                                <FormField label="Description">
                                     <textarea
                                         value={controlForm.description}
                                         onChange={(e) => setControlForm({ ...controlForm, description: e.target.value })}
@@ -522,18 +594,21 @@ export default function AdminControlsPage() {
                                         rows={4}
                                         placeholder="Describe this security control in detail..."
                                     />
-                                </div>
+                                </FormField>
                             </div>
                             <div className="flex justify-end gap-3 mt-6">
                                 <button
-                                    onClick={() => setShowControlModal(false)}
+                                    onClick={() => {
+                                        clearControlErrors();
+                                        setShowControlModal(false);
+                                    }}
                                     className="px-4 py-2 text-gray-600 hover:text-gray-800"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={saveControl}
-                                    disabled={!controlForm.title}
+                                    disabled={!controlForm.title.trim()}
                                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
                                 >
                                     {editingControl ? 'Save Changes' : 'Add Control'}
