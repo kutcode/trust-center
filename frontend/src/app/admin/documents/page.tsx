@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { Suspense, useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { apiRequestWithAuth } from '@/lib/api';
@@ -18,7 +18,7 @@ import { useQueryParam } from '@/hooks/useQueryParam';
 
 type StatusFilter = 'all' | 'published' | 'draft' | 'archived';
 
-export default function DocumentsAdminPage() {
+function DocumentsAdminPageContent() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [categories, setCategories] = useState<DocumentCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -265,5 +265,17 @@ export default function DocumentsAdminPage() {
         />
       )}
     </>
+  );
+}
+
+function DocumentsAdminPageFallback() {
+  return <div className="p-6"><TableSkeleton columns={5} rows={8} /></div>;
+}
+
+export default function DocumentsAdminPage() {
+  return (
+    <Suspense fallback={<DocumentsAdminPageFallback />}>
+      <DocumentsAdminPageContent />
+    </Suspense>
   );
 }

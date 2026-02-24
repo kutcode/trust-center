@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { Suspense, useState, useEffect, useMemo } from 'react';
 import { apiRequest } from '@/lib/api';
 import { Document, DocumentCategory } from '@/types';
 import Link from 'next/link';
@@ -10,7 +10,7 @@ import Breadcrumbs from '@/components/ui/Breadcrumbs';
 import LiveRegion from '@/components/ui/LiveRegion';
 import { useQueryParam } from '@/hooks/useQueryParam';
 
-export default function DocumentsPage() {
+function DocumentsPageContent() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [categories, setCategories] = useState<DocumentCategory[]>([]);
   const [selectedCategoryParam, setSelectedCategoryParam] = useQueryParam('category');
@@ -384,5 +384,35 @@ export default function DocumentsPage() {
         />
       )}
     </div>
+  );
+}
+
+function DocumentsPageFallback() {
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto px-4 py-16">
+        <div className="animate-pulse">
+          <div className="h-12 bg-gray-200 rounded w-64 mb-8"></div>
+          <div className="flex gap-4 mb-8">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="h-10 bg-gray-200 rounded w-32"></div>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <div key={i} className="h-48 bg-gray-200 rounded"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function DocumentsPage() {
+  return (
+    <Suspense fallback={<DocumentsPageFallback />}>
+      <DocumentsPageContent />
+    </Suspense>
   );
 }
