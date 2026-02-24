@@ -33,11 +33,15 @@ function getSeverityColor(severity: string | null): string {
     return option?.color || 'bg-gray-100 text-gray-700';
 }
 
-function safeDateLabel(value: string | null | undefined): string {
-    if (!value) return '—';
+function safeDateLabel(value: unknown): string {
+    if (typeof value !== 'string' || !value) return '—';
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return '—';
     return value.includes('T') ? value.split('T')[0] : date.toISOString().split('T')[0];
+}
+
+function toText(value: unknown): string {
+    return typeof value === 'string' ? value : '';
 }
 
 export default function SecurityUpdatesAdminPage() {
@@ -49,7 +53,10 @@ export default function SecurityUpdatesAdminPage() {
     const [saving, setSaving] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState<SecurityUpdate | null>(null);
 
-    const dateAccessor = useCallback((update: SecurityUpdate) => update.published_at || update.created_at, []);
+    const dateAccessor = useCallback(
+        (update: SecurityUpdate | undefined | null) => update?.published_at || update?.created_at || '',
+        []
+    );
     const { sortedItems, sortField, sortDirection, toggleSort } = useTableSort<SecurityUpdate>(updates, dateAccessor, 'desc');
     const pagination = usePagination(sortedItems, 10);
 
@@ -74,11 +81,20 @@ export default function SecurityUpdatesAdminPage() {
             if (!session) return;
 
             setToken(session.access_token);
-            const data = await apiRequestWithAuth<SecurityUpdate[]>(
+            const data = await apiRequestWithAuth<any[]>(
                 '/api/security-updates?include_unpublished=true',
                 session.access_token
             );
-            setUpdates(data);
+            setUpdates(
+                (Array.isArray(data) ? data : []).map((row) => ({
+                    id: String(row?.id ?? crypto.randomUUID()),
+                    title: typeof row?.title === 'string' ? row.title : null,
+                    content: typeof row?.content === 'string' ? row.content : null,
+                    severity: ['low', 'medium', 'high', 'critical'].includes(row?.severity) ? row.severity : null,
+                    published_at: typeof row?.published_at === 'string' ? row.published_at : null,
+                    created_at: typeof row?.created_at === 'string' ? row.created_at : new Date().toISOString(),
+                }))
+            );
         } catch (error) {
             console.error('Failed to load security updates:', error);
             toast.error('Failed to load security updates');
@@ -266,8 +282,15 @@ export default function SecurityUpdatesAdminPage() {
                                         <div>
                                             <p className="font-medium text-gray-900">{update.title || 'Untitled Update'}</p>
                                             <p className="text-sm text-gray-500 truncate max-w-md">
-                                                {((update.content || '').replace(/<[^>]*>/g, '').trim() || 'No content').substring(0, 100)}
-                                                {((update.content || '').replace(/<[^>]*>/g, '').trim().length > 100) ? '...' : ''}
+                                                {(() => {
+                                                    const preview = toText(update.content).replace(/<[^>]*>/g, '').trim();
+                                                    const text = preview || 'No content';
+                                                    return text.substring(0, 100);
+                                                })()}
+                                                {(() => {
+                                                    const preview = toText(update.content).replace(/<[^>]*>/g, '').trim();
+                                                    return preview.length > 100 ? '...' : '';
+                                                })()}
                                             </p>
                                         </div>
                                     </td>

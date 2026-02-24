@@ -37,8 +37,8 @@ const certificationBadges: { [key: string]: { icon: string; color: string } } = 
     'default': { icon: '✓', color: 'bg-gray-100 text-gray-700' },
 };
 
-function getBadge(name: string) {
-    const lowerName = (name || '').toLowerCase();
+function getBadge(name: unknown) {
+    const lowerName = typeof name === 'string' ? name.toLowerCase() : '';
     for (const [key, badge] of Object.entries(certificationBadges)) {
         if (lowerName.includes(key)) return badge;
     }
@@ -103,11 +103,23 @@ export default function CertificationsAdminPage() {
             if (!session) return;
 
             setToken(session.access_token);
-            const data = await apiRequestWithAuth<Certification[]>(
+            const data = await apiRequestWithAuth<any[]>(
                 '/api/certifications?include_inactive=true',
                 session.access_token
             );
-            setCertifications(data);
+            setCertifications(
+                (Array.isArray(data) ? data : []).map((row, index) => ({
+                    id: String(row?.id ?? `missing-id-${index}`),
+                    name: typeof row?.name === 'string' ? row.name : null,
+                    issuer: typeof row?.issuer === 'string' ? row.issuer : null,
+                    issue_date: typeof row?.issue_date === 'string' ? row.issue_date : null,
+                    expiry_date: typeof row?.expiry_date === 'string' ? row.expiry_date : null,
+                    certificate_image_url: typeof row?.certificate_image_url === 'string' ? row.certificate_image_url : null,
+                    description: typeof row?.description === 'string' ? row.description : null,
+                    status: row?.status === 'inactive' ? 'inactive' : 'active',
+                    display_order: typeof row?.display_order === 'number' ? row.display_order : index + 1,
+                }))
+            );
         } catch (error) {
             console.error('Failed to load certifications:', error);
             toast.error('Failed to load certifications');
