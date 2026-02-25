@@ -12,6 +12,12 @@ export interface SalesforceConnection {
   connected_by?: string;
   is_active: boolean;
   last_synced_at?: string;
+  salesforce_user_id?: string | null;
+  salesforce_username?: string | null;
+  salesforce_display_name?: string | null;
+  salesforce_org_id?: string | null;
+  salesforce_org_name?: string | null;
+  salesforce_identity_url?: string | null;
 }
 
 interface SalesforceTokenResponse {
@@ -20,6 +26,16 @@ interface SalesforceTokenResponse {
   instance_url: string;
   token_type: string;
   scope?: string;
+  id?: string;
+}
+
+interface SalesforceIdentityProfile {
+  userId?: string | null;
+  username?: string | null;
+  displayName?: string | null;
+  orgId?: string | null;
+  orgName?: string | null;
+  identityUrl?: string | null;
 }
 
 export interface SalesforceAccountFieldMetadata {
@@ -27,6 +43,41 @@ export interface SalesforceAccountFieldMetadata {
   label: string;
   type: string;
   picklistValues: string[];
+}
+
+export interface SalesforceSyncAuditAccountItem {
+  id: string;
+  salesforce_account_id: string;
+  account_name: string | null;
+  status_value: string | null;
+  decision: 'whitelisted' | 'no_access' | 'skipped';
+  website_domain: string | null;
+  domains: string[];
+  related_contact_count: number;
+  matched_contact_emails: string[];
+  organizations_updated: number;
+  note: string | null;
+  created_at: string;
+}
+
+export interface SalesforceSyncAuditRun {
+  id: string;
+  connection_id: string | null;
+  success: boolean;
+  error_message: string | null;
+  processed_accounts: number;
+  contacts_queried: number;
+  contacts_matched_accounts: number;
+  updated_organizations: number;
+  blocked_organizations: number;
+  skipped_domains: number;
+  status_field: string;
+  domain_field: string;
+  allowed_statuses: string[];
+  started_at: string;
+  completed_at: string | null;
+  created_at: string;
+  items?: SalesforceSyncAuditAccountItem[];
 }
 
 interface SalesforceConfigRecord {
@@ -481,7 +532,23 @@ async function upsertConnection(data: SalesforceTokenResponse, adminId: string):
     throw new Error(`Failed to save Salesforce connection: ${error?.message}`);
   }
 
-  return connection as SalesforceConnection;
+  const typedConnection = connection as SalesforceConnection;
+  try {
+    const identity = await fetchSalesforceIdentityProfile(typedConnection, data);
+    await persistConnectionIdentity(typedConnection.id, identity);
+    return {
+      ...typedConnection,
+      salesforce_user_id: identity.userId || null,
+      salesforce_username: identity.username || null,
+      salesforce_display_name: identity.displayName || null,
+      salesforce_org_id: identity.orgId || null,
+      salesforce_org_name: identity.orgName || null,
+      salesforce_identity_url: identity.identityUrl || null,
+    };
+  } catch {
+    // Identity enrichment is best-effort and should not block a successful OAuth connect.
+    return typedConnection;
+  }
 }
 
 export async function exchangeCodeAndStoreConnection(
@@ -537,6 +604,68 @@ export async function getActiveSalesforceConnection(): Promise<SalesforceConnect
   }
 
   return (data as SalesforceConnection | null) || null;
+}
+
+export async function refreshActiveSalesforceConnectionIdentity(): Promise<SalesforceConnection | null> {
+  const connection = await getActiveSalesforceConnection();
+  if (!connection) return null;
+
+  try {
+    const identity = await fetchSalesforceIdentityProfile(connection);
+    await persistConnectionIdentity(connection.id, identity);
+    return {
+      ...connection,
+      salesforce_user_id: identity.userId || null,
+      salesforce_username: identity.username || null,
+      salesforce_display_name: identity.displayName || null,
+      salesforce_org_id: identity.orgId || null,
+      salesforce_org_name: identity.orgName || null,
+      salesforce_identity_url: identity.identityUrl || null,
+    };
+  } catch {
+    return connection;
+  }
+}
+
+export async function getRecentSalesforceSyncAudit(limit = 5): Promise<SalesforceSyncAuditRun[]> {
+  const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.min(20, Math.floor(limit))) : 5;
+  const { data: runs, error: runsError } = await supabase
+    .from('salesforce_sync_runs')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(safeLimit);
+
+  if (runsError) {
+    throw new Error(`Failed to load Salesforce sync audit: ${runsError.message}`);
+  }
+
+  const runList = (runs || []) as SalesforceSyncAuditRun[];
+  if (runList.length === 0) return [];
+
+  const runIds = runList.map((run) => run.id);
+  const { data: items, error: itemsError } = await supabase
+    .from('salesforce_sync_run_accounts')
+    .select('*')
+    .in('run_id', runIds)
+    .order('created_at', { ascending: true });
+
+  if (itemsError) {
+    throw new Error(`Failed to load Salesforce sync audit items: ${itemsError.message}`);
+  }
+
+  const itemsByRun = new Map<string, SalesforceSyncAuditAccountItem[]>();
+  for (const item of ((items || []) as any[])) {
+    const runId = String(item.run_id || '');
+    if (!runId) continue;
+    const list = itemsByRun.get(runId) || [];
+    list.push(item as SalesforceSyncAuditAccountItem);
+    itemsByRun.set(runId, list);
+  }
+
+  return runList.map((run) => ({
+    ...run,
+    items: itemsByRun.get(run.id) || [],
+  }));
 }
 
 async function refreshAccessToken(connection: SalesforceConnection): Promise<SalesforceConnection> {
@@ -647,6 +776,153 @@ async function salesforceGetJson(connection: SalesforceConnection, path: string,
   }
 }
 
+async function salesforceGetAbsoluteJson(connection: SalesforceConnection, url: string): Promise<any> {
+  let currentConnection = connection;
+  let retriedWithRefresh = false;
+
+  while (true) {
+    let response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `${currentConnection.token_type || 'Bearer'} ${currentConnection.access_token}`,
+      },
+    });
+
+    if (response.status === 401 && !retriedWithRefresh) {
+      currentConnection = await refreshAccessToken(currentConnection);
+      retriedWithRefresh = true;
+      continue;
+    }
+
+    const payload: any = await response.json();
+    if (!response.ok) {
+      const msg = Array.isArray(payload) ? payload[0]?.message : payload?.message;
+      throw new Error(msg || 'Salesforce request failed');
+    }
+    return payload;
+  }
+}
+
+function normalizeSalesforceIdentity(payload: any, fallbackIdentityUrl?: string | null): SalesforceIdentityProfile {
+  return {
+    userId: String(payload?.user_id || payload?.userId || payload?.sub || payload?.id || '').trim() || null,
+    username: String(payload?.preferred_username || payload?.username || payload?.email || '').trim() || null,
+    displayName: String(payload?.name || payload?.display_name || '').trim() || null,
+    orgId: String(payload?.organization_id || payload?.organizationId || '').trim() || null,
+    orgName: String(payload?.organization_name || payload?.organizationName || '').trim() || null,
+    identityUrl: String(payload?.id || payload?.identity_url || fallbackIdentityUrl || '').trim() || null,
+  };
+}
+
+async function fetchSalesforceIdentityProfile(
+  connection: SalesforceConnection,
+  tokenResponse?: SalesforceTokenResponse
+): Promise<SalesforceIdentityProfile> {
+  const identityUrl = tokenResponse?.id;
+
+  if (identityUrl) {
+    try {
+      const payload = await salesforceGetAbsoluteJson(connection, identityUrl);
+      return normalizeSalesforceIdentity(payload, identityUrl);
+    } catch {
+      // Fallback to userinfo endpoint below
+    }
+  }
+
+  const userInfo = await salesforceGetAbsoluteJson(connection, `${connection.instance_url}/services/oauth2/userinfo`);
+  return normalizeSalesforceIdentity(userInfo, identityUrl || `${connection.instance_url}/services/oauth2/userinfo`);
+}
+
+async function persistConnectionIdentity(connectionId: string, identity: SalesforceIdentityProfile): Promise<void> {
+  const { error } = await supabase
+    .from('salesforce_connections')
+    .update({
+      salesforce_user_id: identity.userId || null,
+      salesforce_username: identity.username || null,
+      salesforce_display_name: identity.displayName || null,
+      salesforce_org_id: identity.orgId || null,
+      salesforce_org_name: identity.orgName || null,
+      salesforce_identity_url: identity.identityUrl || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', connectionId);
+
+  if (error) {
+    throw new Error(`Failed to persist Salesforce identity: ${error.message}`);
+  }
+}
+
+interface PersistSyncAuditRunInput {
+  connectionId: string | null;
+  success: boolean;
+  errorMessage?: string | null;
+  processedAccounts: number;
+  contactsQueried: number;
+  contactsMatchedAccounts: number;
+  updatedOrganizations: number;
+  blockedOrganizations: number;
+  skippedDomains: number;
+  statusField: string;
+  domainField: string;
+  allowedStatuses: string[];
+  startedAt: string;
+  completedAt: string;
+  items: Array<{
+    salesforce_account_id: string;
+    account_name: string | null;
+    status_value: string | null;
+    decision: 'whitelisted' | 'no_access' | 'skipped';
+    website_domain: string | null;
+    domains: string[];
+    related_contact_count: number;
+    matched_contact_emails: string[];
+    organizations_updated: number;
+    note: string | null;
+  }>;
+}
+
+async function persistSalesforceSyncAuditRun(input: PersistSyncAuditRunInput): Promise<void> {
+  const { data: run, error: runError } = await supabase
+    .from('salesforce_sync_runs')
+    .insert({
+      connection_id: input.connectionId,
+      success: input.success,
+      error_message: input.errorMessage || null,
+      processed_accounts: input.processedAccounts,
+      contacts_queried: input.contactsQueried,
+      contacts_matched_accounts: input.contactsMatchedAccounts,
+      updated_organizations: input.updatedOrganizations,
+      blocked_organizations: input.blockedOrganizations,
+      skipped_domains: input.skippedDomains,
+      status_field: input.statusField,
+      domain_field: input.domainField,
+      allowed_statuses: input.allowedStatuses,
+      started_at: input.startedAt,
+      completed_at: input.completedAt,
+    })
+    .select('id')
+    .single();
+
+  if (runError || !run?.id) {
+    throw new Error(`Failed to persist Salesforce sync run: ${runError?.message}`);
+  }
+
+  if (input.items.length === 0) return;
+
+  const { error: itemsError } = await supabase
+    .from('salesforce_sync_run_accounts')
+    .insert(
+      input.items.map((item) => ({
+        run_id: run.id,
+        ...item,
+      }))
+    );
+
+  if (itemsError) {
+    throw new Error(`Failed to persist Salesforce sync audit items: ${itemsError.message}`);
+  }
+}
+
 export async function disconnectSalesforceConnection(): Promise<void> {
   await supabase
     .from('salesforce_connections')
@@ -660,6 +936,7 @@ export async function syncOrganizationsFromSalesforce() {
     throw new Error('No active Salesforce connection found');
   }
 
+  const startedAt = new Date().toISOString();
   const integrationConfig = await getResolvedSalesforceConfig();
   const statusField = validateFieldName(integrationConfig.statusField || 'Type', 'Type');
   const domainField = validateFieldName(integrationConfig.domainField || 'Website', 'Website');
@@ -668,85 +945,174 @@ export async function syncOrganizationsFromSalesforce() {
   const accountSoql = `SELECT Id, Name, ${domainField}, ${statusField} FROM Account`;
   const contactSoql = 'SELECT Id, AccountId, Email FROM Contact WHERE Email != NULL';
 
-  const [accounts, contacts] = await Promise.all([
-    salesforceQuery(connection, accountSoql, integrationConfig.apiVersion || 'v59.0'),
-    salesforceQuery(connection, contactSoql, integrationConfig.apiVersion || 'v59.0'),
-  ]);
-
-  const contactsByAccount = new Map<string, any[]>();
-  for (const contact of contacts) {
-    const accountId = contact.AccountId;
-    if (!accountId) continue;
-    const list = contactsByAccount.get(accountId) || [];
-    list.push(contact);
-    contactsByAccount.set(accountId, list);
-  }
-
   let processedAccounts = 0;
   let updatedOrganizations = 0;
   let blockedOrganizations = 0;
   let skippedDomains = 0;
+  let contactsQueried = 0;
+  let contactsMatchedAccounts = 0;
+  const auditItems: PersistSyncAuditRunInput['items'] = [];
 
-  for (const account of accounts) {
-    processedAccounts += 1;
-    const domains = new Set<string>();
+  try {
+    const [accounts, contacts] = await Promise.all([
+      salesforceQuery(connection, accountSoql, integrationConfig.apiVersion || 'v59.0'),
+      salesforceQuery(connection, contactSoql, integrationConfig.apiVersion || 'v59.0'),
+    ]);
 
-    const websiteDomain = normalizeDomainFromWebsite(account[domainField]);
-    if (websiteDomain) {
-      domains.add(websiteDomain);
+    contactsQueried = contacts.length;
+
+    const contactsByAccount = new Map<string, any[]>();
+    for (const contact of contacts) {
+      const accountId = contact.AccountId;
+      if (!accountId) continue;
+      const list = contactsByAccount.get(accountId) || [];
+      list.push(contact);
+      contactsByAccount.set(accountId, list);
     }
 
-    const relatedContacts = contactsByAccount.get(account.Id) || [];
-    for (const contact of relatedContacts) {
-      const emailDomain = normalizeDomainFromEmail(contact.Email);
-      if (emailDomain) {
-        domains.add(emailDomain);
+    for (const account of accounts) {
+      processedAccounts += 1;
+      const domains = new Set<string>();
+      let accountUpdatedOrganizations = 0;
+
+      const websiteDomain = normalizeDomainFromWebsite(account[domainField]);
+      if (websiteDomain) {
+        domains.add(websiteDomain);
       }
-    }
 
-    if (domains.size === 0) {
-      skippedDomains += 1;
-      continue;
-    }
-
-    const shouldGrant = isAllowedStatus(account[statusField], allowedStatuses);
-    const targetStatus = shouldGrant ? 'whitelisted' : 'no_access';
-
-    for (const domain of domains) {
-      const org = await getOrCreateOrganization(domain, account.Name);
-      const { error } = await supabase
-        .from('organizations')
-        .update({
-          name: account.Name || domain,
-          status: targetStatus,
-          is_active: true,
-          revoked_at: shouldGrant ? null : new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', org.id);
-
-      if (!error) {
-        updatedOrganizations += 1;
-        if (!shouldGrant) blockedOrganizations += 1;
+      const relatedContacts = contactsByAccount.get(account.Id) || [];
+      contactsMatchedAccounts += relatedContacts.length;
+      const matchedContactEmails: string[] = [];
+      for (const contact of relatedContacts) {
+        const emailValue = typeof contact?.Email === 'string' ? contact.Email : '';
+        if (emailValue) matchedContactEmails.push(emailValue);
+        const emailDomain = normalizeDomainFromEmail(emailValue);
+        if (emailDomain) {
+          domains.add(emailDomain);
+        }
       }
+
+      const statusValue = account?.[statusField] == null ? null : String(account[statusField]);
+
+      if (domains.size === 0) {
+        skippedDomains += 1;
+        auditItems.push({
+          salesforce_account_id: String(account.Id || ''),
+          account_name: account?.Name ? String(account.Name) : null,
+          status_value: statusValue,
+          decision: 'skipped',
+          website_domain: websiteDomain,
+          domains: [],
+          related_contact_count: relatedContacts.length,
+          matched_contact_emails: matchedContactEmails,
+          organizations_updated: 0,
+          note: 'No usable domain derived from website or related contacts',
+        });
+        continue;
+      }
+
+      const shouldGrant = isAllowedStatus(account[statusField], allowedStatuses);
+      const targetStatus: 'whitelisted' | 'no_access' = shouldGrant ? 'whitelisted' : 'no_access';
+
+      for (const domain of domains) {
+        const org = await getOrCreateOrganization(domain, account.Name);
+        const { error } = await supabase
+          .from('organizations')
+          .update({
+            name: account.Name || domain,
+            status: targetStatus,
+            is_active: true,
+            revoked_at: shouldGrant ? null : new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', org.id);
+
+        if (!error) {
+          updatedOrganizations += 1;
+          accountUpdatedOrganizations += 1;
+          if (!shouldGrant) blockedOrganizations += 1;
+        }
+      }
+
+      auditItems.push({
+        salesforce_account_id: String(account.Id || ''),
+        account_name: account?.Name ? String(account.Name) : null,
+        status_value: statusValue,
+        decision: targetStatus,
+        website_domain: websiteDomain,
+        domains: Array.from(domains),
+        related_contact_count: relatedContacts.length,
+        matched_contact_emails: matchedContactEmails,
+        organizations_updated: accountUpdatedOrganizations,
+        note: shouldGrant ? 'Allowed by status rule' : 'Blocked by status rule',
+      });
     }
+
+    const completedAt = new Date().toISOString();
+
+    await supabase
+      .from('salesforce_connections')
+      .update({ last_synced_at: completedAt })
+      .eq('id', connection.id);
+
+    try {
+      await persistSalesforceSyncAuditRun({
+        connectionId: connection.id,
+        success: true,
+        processedAccounts,
+        contactsQueried,
+        contactsMatchedAccounts,
+        updatedOrganizations,
+        blockedOrganizations,
+        skippedDomains,
+        statusField,
+        domainField,
+        allowedStatuses,
+        startedAt,
+        completedAt,
+        items: auditItems,
+      });
+    } catch (auditError) {
+      console.error('[salesforce-sync] audit persistence failed:', auditError);
+    }
+
+    return {
+      processedAccounts,
+      matchedContacts: contactsQueried,
+      contactsQueried,
+      contactsMatchedAccounts,
+      updatedOrganizations,
+      blockedOrganizations,
+      skippedDomains,
+      statusField,
+      domainField,
+      allowedStatuses,
+    };
+  } catch (error) {
+    const completedAt = new Date().toISOString();
+    try {
+      await persistSalesforceSyncAuditRun({
+        connectionId: connection.id,
+        success: false,
+        errorMessage: error instanceof Error ? error.message : 'Salesforce sync failed',
+        processedAccounts,
+        contactsQueried,
+        contactsMatchedAccounts,
+        updatedOrganizations,
+        blockedOrganizations,
+        skippedDomains,
+        statusField,
+        domainField,
+        allowedStatuses,
+        startedAt,
+        completedAt,
+        items: auditItems,
+      });
+    } catch (auditError) {
+      console.error('[salesforce-sync] failed sync audit persistence failed:', auditError);
+    }
+    throw error;
   }
-
-  await supabase
-    .from('salesforce_connections')
-    .update({ last_synced_at: new Date().toISOString() })
-    .eq('id', connection.id);
-
-  return {
-    processedAccounts,
-    matchedContacts: contacts.length,
-    updatedOrganizations,
-    blockedOrganizations,
-    skippedDomains,
-    statusField,
-    domainField,
-    allowedStatuses,
-  };
 }
 
 export async function getSalesforceAccountFieldMetadata() {

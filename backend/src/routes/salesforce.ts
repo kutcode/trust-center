@@ -11,6 +11,8 @@ import {
   getSalesforceAdminSecret,
   getSalesforceAccountFieldMetadata,
   getSalesforceAuthorizeUrl,
+  getRecentSalesforceSyncAudit,
+  refreshActiveSalesforceConnectionIdentity,
   saveSalesforceAdminConfig,
   syncOrganizationsFromSalesforce,
   validateOAuthState,
@@ -20,7 +22,10 @@ const router = express.Router();
 
 router.get('/status', requireAdmin, async (req: AuthRequest, res) => {
   try {
-    const connection = await getActiveSalesforceConnection();
+    let connection = await getActiveSalesforceConnection();
+    if (connection && !connection.salesforce_username && !connection.salesforce_org_id) {
+      connection = await refreshActiveSalesforceConnectionIdentity();
+    }
     res.json({
       connected: !!connection,
       connection: connection
@@ -29,6 +34,12 @@ router.get('/status', requireAdmin, async (req: AuthRequest, res) => {
           instance_url: connection.instance_url,
           connected_by: connection.connected_by,
           last_synced_at: connection.last_synced_at || null,
+          salesforce_user_id: connection.salesforce_user_id || null,
+          salesforce_username: connection.salesforce_username || null,
+          salesforce_display_name: connection.salesforce_display_name || null,
+          salesforce_org_id: connection.salesforce_org_id || null,
+          salesforce_org_name: connection.salesforce_org_name || null,
+          salesforce_identity_url: connection.salesforce_identity_url || null,
         }
         : null,
     });
@@ -70,6 +81,16 @@ router.get('/metadata', requireAdmin, async (_req: AuthRequest, res) => {
   try {
     const metadata = await getSalesforceAccountFieldMetadata();
     res.json(metadata);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+router.get('/audit', requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const limit = Number(req.query.limit || 5);
+    const runs = await getRecentSalesforceSyncAudit(limit);
+    res.json({ runs });
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }
