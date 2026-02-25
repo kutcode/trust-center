@@ -13,6 +13,12 @@ interface SalesforceStatusResponse {
     instance_url: string;
     connected_by?: string;
     last_synced_at?: string | null;
+    salesforce_user_id?: string | null;
+    salesforce_username?: string | null;
+    salesforce_display_name?: string | null;
+    salesforce_org_id?: string | null;
+    salesforce_org_name?: string | null;
+    salesforce_identity_url?: string | null;
   } | null;
 }
 
@@ -20,12 +26,47 @@ interface SalesforceSyncResponse {
   success: boolean;
   processedAccounts: number;
   matchedContacts: number;
+  contactsQueried?: number;
+  contactsMatchedAccounts?: number;
   updatedOrganizations: number;
   blockedOrganizations: number;
   skippedDomains: number;
   statusField: string;
   domainField: string;
   allowedStatuses: string[];
+}
+
+interface SalesforceSyncAuditItem {
+  id: string;
+  salesforce_account_id: string;
+  account_name: string | null;
+  status_value: string | null;
+  decision: 'whitelisted' | 'no_access' | 'skipped';
+  website_domain: string | null;
+  domains: string[];
+  related_contact_count: number;
+  matched_contact_emails: string[];
+  organizations_updated: number;
+  note: string | null;
+}
+
+interface SalesforceSyncAuditRun {
+  id: string;
+  success: boolean;
+  error_message: string | null;
+  processed_accounts: number;
+  contacts_queried: number;
+  contacts_matched_accounts: number;
+  updated_organizations: number;
+  blocked_organizations: number;
+  skipped_domains: number;
+  status_field: string;
+  domain_field: string;
+  allowed_statuses: string[];
+  started_at: string;
+  completed_at: string | null;
+  created_at: string;
+  items: SalesforceSyncAuditItem[];
 }
 
 interface SalesforceConfigResponse {
@@ -99,6 +140,10 @@ export default function IntegrationsAdminPage() {
   const [metadataLoading, setMetadataLoading] = useState(false);
   const [statusFieldCustomInput, setStatusFieldCustomInput] = useState('');
   const [allowedStatusCustomInput, setAllowedStatusCustomInput] = useState('');
+  const [salesforceExpanded, setSalesforceExpanded] = useState(true);
+  const [auditRuns, setAuditRuns] = useState<SalesforceSyncAuditRun[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [expandedAuditRunId, setExpandedAuditRunId] = useState<string | null>(null);
 
   const callbackStatus = searchParams.get('salesforce');
   const callbackMessage = searchParams.get('message');
@@ -173,6 +218,23 @@ export default function IntegrationsAdminPage() {
     }
   };
 
+  const fetchAuditRuns = async (authToken: string) => {
+    setAuditLoading(true);
+    try {
+      const data = await apiRequestWithAuth<{ runs: SalesforceSyncAuditRun[] }>(
+        '/api/admin/integrations/salesforce/audit?limit=5',
+        authToken
+      );
+      setAuditRuns(Array.isArray(data.runs) ? data.runs : []);
+      setExpandedAuditRunId((prev) => prev && data.runs?.some((r) => r.id === prev) ? prev : (data.runs?.[0]?.id || null));
+    } catch (error: any) {
+      setAuditRuns([]);
+      toast.error(error.message || 'Failed to load Salesforce sync audit');
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(LAST_SYNC_STORAGE_KEY);
@@ -199,7 +261,10 @@ export default function IntegrationsAdminPage() {
           fetchConfig(session.access_token),
         ]);
         if (statusData.connected) {
-          await fetchMetadata(session.access_token);
+          await Promise.all([
+            fetchMetadata(session.access_token),
+            fetchAuditRuns(session.access_token),
+          ]);
         }
       } catch (error: any) {
         toast.error(error.message || 'Failed to load integration status');
@@ -236,7 +301,7 @@ export default function IntegrationsAdminPage() {
       );
       setLastSyncResult(data);
       window.localStorage.setItem(LAST_SYNC_STORAGE_KEY, JSON.stringify(data));
-      await fetchStatus(token);
+      await Promise.all([fetchStatus(token), fetchAuditRuns(token)]);
       toast.success('Salesforce sync completed');
     } catch (error: any) {
       toast.error(error.message || 'Salesforce sync failed');
@@ -255,6 +320,7 @@ export default function IntegrationsAdminPage() {
         { method: 'POST' }
       );
       await fetchStatus(token);
+      setAuditRuns([]);
       toast.success('Salesforce disconnected');
     } catch (error: any) {
       toast.error(error.message || 'Failed to disconnect Salesforce');
@@ -287,7 +353,7 @@ export default function IntegrationsAdminPage() {
       setClientSecretVisible(false);
       toast.success('Salesforce settings saved');
       if (status?.connected) {
-        await fetchMetadata(token);
+        await Promise.all([fetchMetadata(token), fetchAuditRuns(token)]);
       }
     } catch (error: any) {
       toast.error(error.message || 'Failed to save Salesforce settings');
@@ -335,6 +401,18 @@ export default function IntegrationsAdminPage() {
     }
   };
 
+  const contactsQueriedCount = lastSyncResult?.contactsQueried ?? lastSyncResult?.matchedContacts ?? 0;
+  const contactsMatchedAccountsCount = lastSyncResult?.contactsMatchedAccounts ?? 0;
+
+  const formatDateTime = (value?: string | null) => {
+    if (!value) return 'Unknown';
+    try {
+      return new Date(value).toLocaleString();
+    } catch {
+      return value;
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -352,12 +430,43 @@ export default function IntegrationsAdminPage() {
         </p>
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-2">Salesforce Credentials</h2>
-        <p className="text-sm text-gray-600 mb-4">
-          Configure Salesforce once here. Credentials are stored server-side and used for OAuth + sync.
-        </p>
-        <form onSubmit={handleSaveConfig} className="space-y-4">
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setSalesforceExpanded((v) => !v)}
+          className="w-full p-6 flex items-start justify-between gap-4 text-left hover:bg-gray-50"
+          aria-expanded={salesforceExpanded}
+          aria-controls="salesforce-integration-panel"
+        >
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">Salesforce</h2>
+            <p className="text-sm text-gray-600 mt-1">
+              OAuth 2.0 connection, customer status sync, and debug/audit visibility.
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
+              <span className={`inline-flex items-center px-2 py-1 rounded-full ${status?.connected ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-700'}`}>
+                {status?.connected ? 'Connected' : 'Not Connected'}
+              </span>
+              <span className="text-gray-500">Last Sync: {lastSyncedLabel}</span>
+              {status?.connection?.salesforce_username && (
+                <span className="text-gray-500">User: {status.connection.salesforce_username}</span>
+              )}
+              {status?.connection?.salesforce_org_name && (
+                <span className="text-gray-500">Org: {status.connection.salesforce_org_name}</span>
+              )}
+            </div>
+          </div>
+          <span className="text-gray-500 text-xl leading-none">{salesforceExpanded ? '−' : '+'}</span>
+        </button>
+
+        {salesforceExpanded && (
+          <div id="salesforce-integration-panel" className="border-t border-gray-200 p-6 space-y-6">
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <h3 className="text-base font-semibold text-gray-900 mb-2">Salesforce Credentials</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Configure Salesforce once here. Credentials are stored server-side and used for OAuth + sync.
+              </p>
+              <form onSubmit={handleSaveConfig} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Client ID</label>
@@ -537,12 +646,27 @@ export default function IntegrationsAdminPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Domain Field</label>
-              <input
-                type="text"
+              <select
                 value={configForm.domainField}
                 onChange={(e) => handleConfigFieldChange('domainField', e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-              />
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+                disabled={metadataLoading}
+              >
+                {metadata?.domainFieldCandidates?.length ? (
+                  <>
+                    {metadata.domainFieldCandidates.map((field) => (
+                      <option key={field.name} value={field.name}>
+                        {field.label} ({field.name})
+                      </option>
+                    ))}
+                    {!metadata.domainFieldCandidates.some((f) => f.name === configForm.domainField) && (
+                      <option value={configForm.domainField}>{configForm.domainField} (custom)</option>
+                    )}
+                  </>
+                ) : (
+                  <option value={configForm.domainField}>{configForm.domainField || 'Website'}</option>
+                )}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Allowed Statuses</label>
@@ -620,77 +744,100 @@ export default function IntegrationsAdminPage() {
               </div>
             </div>
           </div>
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-gray-500">
-              Source: {config?.configuredSource || 'environment'}{config?.updatedAt ? ` • Updated ${new Date(config.updatedAt).toLocaleString()}` : ''}
-            </p>
-            <button
-              type="submit"
-              disabled={savingConfig}
-              className="px-4 py-2.5 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 disabled:bg-gray-400 transition-colors"
-            >
-              {savingConfig ? 'Saving...' : 'Save Salesforce Settings'}
-            </button>
-          </div>
-        </form>
-      </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-gray-500">
+                    Source: {config?.configuredSource || 'environment'}{config?.updatedAt ? ` • Updated ${new Date(config.updatedAt).toLocaleString()}` : ''}
+                  </p>
+                  <button
+                    type="submit"
+                    disabled={savingConfig}
+                    className="px-4 py-2.5 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 disabled:bg-gray-400 transition-colors"
+                  >
+                    {savingConfig ? 'Saving...' : 'Save Salesforce Settings'}
+                  </button>
+                </div>
+              </form>
+            </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="flex items-start justify-between gap-6">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Salesforce</h2>
-            <p className="text-sm text-gray-600 mt-1">
-              Uses OAuth 2.0 Connected App. Syncs Account/Contact data to update organization access.
-            </p>
-            <div className="mt-4 space-y-1 text-sm text-gray-700">
-              <p>
-                Status:{' '}
-                <span className={status?.connected ? 'text-emerald-700 font-medium' : 'text-gray-800 font-medium'}>
-                  {status?.connected ? 'Connected' : 'Not Connected'}
-                </span>
-              </p>
-              <p>Last Sync: <span className="font-medium">{lastSyncedLabel}</span></p>
-              {status?.connection?.instance_url && (
-                <p className="break-all">
-                  Instance URL: <span className="font-mono text-xs">{status.connection.instance_url}</span>
-                </p>
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="flex items-start justify-between gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-base font-semibold text-gray-900">Connection</h3>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Uses OAuth 2.0 Connected App. Syncs Account/Contact data to update organization access.
+                    </p>
+                  </div>
+                  <div className="space-y-1 text-sm text-gray-700">
+                    <p>
+                      Status:{' '}
+                      <span className={status?.connected ? 'text-emerald-700 font-medium' : 'text-gray-800 font-medium'}>
+                        {status?.connected ? 'Connected' : 'Not Connected'}
+                      </span>
+                    </p>
+                    <p>Last Sync: <span className="font-medium">{lastSyncedLabel}</span></p>
+                    {status?.connection?.instance_url && (
+                      <p className="break-all">
+                        Instance URL: <span className="font-mono text-xs">{status.connection.instance_url}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2 min-w-[180px]">
+                  {!status?.connected ? (
+                    <button
+                      onClick={handleConnect}
+                      disabled={busyAction !== null}
+                      className="px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
+                    >
+                      {busyAction === 'connect' ? 'Redirecting...' : 'Connect Salesforce'}
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={handleSync}
+                        disabled={busyAction !== null}
+                        className="px-4 py-2.5 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 disabled:bg-gray-400 transition-colors"
+                      >
+                        {busyAction === 'sync' ? 'Syncing...' : 'Sync Now'}
+                      </button>
+                      <button
+                        onClick={handleDisconnect}
+                        disabled={busyAction !== null}
+                        className="px-4 py-2.5 bg-white text-red-700 border border-red-300 rounded-lg font-medium hover:bg-red-50 disabled:opacity-60 transition-colors"
+                      >
+                        {busyAction === 'disconnect' ? 'Disconnecting...' : 'Disconnect'}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {status?.connected && (
+                <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div className="p-4 rounded-lg border border-gray-200 bg-gray-50">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">Connected Salesforce User</p>
+                    <p className="font-medium text-gray-900">{status.connection?.salesforce_display_name || 'Unknown user'}</p>
+                    <p className="text-gray-600 break-all">{status.connection?.salesforce_username || 'Username unavailable'}</p>
+                    {status.connection?.salesforce_user_id && (
+                      <p className="text-xs text-gray-500 mt-1 break-all">User ID: {status.connection.salesforce_user_id}</p>
+                    )}
+                  </div>
+                  <div className="p-4 rounded-lg border border-gray-200 bg-gray-50">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">Connected Salesforce Org</p>
+                    <p className="font-medium text-gray-900">{status.connection?.salesforce_org_name || 'Org name unavailable'}</p>
+                    <p className="text-gray-600 break-all">{status.connection?.salesforce_org_id || 'Org ID unavailable'}</p>
+                    {status.connection?.salesforce_identity_url && (
+                      <p className="text-xs text-gray-500 mt-1 break-all">Identity URL: {status.connection.salesforce_identity_url}</p>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
-          </div>
 
-          <div className="flex flex-col gap-2 min-w-[180px]">
-            {!status?.connected ? (
-              <button
-                onClick={handleConnect}
-                disabled={busyAction !== null}
-                className="px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
-              >
-                {busyAction === 'connect' ? 'Redirecting...' : 'Connect Salesforce'}
-              </button>
-            ) : (
-              <>
-                <button
-                  onClick={handleSync}
-                  disabled={busyAction !== null}
-                  className="px-4 py-2.5 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 disabled:bg-gray-400 transition-colors"
-                >
-                  {busyAction === 'sync' ? 'Syncing...' : 'Sync Now'}
-                </button>
-                <button
-                  onClick={handleDisconnect}
-                  disabled={busyAction !== null}
-                  className="px-4 py-2.5 bg-white text-red-700 border border-red-300 rounded-lg font-medium hover:bg-red-50 disabled:opacity-60 transition-colors"
-                >
-                  {busyAction === 'disconnect' ? 'Disconnecting...' : 'Disconnect'}
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {lastSyncResult && (
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+            {lastSyncResult && (
+              <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h3 className="text-base font-semibold text-gray-900 mb-3">Last Sync Summary</h3>
           <p className="text-xs text-gray-500 mb-4">
             This summary is cached in your browser so it remains visible after leaving the page.
@@ -702,9 +849,14 @@ export default function IntegrationsAdminPage() {
               <p className="text-xs text-gray-500 mt-1">Number of Salesforce Account records queried.</p>
             </div>
             <div className="p-3 rounded border border-gray-200 bg-gray-50">
-              <p className="text-gray-500">Contacts Scanned</p>
-              <p className="text-xl font-semibold text-gray-900">{lastSyncResult.matchedContacts}</p>
-              <p className="text-xs text-gray-500 mt-1">All Contacts returned from Salesforce, not just Accounts that changed.</p>
+              <p className="text-gray-500">Contacts Queried (Org-wide)</p>
+              <p className="text-xl font-semibold text-gray-900">{contactsQueriedCount}</p>
+              <p className="text-xs text-gray-500 mt-1">All Contacts returned from Salesforce Contact object with non-null email.</p>
+            </div>
+            <div className="p-3 rounded border border-gray-200 bg-gray-50">
+              <p className="text-gray-500">Contacts Matched to Accounts</p>
+              <p className="text-xl font-semibold text-gray-900">{contactsMatchedAccountsCount}</p>
+              <p className="text-xs text-gray-500 mt-1">Contacts linked by AccountId to the processed Accounts in this sync.</p>
             </div>
             <div className="p-3 rounded border border-gray-200 bg-gray-50">
               <p className="text-gray-500">Organizations Updated</p>
@@ -738,8 +890,141 @@ export default function IntegrationsAdminPage() {
               </span>
             </p>
           </div>
-        </div>
-      )}
+              </div>
+            )}
+
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="flex items-center justify-between gap-4 mb-3">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900">Salesforce Sync Audit</h3>
+                  <p className="text-sm text-gray-600">
+                    Shows recent sync runs and per-account decisions/domains used to update Trust Center organizations.
+                  </p>
+                </div>
+                {status?.connected && token && (
+                  <button
+                    type="button"
+                    onClick={() => fetchAuditRuns(token)}
+                    disabled={auditLoading}
+                    className="px-3 py-2 rounded-lg border border-gray-300 text-sm bg-white hover:bg-gray-50 disabled:opacity-60"
+                  >
+                    {auditLoading ? 'Refreshing...' : 'Refresh Audit'}
+                  </button>
+                )}
+              </div>
+
+              {!status?.connected ? (
+                <p className="text-sm text-gray-500">Connect Salesforce to view sync audit history.</p>
+              ) : auditLoading && auditRuns.length === 0 ? (
+                <p className="text-sm text-gray-500">Loading sync audit...</p>
+              ) : auditRuns.length === 0 ? (
+                <p className="text-sm text-gray-500">No sync runs recorded yet. Run Sync Now to generate audit history.</p>
+              ) : (
+                <div className="space-y-3">
+                  {auditRuns.map((run) => {
+                    const isOpen = expandedAuditRunId === run.id;
+                    return (
+                      <div key={run.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedAuditRunId((prev) => prev === run.id ? null : run.id)}
+                          className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 text-left flex items-center justify-between gap-4"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${run.success ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                                {run.success ? 'Success' : 'Failed'}
+                              </span>
+                              <span className="text-sm font-medium text-gray-900">{formatDateTime(run.completed_at || run.created_at)}</span>
+                            </div>
+                            <p className="text-xs text-gray-600 mt-1">
+                              Accounts: {run.processed_accounts} • Contacts queried: {run.contacts_queried} • Contacts matched: {run.contacts_matched_accounts} • Orgs updated: {run.updated_organizations}
+                            </p>
+                          </div>
+                          <span className="text-gray-500">{isOpen ? 'Hide' : 'Show'}</span>
+                        </button>
+
+                        {isOpen && (
+                          <div className="p-4 space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                              <div className="p-3 border border-gray-200 rounded bg-white">
+                                <p><span className="text-gray-500">Started:</span> {formatDateTime(run.started_at)}</p>
+                                <p><span className="text-gray-500">Completed:</span> {formatDateTime(run.completed_at)}</p>
+                                <p><span className="text-gray-500">Status Field:</span> {run.status_field}</p>
+                                <p><span className="text-gray-500">Domain Field:</span> {run.domain_field}</p>
+                              </div>
+                              <div className="p-3 border border-gray-200 rounded bg-white">
+                                <p><span className="text-gray-500">Blocked Orgs:</span> {run.blocked_organizations}</p>
+                                <p><span className="text-gray-500">Skipped Accounts:</span> {run.skipped_domains}</p>
+                                <p className="break-words"><span className="text-gray-500">Allowed Statuses:</span> {run.allowed_statuses?.join(', ') || 'None'}</p>
+                                {run.error_message && <p className="text-red-700"><span className="text-red-600">Error:</span> {run.error_message}</p>}
+                              </div>
+                            </div>
+
+                            <div className="overflow-x-auto">
+                              <table className="min-w-full text-sm">
+                                <thead>
+                                  <tr className="border-b border-gray-200 text-left text-gray-500">
+                                    <th className="py-2 pr-4 font-medium">Account</th>
+                                    <th className="py-2 pr-4 font-medium">Status</th>
+                                    <th className="py-2 pr-4 font-medium">Decision</th>
+                                    <th className="py-2 pr-4 font-medium">Domains</th>
+                                    <th className="py-2 pr-4 font-medium">Contacts</th>
+                                    <th className="py-2 pr-0 font-medium">Notes</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {(run.items || []).map((item) => (
+                                    <tr key={item.id} className="border-b border-gray-100 align-top">
+                                      <td className="py-2 pr-4">
+                                        <div className="font-medium text-gray-900">{item.account_name || '(Unnamed Account)'}</div>
+                                        <div className="text-xs text-gray-500 break-all">{item.salesforce_account_id}</div>
+                                      </td>
+                                      <td className="py-2 pr-4 text-gray-700">{item.status_value || '—'}</td>
+                                      <td className="py-2 pr-4">
+                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${item.decision === 'whitelisted' ? 'bg-emerald-100 text-emerald-700' : item.decision === 'no_access' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                                          {item.decision}
+                                        </span>
+                                        <div className="text-xs text-gray-500 mt-1">Updated: {item.organizations_updated}</div>
+                                      </td>
+                                      <td className="py-2 pr-4">
+                                        <div className="flex flex-wrap gap-1">
+                                          {(item.domains || []).length ? (item.domains || []).map((domain) => (
+                                            <span key={domain} className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-xs">{domain}</span>
+                                          )) : <span className="text-gray-400 text-xs">No domains</span>}
+                                        </div>
+                                        {item.website_domain && <div className="text-xs text-gray-500 mt-1">Website: {item.website_domain}</div>}
+                                      </td>
+                                      <td className="py-2 pr-4">
+                                        <div className="text-gray-700">{item.related_contact_count}</div>
+                                        {(item.matched_contact_emails || []).length > 0 && (
+                                          <details className="mt-1">
+                                            <summary className="cursor-pointer text-xs text-blue-600">Show emails</summary>
+                                            <div className="mt-1 text-xs text-gray-600 space-y-1 max-w-xs break-all">
+                                              {item.matched_contact_emails.map((email) => (
+                                                <div key={email}>{email}</div>
+                                              ))}
+                                            </div>
+                                          </details>
+                                        )}
+                                      </td>
+                                      <td className="py-2 pr-0 text-xs text-gray-600">{item.note || '—'}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
