@@ -57,6 +57,22 @@ interface SalesforceSecretResponse {
   source: 'database' | 'environment';
 }
 
+interface SalesforceAccountFieldMetadata {
+  name: string;
+  label: string;
+  type: string;
+  picklistValues: string[];
+}
+
+interface SalesforceMetadataResponse {
+  object: 'Account';
+  fields: SalesforceAccountFieldMetadata[];
+  statusFieldCandidates: SalesforceAccountFieldMetadata[];
+  domainFieldCandidates: SalesforceAccountFieldMetadata[];
+}
+
+const LAST_SYNC_STORAGE_KEY = 'salesforce_last_sync_summary_v1';
+
 export default function IntegrationsAdminPage() {
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
@@ -79,6 +95,10 @@ export default function IntegrationsAdminPage() {
   const [clientSecretVisible, setClientSecretVisible] = useState(false);
   const [clientSecretLoaded, setClientSecretLoaded] = useState(false);
   const [clientSecretLoading, setClientSecretLoading] = useState(false);
+  const [metadata, setMetadata] = useState<SalesforceMetadataResponse | null>(null);
+  const [metadataLoading, setMetadataLoading] = useState(false);
+  const [statusFieldCustomInput, setStatusFieldCustomInput] = useState('');
+  const [allowedStatusCustomInput, setAllowedStatusCustomInput] = useState('');
 
   const callbackStatus = searchParams.get('salesforce');
   const callbackMessage = searchParams.get('message');
@@ -97,6 +117,7 @@ export default function IntegrationsAdminPage() {
       authToken
     );
     setStatus(data);
+    return data;
   };
 
   const fetchConfig = async (authToken: string) => {
@@ -136,6 +157,33 @@ export default function IntegrationsAdminPage() {
     }
   };
 
+  const fetchMetadata = async (authToken: string) => {
+    setMetadataLoading(true);
+    try {
+      const data = await apiRequestWithAuth<SalesforceMetadataResponse>(
+        '/api/admin/integrations/salesforce/metadata',
+        authToken
+      );
+      setMetadata(data);
+    } catch (error: any) {
+      setMetadata(null);
+      toast.error(error.message || 'Failed to load Salesforce field metadata');
+    } finally {
+      setMetadataLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(LAST_SYNC_STORAGE_KEY);
+      if (stored) {
+        setLastSyncResult(JSON.parse(stored));
+      }
+    } catch {
+      // ignore invalid local cache
+    }
+  }, []);
+
   useEffect(() => {
     async function init() {
       const supabase = createClient();
@@ -146,10 +194,13 @@ export default function IntegrationsAdminPage() {
       }
       setToken(session.access_token);
       try {
-        await Promise.all([
+        const [statusData] = await Promise.all([
           fetchStatus(session.access_token),
           fetchConfig(session.access_token),
         ]);
+        if (statusData.connected) {
+          await fetchMetadata(session.access_token);
+        }
       } catch (error: any) {
         toast.error(error.message || 'Failed to load integration status');
       } finally {
@@ -184,6 +235,7 @@ export default function IntegrationsAdminPage() {
         { method: 'POST' }
       );
       setLastSyncResult(data);
+      window.localStorage.setItem(LAST_SYNC_STORAGE_KEY, JSON.stringify(data));
       await fetchStatus(token);
       toast.success('Salesforce sync completed');
     } catch (error: any) {
@@ -202,7 +254,6 @@ export default function IntegrationsAdminPage() {
         token,
         { method: 'POST' }
       );
-      setLastSyncResult(null);
       await fetchStatus(token);
       toast.success('Salesforce disconnected');
     } catch (error: any) {
@@ -235,6 +286,9 @@ export default function IntegrationsAdminPage() {
       setClientSecretLoaded(Boolean(configForm.clientSecret));
       setClientSecretVisible(false);
       toast.success('Salesforce settings saved');
+      if (status?.connected) {
+        await fetchMetadata(token);
+      }
     } catch (error: any) {
       toast.error(error.message || 'Failed to save Salesforce settings');
     } finally {
@@ -251,6 +305,35 @@ export default function IntegrationsAdminPage() {
       return value;
     }
   }, [status]);
+
+  const parsedAllowedStatuses = useMemo(
+    () => configForm.allowedStatuses.split(',').map((s) => s.trim()).filter(Boolean),
+    [configForm.allowedStatuses]
+  );
+
+  const selectedStatusFieldMeta = useMemo(
+    () => metadata?.fields.find((f) => f.name === configForm.statusField) || null,
+    [metadata, configForm.statusField]
+  );
+
+  const suggestedAllowedStatuses = useMemo(
+    () => (selectedStatusFieldMeta?.picklistValues || []).filter(Boolean),
+    [selectedStatusFieldMeta]
+  );
+
+  const updateAllowedStatuses = (nextValues: string[]) => {
+    const normalized = Array.from(new Set(nextValues.map((v) => v.trim()).filter(Boolean)));
+    handleConfigFieldChange('allowedStatuses', normalized.join(', '));
+  };
+
+  const toggleAllowedStatusValue = (value: string) => {
+    const exists = parsedAllowedStatuses.some((s) => s.toLowerCase() === value.toLowerCase());
+    if (exists) {
+      updateAllowedStatuses(parsedAllowedStatuses.filter((s) => s.toLowerCase() !== value.toLowerCase()));
+    } else {
+      updateAllowedStatuses([...parsedAllowedStatuses, value]);
+    }
+  };
 
   if (loading) {
     return (
@@ -400,12 +483,57 @@ export default function IntegrationsAdminPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Status Field</label>
-              <input
-                type="text"
-                value={configForm.statusField}
-                onChange={(e) => handleConfigFieldChange('statusField', e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-              />
+              <div className="space-y-2">
+                <select
+                  value={configForm.statusField}
+                  onChange={(e) => handleConfigFieldChange('statusField', e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white"
+                  disabled={metadataLoading}
+                >
+                  {metadata?.statusFieldCandidates?.length ? (
+                    <>
+                      {metadata.statusFieldCandidates.map((field) => (
+                        <option key={field.name} value={field.name}>
+                          {field.label} ({field.name})
+                        </option>
+                      ))}
+                      {!metadata.statusFieldCandidates.some((f) => f.name === configForm.statusField) && (
+                        <option value={configForm.statusField}>{configForm.statusField} (custom)</option>
+                      )}
+                    </>
+                  ) : (
+                    <option value={configForm.statusField}>{configForm.statusField || 'Type'}</option>
+                  )}
+                </select>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={statusFieldCustomInput}
+                    onChange={(e) => setStatusFieldCustomInput(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    placeholder="Add custom field API name (e.g. Customer_Status__c)"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = statusFieldCustomInput.trim();
+                      if (!next) return;
+                      handleConfigFieldChange('statusField', next);
+                      setStatusFieldCustomInput('');
+                    }}
+                    className="px-3 py-2 rounded-lg border border-gray-300 text-sm bg-white hover:bg-gray-50"
+                  >
+                    Use
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500">
+                  {metadataLoading
+                    ? 'Loading Account fields from Salesforce...'
+                    : metadata
+                      ? 'Pick from Account fields or enter a custom API field name.'
+                      : 'Connect Salesforce to load Account field options.'}
+                </p>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Domain Field</label>
@@ -418,13 +546,78 @@ export default function IntegrationsAdminPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Allowed Statuses</label>
-              <input
-                type="text"
-                value={configForm.allowedStatuses}
-                onChange={(e) => handleConfigFieldChange('allowedStatuses', e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                placeholder="Customer,Active Customer"
-              />
+              <div className="space-y-3">
+                {suggestedAllowedStatuses.length > 0 ? (
+                  <div className="border border-gray-200 rounded-lg p-3 max-h-40 overflow-auto space-y-2">
+                    {suggestedAllowedStatuses.map((value) => {
+                      const checked = parsedAllowedStatuses.some((s) => s.toLowerCase() === value.toLowerCase());
+                      return (
+                        <label key={value} className="flex items-center gap-2 text-sm text-gray-700">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleAllowedStatusValue(value)}
+                            className="rounded border-gray-300 text-blue-600"
+                          />
+                          <span>{value}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500">
+                    No picklist options detected for the selected status field. Add values manually below.
+                  </p>
+                )}
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={allowedStatusCustomInput}
+                    onChange={(e) => setAllowedStatusCustomInput(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    placeholder="Add a status value (e.g. Customer - Direct)"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = allowedStatusCustomInput.trim();
+                      if (!next) return;
+                      updateAllowedStatuses([...parsedAllowedStatuses, next]);
+                      setAllowedStatusCustomInput('');
+                    }}
+                    className="px-3 py-2 rounded-lg border border-gray-300 text-sm bg-white hover:bg-gray-50"
+                  >
+                    Add
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {parsedAllowedStatuses.map((statusValue) => (
+                    <span
+                      key={statusValue}
+                      className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium"
+                    >
+                      {statusValue}
+                      <button
+                        type="button"
+                        onClick={() => updateAllowedStatuses(parsedAllowedStatuses.filter((s) => s !== statusValue))}
+                        className="text-blue-600 hover:text-blue-800"
+                        aria-label={`Remove ${statusValue}`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  {parsedAllowedStatuses.length === 0 && (
+                    <span className="text-xs text-gray-500">No allowed statuses selected</span>
+                  )}
+                </div>
+
+                <p className="text-xs text-gray-500">
+                  Matching is exact text match (case-insensitive). Example: <code>Customer - Direct</code>
+                </p>
+              </div>
             </div>
           </div>
           <div className="flex items-center justify-between">
@@ -499,30 +692,39 @@ export default function IntegrationsAdminPage() {
       {lastSyncResult && (
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h3 className="text-base font-semibold text-gray-900 mb-3">Last Sync Summary</h3>
+          <p className="text-xs text-gray-500 mb-4">
+            This summary is cached in your browser so it remains visible after leaving the page.
+          </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
             <div className="p-3 rounded border border-gray-200 bg-gray-50">
               <p className="text-gray-500">Accounts Processed</p>
               <p className="text-xl font-semibold text-gray-900">{lastSyncResult.processedAccounts}</p>
+              <p className="text-xs text-gray-500 mt-1">Number of Salesforce Account records queried.</p>
             </div>
             <div className="p-3 rounded border border-gray-200 bg-gray-50">
               <p className="text-gray-500">Contacts Scanned</p>
               <p className="text-xl font-semibold text-gray-900">{lastSyncResult.matchedContacts}</p>
+              <p className="text-xs text-gray-500 mt-1">All Contacts returned from Salesforce, not just Accounts that changed.</p>
             </div>
             <div className="p-3 rounded border border-gray-200 bg-gray-50">
               <p className="text-gray-500">Organizations Updated</p>
               <p className="text-xl font-semibold text-gray-900">{lastSyncResult.updatedOrganizations}</p>
+              <p className="text-xs text-gray-500 mt-1">Domain-level updates. One Account can update multiple orgs (website + contact email domains).</p>
             </div>
             <div className="p-3 rounded border border-gray-200 bg-gray-50">
               <p className="text-gray-500">Organizations Blocked</p>
               <p className="text-xl font-semibold text-gray-900">{lastSyncResult.blockedOrganizations}</p>
+              <p className="text-xs text-gray-500 mt-1">Updated orgs set to <code>no_access</code> because Account status was not allowed.</p>
             </div>
             <div className="p-3 rounded border border-gray-200 bg-gray-50">
               <p className="text-gray-500">Accounts Skipped (No Domain)</p>
               <p className="text-xl font-semibold text-gray-900">{lastSyncResult.skippedDomains}</p>
+              <p className="text-xs text-gray-500 mt-1">Accounts where no usable website/contact domain could be derived.</p>
             </div>
             <div className="p-3 rounded border border-gray-200 bg-gray-50">
               <p className="text-gray-500">Status Field</p>
               <p className="text-base font-semibold text-gray-900">{lastSyncResult.statusField}</p>
+              <p className="text-xs text-gray-500 mt-1">Salesforce Account field used to decide access.</p>
             </div>
           </div>
           <div className="mt-4 text-sm text-gray-600">

@@ -9,6 +9,7 @@ import {
   getActiveSalesforceConnection,
   getSalesforceAdminConfig,
   getSalesforceAdminSecret,
+  getSalesforceAccountFieldMetadata,
   getSalesforceAuthorizeUrl,
   saveSalesforceAdminConfig,
   syncOrganizationsFromSalesforce,
@@ -62,6 +63,15 @@ router.get('/config/secret', requireAdmin, async (req: AuthRequest, res) => {
     res.json(secret);
   } catch (error: any) {
     res.status(404).json({ error: error.message });
+  }
+});
+
+router.get('/metadata', requireAdmin, async (_req: AuthRequest, res) => {
+  try {
+    const metadata = await getSalesforceAccountFieldMetadata();
+    res.json(metadata);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
   }
 });
 

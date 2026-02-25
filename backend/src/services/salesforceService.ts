@@ -22,6 +22,13 @@ interface SalesforceTokenResponse {
   scope?: string;
 }
 
+export interface SalesforceAccountFieldMetadata {
+  name: string;
+  label: string;
+  type: string;
+  picklistValues: string[];
+}
+
 interface SalesforceConfigRecord {
   id: string;
   provider: string;
@@ -612,6 +619,34 @@ async function salesforceQuery(connection: SalesforceConnection, soql: string, a
   return records;
 }
 
+async function salesforceGetJson(connection: SalesforceConnection, path: string, apiVersion: string): Promise<any> {
+  let currentConnection = connection;
+  let retriedWithRefresh = false;
+  const url = `${currentConnection.instance_url}/services/data/${apiVersion}${path}`;
+
+  while (true) {
+    let response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `${currentConnection.token_type || 'Bearer'} ${currentConnection.access_token}`,
+      },
+    });
+
+    if (response.status === 401 && !retriedWithRefresh) {
+      currentConnection = await refreshAccessToken(currentConnection);
+      retriedWithRefresh = true;
+      continue;
+    }
+
+    const payload: any = await response.json();
+    if (!response.ok) {
+      const msg = Array.isArray(payload) ? payload[0]?.message : payload?.message;
+      throw new Error(msg || 'Salesforce request failed');
+    }
+    return payload;
+  }
+}
+
 export async function disconnectSalesforceConnection(): Promise<void> {
   await supabase
     .from('salesforce_connections')
@@ -711,5 +746,44 @@ export async function syncOrganizationsFromSalesforce() {
     statusField,
     domainField,
     allowedStatuses,
+  };
+}
+
+export async function getSalesforceAccountFieldMetadata() {
+  const connection = await getActiveSalesforceConnection();
+  if (!connection) {
+    throw new Error('No active Salesforce connection found');
+  }
+
+  const integrationConfig = await getResolvedSalesforceConfig();
+  const apiVersion = integrationConfig.apiVersion || 'v59.0';
+  const describe = await salesforceGetJson(connection, '/sobjects/Account/describe', apiVersion);
+  const rawFields = Array.isArray(describe?.fields) ? describe.fields : [];
+
+  const fields: SalesforceAccountFieldMetadata[] = rawFields
+    .filter((field: any) => typeof field?.name === 'string')
+    .map((field: any) => ({
+      name: field.name,
+      label: typeof field.label === 'string' ? field.label : field.name,
+      type: typeof field.type === 'string' ? field.type : 'string',
+      picklistValues: Array.isArray(field.picklistValues)
+        ? field.picklistValues
+            .filter((p: any) => p?.active !== false && typeof p?.value === 'string')
+            .map((p: any) => p.value)
+        : [],
+    }));
+
+  const statusFieldCandidates = fields.filter((field) =>
+    ['picklist', 'string', 'textarea', 'combobox'].includes(field.type)
+  );
+  const domainFieldCandidates = fields.filter((field) =>
+    ['url', 'string', 'textarea', 'email'].includes(field.type)
+  );
+
+  return {
+    object: 'Account',
+    fields,
+    statusFieldCandidates,
+    domainFieldCandidates,
   };
 }
