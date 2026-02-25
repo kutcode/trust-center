@@ -6,6 +6,7 @@ import { apiRequestWithAuth } from '@/lib/api';
 import { Organization } from '@/types';
 import OrganizationEditModal from '@/components/admin/OrganizationEditModal';
 import { useQueryParam } from '@/hooks/useQueryParam';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 
 type StatusFilter = 'all' | 'whitelisted' | 'conditional' | 'no_access' | 'archived';
 
@@ -27,6 +28,16 @@ function OrganizationsAdminPageContent() {
   const [removingOrg, setRemovingOrg] = useState<Organization | null>(null);
   const [processingOrg, setProcessingOrg] = useState<string | null>(null);
   const [expandedOrg, setExpandedOrg] = useState<string | null>(null);
+  const [selectedOrgIds, setSelectedOrgIds] = useState<string[]>([]);
+  const [bulkActionLoading, setBulkActionLoading] = useState<null | 'archive' | 'restore' | 'permanent_delete'>(null);
+  const [bulkConfirm, setBulkConfirm] = useState<null | 'archive' | 'restore' | 'permanent_delete'>(null);
+  const [permanentDeleteOrg, setPermanentDeleteOrg] = useState<Organization | null>(null);
+
+  const reloadOrganizations = async (authToken: string) => {
+    const data = await apiRequestWithAuth<Organization[]>('/api/organizations', authToken);
+    setOrganizations(data.filter(org => org.is_active !== false));
+    setArchivedOrganizations(data.filter(org => org.is_active === false));
+  };
 
   useEffect(() => {
     async function loadOrganizations() {
@@ -37,10 +48,7 @@ function OrganizationsAdminPageContent() {
         setToken(session.access_token);
         try {
           // Load active organizations
-          const data = await apiRequestWithAuth<Organization[]>('/api/organizations', session.access_token);
-          // Separate active vs archived
-          setOrganizations(data.filter(org => org.is_active !== false));
-          setArchivedOrganizations(data.filter(org => org.is_active === false));
+          await reloadOrganizations(session.access_token);
         } catch (error) {
           console.error('Failed to load organizations:', error);
         }
@@ -60,6 +68,10 @@ function OrganizationsAdminPageContent() {
     }
   }, [organizations, archivedOrganizations, statusFilter]);
 
+  useEffect(() => {
+    setSelectedOrgIds((prev) => prev.filter((id) => filteredOrganizations.some((org) => org.id === id)));
+  }, [filteredOrganizations]);
+
   const handleRemove = async (org: Organization) => {
     if (!token) return;
 
@@ -68,10 +80,8 @@ function OrganizationsAdminPageContent() {
       await apiRequestWithAuth(`/api/admin/organizations/${org.id}`, token, {
         method: 'DELETE',
       });
-      // Reload organizations
-      const data = await apiRequestWithAuth<Organization[]>('/api/organizations', token);
-      setOrganizations(data.filter(o => o.is_active !== false));
-      setArchivedOrganizations(data.filter(o => o.is_active === false));
+      await reloadOrganizations(token);
+      setSelectedOrgIds((prev) => prev.filter((id) => id !== org.id));
       setRemovingOrg(null);
     } catch (error: any) {
       alert(`Failed to remove organization: ${error.message}`);
@@ -88,10 +98,8 @@ function OrganizationsAdminPageContent() {
       await apiRequestWithAuth(`/api/admin/organizations/${org.id}/restore`, token, {
         method: 'PATCH',
       });
-      // Reload organizations
-      const data = await apiRequestWithAuth<Organization[]>('/api/organizations', token);
-      setOrganizations(data.filter(o => o.is_active !== false));
-      setArchivedOrganizations(data.filter(o => o.is_active === false));
+      await reloadOrganizations(token);
+      setSelectedOrgIds((prev) => prev.filter((id) => id !== org.id));
     } catch (error: any) {
       alert(`Failed to restore organization: ${error.message}`);
     } finally {
@@ -101,9 +109,64 @@ function OrganizationsAdminPageContent() {
 
   const handleSave = async () => {
     if (!token) return;
-    const data = await apiRequestWithAuth<Organization[]>('/api/organizations', token);
-    setOrganizations(data.filter(org => org.is_active !== false));
-    setArchivedOrganizations(data.filter(org => org.is_active === false));
+    await reloadOrganizations(token);
+  };
+
+  const handlePermanentDelete = async (org: Organization) => {
+    if (!token) return;
+    setProcessingOrg(org.id);
+    try {
+      await apiRequestWithAuth(`/api/admin/organizations/${org.id}/permanent`, token, {
+        method: 'DELETE',
+      });
+      await reloadOrganizations(token);
+      setSelectedOrgIds((prev) => prev.filter((id) => id !== org.id));
+      if (editingOrg?.id === org.id) setEditingOrg(null);
+      setPermanentDeleteOrg(null);
+    } catch (error: any) {
+      alert(`Failed to permanently delete organization: ${error.message}`);
+    } finally {
+      setProcessingOrg(null);
+    }
+  };
+
+  const visibleSelectedCount = selectedOrgIds.length;
+  const allVisibleSelected = filteredOrganizations.length > 0 && filteredOrganizations.every((org) => selectedOrgIds.includes(org.id));
+
+  const toggleOrgSelection = (orgId: string) => {
+    setSelectedOrgIds((prev) => (
+      prev.includes(orgId) ? prev.filter((id) => id !== orgId) : [...prev, orgId]
+    ));
+  };
+
+  const toggleSelectAllVisible = () => {
+    if (allVisibleSelected) {
+      setSelectedOrgIds((prev) => prev.filter((id) => !filteredOrganizations.some((org) => org.id === id)));
+    } else {
+      const visibleIds = filteredOrganizations.map((org) => org.id);
+      setSelectedOrgIds((prev) => Array.from(new Set([...prev, ...visibleIds])));
+    }
+  };
+
+  const runBulkAction = async (action: 'archive' | 'restore' | 'permanent_delete') => {
+    if (!token || selectedOrgIds.length === 0) return;
+    setBulkActionLoading(action);
+    try {
+      await apiRequestWithAuth('/api/admin/organizations/bulk', token, {
+        method: 'POST',
+        body: JSON.stringify({
+          ids: selectedOrgIds,
+          action,
+        }),
+      });
+      await reloadOrganizations(token);
+      setSelectedOrgIds([]);
+      setBulkConfirm(null);
+    } catch (error: any) {
+      alert(`Failed to run bulk action: ${error.message}`);
+    } finally {
+      setBulkActionLoading(null);
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -174,6 +237,53 @@ function OrganizationsAdminPageContent() {
         </nav>
       </div>
 
+      {filteredOrganizations.length > 0 && (
+        <div className="mb-6 bg-white rounded-lg border border-gray-200 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={allVisibleSelected}
+                onChange={toggleSelectAllVisible}
+                className="rounded border-gray-300 text-blue-600"
+              />
+              <span>Select all visible</span>
+            </label>
+            <span className="text-sm text-gray-500">
+              {visibleSelectedCount} selected
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {statusFilter === 'archived' ? (
+              <>
+                <button
+                  onClick={() => setBulkConfirm('restore')}
+                  disabled={visibleSelectedCount === 0 || bulkActionLoading !== null}
+                  className="px-3 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:bg-gray-400"
+                >
+                  Restore Selected
+                </button>
+                <button
+                  onClick={() => setBulkConfirm('permanent_delete')}
+                  disabled={visibleSelectedCount === 0 || bulkActionLoading !== null}
+                  className="px-3 py-2 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:bg-gray-400"
+                >
+                  Permanently Delete Selected
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setBulkConfirm('archive')}
+                disabled={visibleSelectedCount === 0 || bulkActionLoading !== null}
+                className="px-3 py-2 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:bg-gray-400"
+              >
+                Archive Selected
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {filteredOrganizations.length === 0 ? (
         <div className="bg-white rounded-lg shadow p-8 text-center">
           <p className="text-gray-600">
@@ -193,9 +303,18 @@ function OrganizationsAdminPageContent() {
             >
               <div className="p-6">
                 <div className="flex justify-between items-start mb-3">
-                  <h3 className="text-xl font-semibold text-gray-900 truncate flex-1" title={org.name}>
-                    {org.name}
-                  </h3>
+                  <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <input
+                      type="checkbox"
+                      checked={selectedOrgIds.includes(org.id)}
+                      onChange={() => toggleOrgSelection(org.id)}
+                      className="mt-1 rounded border-gray-300 text-blue-600"
+                      aria-label={`Select ${org.name}`}
+                    />
+                    <h3 className="text-xl font-semibold text-gray-900 truncate flex-1" title={org.name}>
+                      {org.name}
+                    </h3>
+                  </div>
                   <span className={getStatusBadge(org.status)}>
                     {getStatusLabel(org.status)}
                   </span>
@@ -311,8 +430,60 @@ function OrganizationsAdminPageContent() {
           onClose={() => setEditingOrg(null)}
           onSave={handleSave}
           token={token}
+          onPermanentDelete={editingOrg.is_active === false ? (org) => setPermanentDeleteOrg(org) : undefined}
+          permanentDeleteLoading={processingOrg === editingOrg.id}
         />
       )}
+
+      <ConfirmModal
+        isOpen={!!permanentDeleteOrg}
+        onClose={() => {
+          if (!processingOrg) setPermanentDeleteOrg(null);
+        }}
+        onConfirm={() => {
+          if (permanentDeleteOrg) handlePermanentDelete(permanentDeleteOrg);
+        }}
+        title="Permanently Delete Organization?"
+        message={permanentDeleteOrg
+          ? `This will permanently delete ${permanentDeleteOrg.name} and cannot be undone. Archived history tied to this organization may also be removed by database cascades.`
+          : ''}
+        confirmLabel="Delete Permanently"
+        confirmStyle="danger"
+        isLoading={!!permanentDeleteOrg && processingOrg === permanentDeleteOrg.id}
+      />
+
+      <ConfirmModal
+        isOpen={!!bulkConfirm}
+        onClose={() => {
+          if (!bulkActionLoading) setBulkConfirm(null);
+        }}
+        onConfirm={() => {
+          if (bulkConfirm) runBulkAction(bulkConfirm);
+        }}
+        title={
+          bulkConfirm === 'archive'
+            ? 'Archive Selected Organizations?'
+            : bulkConfirm === 'restore'
+              ? 'Restore Selected Organizations?'
+              : 'Permanently Delete Selected Organizations?'
+        }
+        message={
+          bulkConfirm === 'archive'
+            ? `Archive ${visibleSelectedCount} selected organization(s)? They will move to the Archived tab.`
+            : bulkConfirm === 'restore'
+              ? `Restore ${visibleSelectedCount} selected archived organization(s)? They will return as Conditional.`
+              : `Permanently delete ${visibleSelectedCount} selected archived organization(s)? This cannot be undone.`
+        }
+        confirmLabel={
+          bulkConfirm === 'archive'
+            ? 'Archive Selected'
+            : bulkConfirm === 'restore'
+              ? 'Restore Selected'
+              : 'Delete Permanently'
+        }
+        confirmStyle={bulkConfirm === 'restore' ? 'primary' : 'danger'}
+        isLoading={bulkActionLoading !== null}
+      />
     </>
   );
 }

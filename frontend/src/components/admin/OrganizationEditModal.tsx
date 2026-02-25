@@ -10,6 +10,8 @@ interface OrganizationEditModalProps {
   onClose: () => void;
   onSave: () => void;
   token: string;
+  onPermanentDelete?: (organization: Organization) => void;
+  permanentDeleteLoading?: boolean;
 }
 
 export default function OrganizationEditModal({
@@ -18,6 +20,8 @@ export default function OrganizationEditModal({
   onClose,
   onSave,
   token,
+  onPermanentDelete,
+  permanentDeleteLoading = false,
 }: OrganizationEditModalProps) {
   const [formData, setFormData] = useState({
     name: '',
@@ -227,7 +231,20 @@ export default function OrganizationEditModal({
             </div>
           </div>
 
-          <div className="mt-6 flex justify-end gap-3">
+          <div className="mt-6 flex justify-between gap-3">
+            <div>
+              {organization.is_active === false && onPermanentDelete && (
+                <button
+                  type="button"
+                  onClick={() => onPermanentDelete(organization)}
+                  disabled={loading || permanentDeleteLoading}
+                  className="px-4 py-2 bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:bg-gray-200 disabled:text-gray-500"
+                >
+                  {permanentDeleteLoading ? 'Deleting...' : 'Permanently Delete'}
+                </button>
+              )}
+            </div>
+            <div className="flex gap-3">
             <button
               type="button"
               onClick={onClose}
@@ -242,10 +259,10 @@ export default function OrganizationEditModal({
             >
               {loading ? 'Saving...' : 'Save Changes'}
             </button>
+            </div>
           </div>
         </form>
       </div>
     </div>
   );
 }
-
