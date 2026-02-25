@@ -976,9 +976,6 @@ export async function syncOrganizationsFromSalesforce() {
       let accountUpdatedOrganizations = 0;
 
       const websiteDomain = normalizeDomainFromWebsite(account[domainField]);
-      if (websiteDomain) {
-        domains.add(websiteDomain);
-      }
 
       const relatedContacts = contactsByAccount.get(account.Id) || [];
       contactsMatchedAccounts += relatedContacts.length;
@@ -1006,7 +1003,7 @@ export async function syncOrganizationsFromSalesforce() {
           related_contact_count: relatedContacts.length,
           matched_contact_emails: matchedContactEmails,
           organizations_updated: 0,
-          note: 'No usable domain derived from website or related contacts',
+          note: 'No usable domain derived from related contact emails',
         });
         continue;
       }

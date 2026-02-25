@@ -861,7 +861,7 @@ export default function IntegrationsAdminPage() {
             <div className="p-3 rounded border border-gray-200 bg-gray-50">
               <p className="text-gray-500">Organizations Updated</p>
               <p className="text-xl font-semibold text-gray-900">{lastSyncResult.updatedOrganizations}</p>
-              <p className="text-xs text-gray-500 mt-1">Domain-level updates. One Account can update multiple orgs (website + contact email domains).</p>
+              <p className="text-xs text-gray-500 mt-1">Domain-level updates derived from related Contact email domains. One Account can update multiple orgs.</p>
             </div>
             <div className="p-3 rounded border border-gray-200 bg-gray-50">
               <p className="text-gray-500">Organizations Blocked</p>
@@ -871,7 +871,7 @@ export default function IntegrationsAdminPage() {
             <div className="p-3 rounded border border-gray-200 bg-gray-50">
               <p className="text-gray-500">Accounts Skipped (No Domain)</p>
               <p className="text-xl font-semibold text-gray-900">{lastSyncResult.skippedDomains}</p>
-              <p className="text-xs text-gray-500 mt-1">Accounts where no usable website/contact domain could be derived.</p>
+              <p className="text-xs text-gray-500 mt-1">Accounts where no usable related Contact email domain could be derived.</p>
             </div>
             <div className="p-3 rounded border border-gray-200 bg-gray-50">
               <p className="text-gray-500">Status Field</p>
@@ -881,7 +881,7 @@ export default function IntegrationsAdminPage() {
           </div>
           <div className="mt-4 text-sm text-gray-600">
             <p>
-              Domain field: <span className="font-medium text-gray-800">{lastSyncResult.domainField}</span>
+              Domain field (stored config, not used for access assignment): <span className="font-medium text-gray-800">{lastSyncResult.domainField}</span>
             </p>
             <p>
               Allowed statuses:{' '}
@@ -993,7 +993,7 @@ export default function IntegrationsAdminPage() {
                                             <span key={domain} className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-xs">{domain}</span>
                                           )) : <span className="text-gray-400 text-xs">No domains</span>}
                                         </div>
-                                        {item.website_domain && <div className="text-xs text-gray-500 mt-1">Website: {item.website_domain}</div>}
+                                        {item.website_domain && <div className="text-xs text-gray-500 mt-1">Account Website (debug only): {item.website_domain}</div>}
                                       </td>
                                       <td className="py-2 pr-4">
                                         <div className="text-gray-700">{item.related_contact_count}</div>
