@@ -8,6 +8,7 @@ import { logActivity } from '../utils/activityLogger';
 import { handleError } from '../utils/errorHandler';
 
 const router = express.Router();
+const DEFAULT_NDA_URL = '/nda-sample.html';
 
 // Get dashboard statistics (admin only)
 router.get('/stats', requireAdmin, async (req, res) => {
@@ -528,7 +529,10 @@ router.get('/settings', requireAdmin, async (req, res) => {
 
     if (error) throw error;
 
-    res.json(data);
+    res.json({
+      ...data,
+      nda_url: data?.nda_url || DEFAULT_NDA_URL,
+    });
   } catch (error: any) {
     handleError(res, error, 'Get settings error');
   }
@@ -891,6 +895,106 @@ router.delete('/users/:id', requireAdmin, async (req: AuthRequest, res) => {
 });
 
 // Change organization status (admin only)
+router.post('/organizations/bulk', requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const { ids, action } = req.body || {};
+    const orgIds = Array.isArray(ids)
+      ? Array.from(new Set(ids.map((id) => String(id).trim()).filter(Boolean)))
+      : [];
+
+    if (orgIds.length === 0) {
+      return res.status(400).json({ error: 'At least one organization id is required' });
+    }
+
+    if (!['archive', 'restore', 'permanent_delete'].includes(action)) {
+      return res.status(400).json({ error: 'Invalid bulk action. Must be archive, restore, or permanent_delete' });
+    }
+
+    const { data: existingOrgs, error: existingError } = await supabase
+      .from('organizations')
+      .select('id, name, is_active, status')
+      .in('id', orgIds);
+
+    if (existingError) throw existingError;
+
+    const organizations = existingOrgs || [];
+    if (organizations.length === 0) {
+      return res.status(404).json({ error: 'No organizations found for the provided ids' });
+    }
+
+    let affectedCount = 0;
+
+    if (action === 'archive') {
+      const archiveIds = organizations.filter((org: any) => org.is_active !== false).map((org: any) => org.id);
+      if (archiveIds.length > 0) {
+        const { error } = await supabase
+          .from('organizations')
+          .update({
+            is_active: false,
+            status: 'conditional',
+            revoked_at: new Date().toISOString(),
+          })
+          .in('id', archiveIds);
+        if (error) throw error;
+      }
+      affectedCount = archiveIds.length;
+    }
+
+    if (action === 'restore') {
+      const restoreIds = organizations.filter((org: any) => org.is_active === false).map((org: any) => org.id);
+      if (restoreIds.length > 0) {
+        const { error } = await supabase
+          .from('organizations')
+          .update({
+            is_active: true,
+            status: 'conditional',
+            revoked_at: null,
+          })
+          .in('id', restoreIds);
+        if (error) throw error;
+      }
+      affectedCount = restoreIds.length;
+    }
+
+    if (action === 'permanent_delete') {
+      const deleteCandidates = organizations.filter((org: any) => org.is_active === false);
+      const deleteIds = deleteCandidates.map((org: any) => org.id);
+      if (deleteIds.length > 0) {
+        const { error } = await supabase
+          .from('organizations')
+          .delete()
+          .in('id', deleteIds);
+        if (error) throw error;
+      }
+      affectedCount = deleteIds.length;
+    }
+
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: action === 'permanent_delete' ? 'delete' : action,
+      entityType: 'organization',
+      entityId: undefined,
+      entityName: `${affectedCount} organizations`,
+      oldValue: { ids: orgIds, action },
+      newValue: { affectedCount },
+      description: `Bulk organization action "${action}" applied to ${affectedCount} organization(s)`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    res.json({
+      success: true,
+      action,
+      requestedCount: orgIds.length,
+      foundCount: organizations.length,
+      affectedCount,
+    });
+  } catch (error: any) {
+    handleError(res, error, 'Bulk organization action error');
+  }
+});
+
 router.patch('/organizations/:id/status', requireAdmin, async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
@@ -948,6 +1052,51 @@ router.patch('/organizations/:id/status', requireAdmin, async (req: AuthRequest,
     res.json(data);
   } catch (error: any) {
     handleError(res, error, 'Change organization status error');
+  }
+});
+
+// Permanently delete an archived organization (admin only)
+router.delete('/organizations/:id/permanent', requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data: org, error: fetchError } = await supabase
+      .from('organizations')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) throw fetchError;
+    if (!org) return res.status(404).json({ error: 'Organization not found' });
+
+    if (org.is_active !== false) {
+      return res.status(400).json({ error: 'Only archived organizations can be permanently deleted' });
+    }
+
+    const { error } = await supabase
+      .from('organizations')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'delete',
+      entityType: 'organization',
+      entityId: id,
+      entityName: org.name,
+      oldValue: { is_active: false, status: org.status, email_domain: org.email_domain },
+      newValue: null,
+      description: `Permanently deleted archived organization: ${org.name}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    res.json({ success: true, message: 'Organization permanently deleted' });
+  } catch (error: any) {
+    handleError(res, error, 'Permanent delete organization error');
   }
 });
 
@@ -1755,6 +1904,3 @@ router.delete('/controls/:id', requireAdmin, async (req: AuthRequest, res) => {
 // ============ REORDER ENDPOINTS ============
 
 export default router;
-
-
-
