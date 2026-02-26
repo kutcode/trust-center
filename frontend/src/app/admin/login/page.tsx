@@ -159,11 +159,10 @@ export default function AdminLoginPage() {
         {!isDemoMode && (
           <div className="mt-4 text-center text-sm text-gray-600">
             <p>Default credentials:</p>
-            <p className="font-mono text-gray-800">admin2@example.com / admin123</p>
+            <p className="font-mono text-gray-800">admin@example.com / admin123</p>
           </div>
         )}
       </div>
     </div>
   );
 }
-

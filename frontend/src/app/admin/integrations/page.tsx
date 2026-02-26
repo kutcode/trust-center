@@ -140,7 +140,7 @@ export default function IntegrationsAdminPage() {
   const [metadataLoading, setMetadataLoading] = useState(false);
   const [statusFieldCustomInput, setStatusFieldCustomInput] = useState('');
   const [allowedStatusCustomInput, setAllowedStatusCustomInput] = useState('');
-  const [salesforceExpanded, setSalesforceExpanded] = useState(true);
+  const [salesforceExpanded, setSalesforceExpanded] = useState(false);
   const [auditRuns, setAuditRuns] = useState<SalesforceSyncAuditRun[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
   const [expandedAuditRunId, setExpandedAuditRunId] = useState<string | null>(null);

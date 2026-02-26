@@ -14,6 +14,8 @@ interface DocumentWithCategory extends Document {
     category?: DocumentCategory;
 }
 
+const DEFAULT_NDA_URL = '/nda-sample.html';
+
 export default function GlobalRequestDocumentModal({ isOpen, onClose, preSelectedDocumentId }: GlobalRequestDocumentModalProps) {
     const [formData, setFormData] = useState({
         firstName: '',
@@ -65,8 +67,8 @@ export default function GlobalRequestDocumentModal({ isOpen, onClose, preSelecte
             }
             // Fetch NDA URL from settings
             apiRequest<{ nda_url?: string }>('/api/settings')
-                .then(settings => setNdaUrl(settings.nda_url || null))
-                .catch(() => setNdaUrl(null));
+                .then(settings => setNdaUrl(settings.nda_url || DEFAULT_NDA_URL))
+                .catch(() => setNdaUrl(DEFAULT_NDA_URL));
         }
     }, [isOpen, preSelectedDocumentId]);
 
