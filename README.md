@@ -171,14 +171,15 @@ The project now includes an admin integration for Salesforce using OAuth 2.0 Con
 
 ### Sync behavior
 - Pulls `Account` and `Contact` records from Salesforce
-- Maps accounts to Trust Center organizations by:
-  - account website domain (`SALESFORCE_DOMAIN_FIELD`, default `Website`)
-  - contact email domains
+- Maps accounts to Trust Center organizations using related `Contact` email domains (domain-based access)
 - Uses account status field (`SALESFORCE_STATUS_FIELD`, default `Type`)
 - If status is in `SALESFORCE_ALLOWED_STATUSES`, organization is set to `whitelisted`
 - Otherwise organization is set to `no_access`
+- Admin Integrations page shows connected Salesforce user/org identity and sync audit logs for debugging
 
-Full setup guide: `docs/SALESFORCE_SETUP.md`
+Guides:
+- Customer admin onboarding (short): `docs/SALESFORCE_ONBOARDING_ADMIN.md`
+- Full technical setup + troubleshooting: `docs/SALESFORCE_SETUP.md`
 
 ## Development
 
