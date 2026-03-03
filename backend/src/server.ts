@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
+import { requireAdmin } from './middleware/auth';
 
 dotenv.config();
 
@@ -51,10 +52,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve uploaded files (with authentication check in route handler)
-const uploadsDir = process.env.UPLOADS_DIR || '/app/uploads';
-app.use('/uploads', express.static(uploadsDir));
-
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -65,8 +62,13 @@ import { sendEmail, getEmailProvider } from './services/emailService';
 import path from 'path';
 import fs from 'fs';
 
-app.post('/api/test-email', async (req, res) => {
+app.post('/api/test-email', requireAdmin, async (req, res) => {
   try {
+    const testEmailEnabled = process.env.ENABLE_TEST_EMAIL === 'true';
+    if (!testEmailEnabled) {
+      return res.status(404).json({ error: 'Route not found' });
+    }
+
     const { to, withAttachment } = req.body;
 
     if (!to) {

@@ -42,4 +42,4 @@ Thumbs.db
 # Misc
 *.tgz
 *.tar.gz
-
+*.tsbuildinfo

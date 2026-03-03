@@ -41,7 +41,9 @@
    - Click "Request Access" on a restricted document
    - Fill out the request form
    - Check admin console to approve
-   - Check email for magic link (if SMTP configured)
+   - Check email for magic link:
+     - Local/dev: use Mailpit at http://localhost:8025
+     - Live/prod: configure Resend (`EMAIL_PROVIDER=resend`)
 
 ## Default Credentials
 
@@ -66,7 +68,9 @@ For local development, Supabase uses these defaults:
 - Verify email/password are correct
 
 **Magic links not sending:**
-- Configure SMTP settings in `.env`
+- Verify email provider configuration in `.env`
+- Local/dev: use `EMAIL_PROVIDER=mailpit` and check Mailpit UI
+- Production: set `EMAIL_PROVIDER=resend` and `RESEND_API_KEY`
 - Check email service logs
 - For testing, check Supabase logs
 
@@ -75,7 +79,7 @@ For local development, Supabase uses these defaults:
 - Customize trust center settings in Admin → Settings
 - Upload compliance documents
 - Configure email templates
+- Set `SMTP_FROM` to your domain (e.g., `noreply@theopengrc.com`)
 - Set up production deployment
 
 For detailed documentation, see [README.md](./README.md).
-
