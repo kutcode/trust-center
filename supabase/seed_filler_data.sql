@@ -20,59 +20,59 @@ BEGIN
     -- ============ DOCUMENTS ============
     -- Get category IDs
     INSERT INTO public.documents (title, description, file_url, file_name, file_size, file_type, category_id, access_level, status, uploaded_by, published_at, requires_nda) 
-    SELECT 'SOC 2 Type II Report 2025', 'Annual SOC 2 Type II examination report covering security, availability, and confidentiality.', '/files/soc2-type2-2025.pdf', 'soc2-type2-2025.pdf', 2500000, 'application/pdf', id, 'restricted', 'published', admin_id, NOW() - INTERVAL '30 days', true FROM public.document_categories WHERE slug = 'compliance'
+    SELECT 'SOC 2 Type II Report 2025', 'Annual SOC 2 Type II examination report covering security, availability, and confidentiality.', 'documents/soc2-type2-2025.pdf', 'soc2-type2-2025.pdf', 2500000, 'application/pdf', id, 'restricted', 'published', admin_id, NOW() - INTERVAL '30 days', true FROM public.document_categories WHERE slug = 'compliance'
     ON CONFLICT DO NOTHING;
     
     INSERT INTO public.documents (title, description, file_url, file_name, file_size, file_type, category_id, access_level, status, uploaded_by, published_at, requires_nda) 
-    SELECT 'ISO 27001 Certificate', 'Current ISO 27001:2022 certification.', '/files/iso27001-cert.pdf', 'iso27001-cert.pdf', 500000, 'application/pdf', id, 'public', 'published', admin_id, NOW() - INTERVAL '60 days', false FROM public.document_categories WHERE slug = 'compliance'
+    SELECT 'ISO 27001 Certificate', 'Current ISO 27001:2022 certification.', 'documents/iso27001-cert.pdf', 'iso27001-cert.pdf', 500000, 'application/pdf', id, 'public', 'published', admin_id, NOW() - INTERVAL '60 days', false FROM public.document_categories WHERE slug = 'compliance'
     ON CONFLICT DO NOTHING;
     
     INSERT INTO public.documents (title, description, file_url, file_name, file_size, file_type, category_id, access_level, status, uploaded_by, published_at, requires_nda) 
-    SELECT 'Penetration Test Summary 2025', 'Executive summary of annual penetration testing results.', '/files/pentest-summary-2025.pdf', 'pentest-summary-2025.pdf', 1200000, 'application/pdf', id, 'restricted', 'published', admin_id, NOW() - INTERVAL '15 days', true FROM public.document_categories WHERE slug = 'compliance'
+    SELECT 'Penetration Test Summary 2025', 'Executive summary of annual penetration testing results.', 'documents/pentest-summary-2025.pdf', 'pentest-summary-2025.pdf', 1200000, 'application/pdf', id, 'restricted', 'published', admin_id, NOW() - INTERVAL '15 days', true FROM public.document_categories WHERE slug = 'compliance'
     ON CONFLICT DO NOTHING;
     
     INSERT INTO public.documents (title, description, file_url, file_name, file_size, file_type, category_id, access_level, status, uploaded_by, published_at, requires_nda) 
-    SELECT 'Information Security Policy', 'Comprehensive information security policy document.', '/files/security-policy.pdf', 'security-policy.pdf', 800000, 'application/pdf', id, 'public', 'published', admin_id, NOW() - INTERVAL '120 days', false FROM public.document_categories WHERE slug = 'security'
+    SELECT 'Information Security Policy', 'Comprehensive information security policy document.', 'documents/security-policy.pdf', 'security-policy.pdf', 800000, 'application/pdf', id, 'public', 'published', admin_id, NOW() - INTERVAL '120 days', false FROM public.document_categories WHERE slug = 'security'
     ON CONFLICT DO NOTHING;
     
     INSERT INTO public.documents (title, description, file_url, file_name, file_size, file_type, category_id, access_level, status, uploaded_by, published_at, requires_nda) 
-    SELECT 'Access Control Policy', 'Policy governing access management and authentication.', '/files/access-control-policy.pdf', 'access-control-policy.pdf', 450000, 'application/pdf', id, 'public', 'published', admin_id, NOW() - INTERVAL '100 days', false FROM public.document_categories WHERE slug = 'security'
+    SELECT 'Access Control Policy', 'Policy governing access management and authentication.', 'documents/access-control-policy.pdf', 'access-control-policy.pdf', 450000, 'application/pdf', id, 'public', 'published', admin_id, NOW() - INTERVAL '100 days', false FROM public.document_categories WHERE slug = 'security'
     ON CONFLICT DO NOTHING;
     
     INSERT INTO public.documents (title, description, file_url, file_name, file_size, file_type, category_id, access_level, status, uploaded_by, published_at, requires_nda) 
-    SELECT 'Incident Response Plan', 'Security incident response procedures and playbooks.', '/files/incident-response.pdf', 'incident-response.pdf', 600000, 'application/pdf', id, 'restricted', 'published', admin_id, NOW() - INTERVAL '80 days', true FROM public.document_categories WHERE slug = 'security'
+    SELECT 'Incident Response Plan', 'Security incident response procedures and playbooks.', 'documents/incident-response.pdf', 'incident-response.pdf', 600000, 'application/pdf', id, 'restricted', 'published', admin_id, NOW() - INTERVAL '80 days', true FROM public.document_categories WHERE slug = 'security'
     ON CONFLICT DO NOTHING;
     
     INSERT INTO public.documents (title, description, file_url, file_name, file_size, file_type, category_id, access_level, status, uploaded_by, published_at, requires_nda) 
-    SELECT 'Business Continuity & DR Plan', 'Business continuity and disaster recovery procedures.', '/files/bcdr-plan.pdf', 'bcdr-plan.pdf', 750000, 'application/pdf', id, 'restricted', 'published', admin_id, NOW() - INTERVAL '70 days', true FROM public.document_categories WHERE slug = 'security'
+    SELECT 'Business Continuity & DR Plan', 'Business continuity and disaster recovery procedures.', 'documents/bcdr-plan.pdf', 'bcdr-plan.pdf', 750000, 'application/pdf', id, 'restricted', 'published', admin_id, NOW() - INTERVAL '70 days', true FROM public.document_categories WHERE slug = 'security'
     ON CONFLICT DO NOTHING;
     
     INSERT INTO public.documents (title, description, file_url, file_name, file_size, file_type, category_id, access_level, status, uploaded_by, published_at, requires_nda) 
-    SELECT 'Privacy Policy', 'Public-facing privacy policy and data handling practices.', '/files/privacy-policy.pdf', 'privacy-policy.pdf', 400000, 'application/pdf', id, 'public', 'published', admin_id, NOW() - INTERVAL '200 days', false FROM public.document_categories WHERE slug = 'privacy'
+    SELECT 'Privacy Policy', 'Public-facing privacy policy and data handling practices.', 'documents/privacy-policy.pdf', 'privacy-policy.pdf', 400000, 'application/pdf', id, 'public', 'published', admin_id, NOW() - INTERVAL '200 days', false FROM public.document_categories WHERE slug = 'privacy'
     ON CONFLICT DO NOTHING;
     
     INSERT INTO public.documents (title, description, file_url, file_name, file_size, file_type, category_id, access_level, status, uploaded_by, published_at, requires_nda) 
-    SELECT 'Data Processing Agreement', 'Standard data processing agreement template.', '/files/dpa-template.pdf', 'dpa-template.pdf', 550000, 'application/pdf', id, 'public', 'published', admin_id, NOW() - INTERVAL '180 days', false FROM public.document_categories WHERE slug = 'privacy'
+    SELECT 'Data Processing Agreement', 'Standard data processing agreement template.', 'documents/dpa-template.pdf', 'dpa-template.pdf', 550000, 'application/pdf', id, 'public', 'published', admin_id, NOW() - INTERVAL '180 days', false FROM public.document_categories WHERE slug = 'privacy'
     ON CONFLICT DO NOTHING;
     
     INSERT INTO public.documents (title, description, file_url, file_name, file_size, file_type, category_id, access_level, status, uploaded_by, published_at, requires_nda) 
-    SELECT 'GDPR Compliance Statement', 'Statement of GDPR compliance and data subject rights.', '/files/gdpr-compliance.pdf', 'gdpr-compliance.pdf', 300000, 'application/pdf', id, 'public', 'published', admin_id, NOW() - INTERVAL '150 days', false FROM public.document_categories WHERE slug = 'privacy'
+    SELECT 'GDPR Compliance Statement', 'Statement of GDPR compliance and data subject rights.', 'documents/gdpr-compliance.pdf', 'gdpr-compliance.pdf', 300000, 'application/pdf', id, 'public', 'published', admin_id, NOW() - INTERVAL '150 days', false FROM public.document_categories WHERE slug = 'privacy'
     ON CONFLICT DO NOTHING;
     
     INSERT INTO public.documents (title, description, file_url, file_name, file_size, file_type, category_id, access_level, status, uploaded_by, published_at, requires_nda) 
-    SELECT 'Terms of Service', 'Platform terms of service agreement.', '/files/terms-of-service.pdf', 'terms-of-service.pdf', 350000, 'application/pdf', id, 'public', 'published', admin_id, NOW() - INTERVAL '365 days', false FROM public.document_categories WHERE slug = 'legal'
+    SELECT 'Terms of Service', 'Platform terms of service agreement.', 'documents/terms-of-service.pdf', 'terms-of-service.pdf', 350000, 'application/pdf', id, 'public', 'published', admin_id, NOW() - INTERVAL '365 days', false FROM public.document_categories WHERE slug = 'legal'
     ON CONFLICT DO NOTHING;
     
     INSERT INTO public.documents (title, description, file_url, file_name, file_size, file_type, category_id, access_level, status, uploaded_by, published_at, requires_nda) 
-    SELECT 'Service Level Agreement', 'Standard SLA with uptime guarantees and support tiers.', '/files/sla.pdf', 'sla.pdf', 400000, 'application/pdf', id, 'public', 'published', admin_id, NOW() - INTERVAL '300 days', false FROM public.document_categories WHERE slug = 'legal'
+    SELECT 'Service Level Agreement', 'Standard SLA with uptime guarantees and support tiers.', 'documents/sla.pdf', 'sla.pdf', 400000, 'application/pdf', id, 'public', 'published', admin_id, NOW() - INTERVAL '300 days', false FROM public.document_categories WHERE slug = 'legal'
     ON CONFLICT DO NOTHING;
     
     INSERT INTO public.documents (title, description, file_url, file_name, file_size, file_type, category_id, access_level, status, uploaded_by, published_at, requires_nda) 
-    SELECT 'Security Architecture Overview', 'High-level security architecture and infrastructure design.', '/files/security-architecture.pdf', 'security-architecture.pdf', 900000, 'application/pdf', id, 'restricted', 'published', admin_id, NOW() - INTERVAL '40 days', true FROM public.document_categories WHERE slug = 'technical'
+    SELECT 'Security Architecture Overview', 'High-level security architecture and infrastructure design.', 'documents/security-architecture.pdf', 'security-architecture.pdf', 900000, 'application/pdf', id, 'restricted', 'published', admin_id, NOW() - INTERVAL '40 days', true FROM public.document_categories WHERE slug = 'technical'
     ON CONFLICT DO NOTHING;
     
     INSERT INTO public.documents (title, description, file_url, file_name, file_size, file_type, category_id, access_level, status, uploaded_by, published_at, requires_nda) 
-    SELECT 'API Security Guidelines', 'API authentication and security best practices.', '/files/api-security.pdf', 'api-security.pdf', 500000, 'application/pdf', id, 'public', 'published', admin_id, NOW() - INTERVAL '25 days', false FROM public.document_categories WHERE slug = 'technical'
+    SELECT 'API Security Guidelines', 'API authentication and security best practices.', 'documents/api-security.pdf', 'api-security.pdf', 500000, 'application/pdf', id, 'public', 'published', admin_id, NOW() - INTERVAL '25 days', false FROM public.document_categories WHERE slug = 'technical'
     ON CONFLICT DO NOTHING;
     
 END $$;
