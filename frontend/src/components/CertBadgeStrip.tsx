@@ -46,8 +46,8 @@ export default function CertBadgeStrip({ certifications }: { certifications: Cer
                     </span>
                 </div>
             </div>
-            <div className="relative">
-                <div className={`flex gap-4 px-4 ${needsMarquee ? 'animate-marquee' : 'container mx-auto justify-center flex-wrap'}`}>
+            <div className="relative overflow-hidden">
+                <div className={`flex gap-3 sm:gap-4 px-4 ${needsMarquee ? 'animate-marquee' : 'container mx-auto justify-start sm:justify-center flex-wrap'}`}>
                     {displayCerts.map((cert, i) => {
                         const style = getCertStyle(cert.name);
                         const isValid = !cert.expiry_date || new Date(cert.expiry_date) > new Date();
@@ -57,10 +57,10 @@ export default function CertBadgeStrip({ certifications }: { certifications: Cer
                                 href="/certifications"
                                 className="flex-shrink-0 group"
                             >
-                                <div className="flex items-center gap-2.5 px-4 py-2.5 bg-white rounded-xl border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all duration-200 cursor-pointer">
-                                    <span className="text-lg">{style.icon}</span>
+                                <div className="flex items-center gap-2 sm:gap-2.5 px-3 sm:px-4 py-2 sm:py-2.5 bg-white rounded-xl border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all duration-200 cursor-pointer">
+                                    <span className="text-base sm:text-lg">{style.icon}</span>
                                     <div className="flex flex-col">
-                                        <span className="text-sm font-semibold text-gray-900 whitespace-nowrap group-hover:text-blue-600 transition-colors">
+                                        <span className="text-xs sm:text-sm font-semibold text-gray-900 whitespace-nowrap group-hover:text-blue-600 transition-colors">
                                             {cert.name || 'Untitled Certification'}
                                         </span>
                                         <span className="text-[10px] text-gray-400 font-medium">

@@ -144,7 +144,7 @@ function DocumentsPageContent() {
       />
       {/* Hero Section */}
       <div className="bg-white border-b border-gray-200">
-        <div className="container mx-auto px-4 py-12">
+        <div className="container mx-auto px-4 py-8 sm:py-12">
           <Breadcrumbs
             className="mb-4"
             items={[
@@ -152,7 +152,7 @@ function DocumentsPageContent() {
               { label: 'Documents' },
             ]}
           />
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Documents</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">Documents</h1>
           <p className="text-lg text-gray-600 max-w-2xl mb-8">
             Access our compliance, security, and legal documents. Public documents are available immediately, while restricted documents require approval.
           </p>
@@ -170,7 +170,7 @@ function DocumentsPageContent() {
         {/* Category Tabs */}
         {categories.length > 0 && (
           <div className="mb-8 border-b border-gray-200 bg-white rounded-t-lg px-4">
-            <nav className="flex space-x-8 overflow-x-auto">
+            <nav className="flex space-x-4 sm:space-x-8 overflow-x-auto scrollbar-hide -webkit-overflow-scrolling-touch">
               <button
                 onClick={() => setSelectedCategoryParam(null)}
                 className={`py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${selectedCategory === null

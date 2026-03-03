@@ -180,7 +180,7 @@ export default function HomePageClient({
         <div className="min-h-screen bg-white">
             {/* Hero Section - Animated Gradient Mesh */}
             <section className="hero-gradient text-white relative" id="section-overview">
-                <div className="container mx-auto px-4 py-20 lg:py-28 relative z-10">
+                <div className="container mx-auto px-4 py-12 sm:py-20 lg:py-28 relative z-10">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
                         {/* Left Column */}
                         <div>
@@ -190,10 +190,10 @@ export default function HomePageClient({
                                 <span className="text-sm font-medium text-green-300">All Systems Operational</span>
                             </div>
 
-                            <h1 className="text-4xl lg:text-6xl font-extrabold mb-6 leading-tight tracking-tight">
+                            <h1 className="text-3xl sm:text-4xl lg:text-6xl font-extrabold mb-4 sm:mb-6 leading-tight tracking-tight">
                                 {settings.hero_title || 'Security & Trust'}
                             </h1>
-                            <p className="text-lg lg:text-xl text-gray-300 mb-8 leading-relaxed max-w-lg">
+                            <p className="text-base sm:text-lg lg:text-xl text-gray-300 mb-6 sm:mb-8 leading-relaxed max-w-lg">
                                 {settings.hero_subtitle || 'Learn about our commitment to keeping your data safe and secure'}
                             </p>
                             <div className="flex flex-wrap gap-4">
@@ -353,7 +353,7 @@ export default function HomePageClient({
             {publishedDocs.length > 0 && (
                 <section className="py-16">
                     <div className="container mx-auto px-4">
-                        <div className="flex items-center justify-between mb-8">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-8">
                             <div>
                                 <h2 className="text-2xl font-bold text-gray-900 mb-2">Recent Documents</h2>
                                 <p className="text-gray-500">Latest additions to our documentation library</p>
@@ -412,7 +412,7 @@ export default function HomePageClient({
             {controlCategories.length > 0 && (
                 <section className="py-16 bg-gray-50/50" id="section-controls">
                     <div className="container mx-auto px-4">
-                        <div className="flex items-center justify-between mb-8">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-8">
                             <div>
                                 <h2 className="text-2xl font-bold text-gray-900 mb-2">Security Controls</h2>
                                 <p className="text-gray-500">Our comprehensive security framework protects your data at every level</p>
@@ -513,7 +513,7 @@ export default function HomePageClient({
             {securityUpdates.length > 0 && (
                 <section className="py-16 bg-gray-50/50" id="section-updates">
                     <div className="container mx-auto px-4">
-                        <div className="flex items-center justify-between mb-8">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-8">
                             <div>
                                 <h2 className="text-2xl font-bold text-gray-900 mb-2">Security Updates</h2>
                                 <p className="text-gray-500">Latest security advisories and announcements</p>
@@ -566,7 +566,7 @@ export default function HomePageClient({
             {/* CTA Section */}
             <section className="py-20 hero-gradient text-white relative">
                 <div className="container mx-auto px-4 text-center relative z-10">
-                    <h2 className="text-3xl lg:text-4xl font-extrabold mb-4 tracking-tight">Ready to learn more?</h2>
+                    <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold mb-4 tracking-tight">Ready to learn more?</h2>
                     <p className="text-gray-300 mb-8 max-w-2xl mx-auto text-lg leading-relaxed">
                         Explore our comprehensive security documentation and learn about our commitment to protecting your data.
                     </p>

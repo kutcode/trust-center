@@ -28,7 +28,9 @@ export default function HeaderClient({ companyName, primaryColor, logoUrl }: Hea
     const [isSearching, setIsSearching] = useState(false);
     const [showSearchResults, setShowSearchResults] = useState(false);
     const [showRequestModal, setShowRequestModal] = useState(false);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const searchRef = useRef<HTMLDivElement>(null);
+    const mobileMenuRef = useRef<HTMLDivElement>(null);
 
     // Close search results when clicking outside
     useEffect(() => {
@@ -39,6 +41,17 @@ export default function HeaderClient({ companyName, primaryColor, logoUrl }: Hea
         }
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    // Close mobile menu on resize to desktop
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth >= 1024) {
+                setMobileMenuOpen(false);
+            }
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
     }, []);
 
     // Search functionality
@@ -178,14 +191,22 @@ export default function HeaderClient({ companyName, primaryColor, logoUrl }: Hea
     const handleResultClick = (result: SearchResult) => {
         setShowSearchResults(false);
         setSearchQuery('');
+        setMobileMenuOpen(false);
         router.push(result.url);
     };
 
     const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
 
+    const navLinks = [
+        { href: '/documents', label: 'Documents' },
+        { href: '/controls', label: 'Controls' },
+        { href: '/certifications', label: 'Certifications' },
+        { href: '/security-updates', label: 'Updates' },
+    ];
+
     return (
         <>
-            <header className={`bg-white shadow-sm border-b border-gray-200 sticky ${isDemoMode ? 'top-9' : 'top-0'} z-40`}>
+            <header className={`bg-white shadow-sm border-b border-gray-200 sticky ${isDemoMode ? 'top-[52px] sm:top-9' : 'top-0'} z-40`}>
                 <div className="container mx-auto px-4 py-3">
                     <nav className="flex items-center justify-between gap-4">
                         {/* Logo */}
@@ -201,7 +222,7 @@ export default function HeaderClient({ companyName, primaryColor, logoUrl }: Hea
                                 />
                             ) : (
                                 <span
-                                    className="text-xl font-bold"
+                                    className="text-lg sm:text-xl font-bold"
                                     style={{ color: primaryColor || '#111827' }}
                                 >
                                     {companyName || 'Trust Center'}
@@ -209,7 +230,7 @@ export default function HeaderClient({ companyName, primaryColor, logoUrl }: Hea
                             )}
                         </Link>
 
-                        {/* Search Bar */}
+                        {/* Desktop Search Bar */}
                         <div ref={searchRef} className="relative flex-1 max-w-md hidden md:block">
                             <div className="relative">
                                 <svg
@@ -281,48 +302,109 @@ export default function HeaderClient({ companyName, primaryColor, logoUrl }: Hea
                             {/* No Results */}
                             {showSearchResults && searchQuery.length >= 2 && searchResults.length === 0 && !isSearching && (
                                 <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg p-4 text-center text-gray-500 text-sm">
-                                    No results found for "{searchQuery}"
+                                    No results found for &quot;{searchQuery}&quot;
                                 </div>
                             )}
                         </div>
 
-                        {/* Navigation Links */}
+                        {/* Desktop Navigation Links */}
                         <div className="hidden lg:flex items-center gap-5">
-                            <Link
-                                href="/documents"
-                                className="text-gray-600 hover:text-gray-900 font-medium transition-colors text-sm"
-                            >
-                                Documents
-                            </Link>
-                            <Link
-                                href="/controls"
-                                className="text-gray-600 hover:text-gray-900 font-medium transition-colors text-sm"
-                            >
-                                Controls
-                            </Link>
-                            <Link
-                                href="/certifications"
-                                className="text-gray-600 hover:text-gray-900 font-medium transition-colors text-sm"
-                            >
-                                Certifications
-                            </Link>
-                            <Link
-                                href="/security-updates"
-                                className="text-gray-600 hover:text-gray-900 font-medium transition-colors text-sm"
-                            >
-                                Updates
-                            </Link>
+                            {navLinks.map((link) => (
+                                <Link
+                                    key={link.href}
+                                    href={link.href}
+                                    className="text-gray-600 hover:text-gray-900 font-medium transition-colors text-sm"
+                                >
+                                    {link.label}
+                                </Link>
+                            ))}
                         </div>
 
-                        {/* Request Documents Button */}
-                        <button
-                            onClick={() => setShowRequestModal(true)}
-                            className="flex-shrink-0 px-4 py-2 border border-gray-900 text-gray-900 rounded-lg font-medium hover:bg-gray-900 hover:text-white transition-colors text-sm"
-                        >
-                            Request documents
-                        </button>
+                        <div className="flex items-center gap-2">
+                            {/* Request Documents Button — hidden on small mobile, shown on sm+ */}
+                            <button
+                                onClick={() => setShowRequestModal(true)}
+                                className="hidden sm:inline-flex flex-shrink-0 px-4 py-2 border border-gray-900 text-gray-900 rounded-lg font-medium hover:bg-gray-900 hover:text-white transition-colors text-sm"
+                            >
+                                Request documents
+                            </button>
+
+                            {/* Mobile Hamburger Button */}
+                            <button
+                                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                                className="lg:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                                aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+                                aria-expanded={mobileMenuOpen}
+                            >
+                                {mobileMenuOpen ? (
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                ) : (
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                                    </svg>
+                                )}
+                            </button>
+                        </div>
                     </nav>
                 </div>
+
+                {/* Mobile Menu Panel */}
+                {mobileMenuOpen && (
+                    <div ref={mobileMenuRef} className="lg:hidden border-t border-gray-200 bg-white animate-slide-down">
+                        <div className="container mx-auto px-4 py-4 space-y-4">
+                            {/* Mobile Search */}
+                            <div className="relative md:hidden">
+                                <svg
+                                    className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                                    />
+                                </svg>
+                                <input
+                                    type="text"
+                                    placeholder="Search..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg bg-gray-50 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition-all"
+                                />
+                            </div>
+
+                            {/* Mobile Nav Links */}
+                            <nav className="flex flex-col">
+                                {navLinks.map((link) => (
+                                    <Link
+                                        key={link.href}
+                                        href={link.href}
+                                        onClick={() => setMobileMenuOpen(false)}
+                                        className="py-3 px-2 text-gray-700 hover:text-gray-900 hover:bg-gray-50 font-medium transition-colors text-sm rounded-lg border-b border-gray-100 last:border-b-0"
+                                    >
+                                        {link.label}
+                                    </Link>
+                                ))}
+                            </nav>
+
+                            {/* Mobile Request Documents Button */}
+                            <button
+                                onClick={() => {
+                                    setMobileMenuOpen(false);
+                                    setShowRequestModal(true);
+                                }}
+                                className="w-full py-2.5 border border-gray-900 text-gray-900 rounded-lg font-medium hover:bg-gray-900 hover:text-white transition-colors text-sm sm:hidden"
+                            >
+                                Request documents
+                            </button>
+                        </div>
+                    </div>
+                )}
             </header>
 
             {/* Global Request Document Modal */}
