@@ -1,12 +1,11 @@
 import express from 'express';
-import { createClient } from '@supabase/supabase-js';
 import { supabase } from '../server';
 import { requireAdmin, AuthRequest } from '../middleware/auth';
-import { upload } from '../middleware/upload';
-import { AppError } from '../middleware/errorHandler';
+import { sanitizeUploadFileName, upload, validateUploadedFileSignature } from '../middleware/upload';
 import { logActivity } from '../utils/activityLogger';
 import fs from 'fs';
 import path from 'path';
+import { enforceDocumentUploadPolicy } from '../middleware/documentUploadSecurity';
 
 // Local file storage configuration
 const UPLOADS_DIR = process.env.UPLOADS_DIR || '/app/uploads';
@@ -17,6 +16,10 @@ if (!fs.existsSync(UPLOADS_DIR)) {
 }
 
 const router = express.Router();
+
+function getSafeDownloadFileName(value: string): string {
+  return sanitizeUploadFileName(value).replace(/"/g, '');
+}
 
 // Get all documents (public endpoint returns only published, admin can request all)
 router.get('/', async (req, res) => {
@@ -105,7 +108,7 @@ router.get('/:id/download', async (req, res) => {
         return res.status(404).json({ error: 'File not found on server' });
       }
 
-      res.setHeader('Content-Disposition', `attachment; filename="${document.file_name}"`);
+      res.setHeader('Content-Disposition', `attachment; filename="${getSafeDownloadFileName(document.file_name)}"`);
       res.setHeader('Content-Type', document.file_type || 'application/octet-stream');
 
       return res.sendFile(filePath);
@@ -119,11 +122,12 @@ router.get('/:id/download', async (req, res) => {
 });
 
 // Upload new document (admin only)
-router.post('/', requireAdmin, upload.single('file'), async (req: AuthRequest, res) => {
+router.post('/', requireAdmin, enforceDocumentUploadPolicy, upload.single('file'), async (req: AuthRequest, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
+    validateUploadedFileSignature(req.file);
 
     const { title, description, category_id, access_level, version, replaces_document_id, requires_nda } = req.body;
 
@@ -134,6 +138,7 @@ router.post('/', requireAdmin, upload.single('file'), async (req: AuthRequest, r
     // Use local file storage instead of Supabase Storage (more reliable for self-hosted)
     const fileExt = req.file.originalname.split('.').pop();
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const safeOriginalName = sanitizeUploadFileName(req.file.originalname);
     const folderName = category_id ? `category-${category_id.substring(0, 8)}` : 'uncategorized';
     const filePath = `${folderName}/${fileName}`;
     const fullPath = path.join(UPLOADS_DIR, filePath);
@@ -173,7 +178,7 @@ router.post('/', requireAdmin, upload.single('file'), async (req: AuthRequest, r
         category_id: category_id || null,
         access_level,
         file_url: filePath,
-        file_name: req.file.originalname,
+        file_name: safeOriginalName,
         file_size: req.file.size,
         file_type: req.file.mimetype,
         version: version || null,
@@ -198,7 +203,7 @@ router.post('/', requireAdmin, upload.single('file'), async (req: AuthRequest, r
       entityType: 'document',
       entityId: document.id,
       entityName: title,
-      newValue: { title, access_level, category_id, file_name: req.file.originalname },
+      newValue: { title, access_level, category_id, file_name: safeOriginalName },
       description: `Uploaded document: ${title} (${access_level})`,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
@@ -254,11 +259,12 @@ router.patch('/:id', requireAdmin, async (req: AuthRequest, res) => {
 });
 
 // Replace document file (admin only)
-router.put('/:id/replace', requireAdmin, upload.single('file'), async (req: AuthRequest, res) => {
+router.put('/:id/replace', requireAdmin, enforceDocumentUploadPolicy, upload.single('file'), async (req: AuthRequest, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
+    validateUploadedFileSignature(req.file);
 
     const { id } = req.params;
     const { title, description, category_id, access_level, status, requires_nda } = req.body;
@@ -286,6 +292,7 @@ router.put('/:id/replace', requireAdmin, upload.single('file'), async (req: Auth
     // Save new file
     const fileExt = req.file.originalname.split('.').pop();
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const safeOriginalName = sanitizeUploadFileName(req.file.originalname);
     const folderName = (category_id || existingDoc.category_id)
       ? `category-${(category_id || existingDoc.category_id).substring(0, 8)}`
       : 'uncategorized';
@@ -315,7 +322,7 @@ router.put('/:id/replace', requireAdmin, upload.single('file'), async (req: Auth
         status: status || existingDoc.status,
         requires_nda: requires_nda === 'true' || requires_nda === true,
         file_url: filePath,
-        file_name: req.file.originalname,
+        file_name: safeOriginalName,
         file_size: req.file.size,
         file_type: req.file.mimetype,
         updated_at: new Date().toISOString(),
@@ -335,7 +342,7 @@ router.put('/:id/replace', requireAdmin, upload.single('file'), async (req: Auth
       entityId: id,
       entityName: updatedDoc.title,
       oldValue: { file_name: existingDoc.file_name, file_size: existingDoc.file_size },
-      newValue: { file_name: req.file.originalname, file_size: req.file.size },
+      newValue: { file_name: safeOriginalName, file_size: req.file.size },
       description: `Replaced file for document: ${updatedDoc.title}`,
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
@@ -411,4 +418,3 @@ router.get('/:id/versions', requireAdmin, async (req, res) => {
 });
 
 export default router;
-

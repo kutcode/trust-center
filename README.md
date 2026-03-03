@@ -151,6 +151,11 @@ See `.env.example` for all available environment variables:
 - `ENABLE_TEST_EMAIL`: Keep `false` unless explicitly testing admin-only test endpoint
 - `SALESFORCE_CLIENT_ID`, `SALESFORCE_CLIENT_SECRET`, `SALESFORCE_REDIRECT_URI`: Salesforce OAuth Connected App config
 - `SALESFORCE_STATUS_FIELD`, `SALESFORCE_ALLOWED_STATUSES`, `SALESFORCE_DOMAIN_FIELD`: Customer status -> organization access mapping
+- `DOCUMENT_UPLOADS_ENABLED`: Global kill switch for document upload/replace endpoints
+- `DOCUMENT_UPLOAD_ADMIN_EMAIL_ALLOWLIST`: Optional comma-separated list of admin emails allowed to upload documents
+- `DOCUMENT_UPLOADS_PER_MINUTE`: Per-admin upload rate limit to reduce abuse
+- `DOCUMENT_UPLOAD_MAX_MB`: Max document upload size in MB
+- `DEMO_ALLOW_DOCUMENT_UPLOADS`: Explicitly allow uploads in demo mode (defaults to false)
 
 ## Salesforce Integration
 
