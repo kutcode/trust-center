@@ -4,14 +4,24 @@ This guide will help you configure secure email delivery for the Trust Center ap
 
 ## Overview
 
-The Trust Center uses **Resend** for production email delivery, which provides:
+The Trust Center supports multiple providers through `EMAIL_PROVIDER`:
+- `mailpit` (local development capture)
+- `resend` (recommended for production/live delivery)
+- `smtp` (generic SMTP relay)
+- `sendgrid` (API-based alternative)
+
+For **The Open GRC** project under **theopengrc.com**, the recommended model is:
+- local/dev: `EMAIL_PROVIDER=mailpit`
+- staging/production: `EMAIL_PROVIDER=resend`
+
+Why Resend for live environments:
 - ✅ Built-in SPF, DKIM, DMARC authentication (ensures emails reach inboxes)
 - ✅ High deliverability to Gmail, Hotmail, Yahoo, Outlook, and other major providers
 - ✅ Free tier: 3,000 emails/month
 - ✅ Secure API key authentication (no passwords)
 - ✅ Automatic bounce handling and retry logic
 
-For local development, we use **Mailpit** to capture emails without sending real messages.
+For local development, use **Mailpit** to capture emails without sending real messages.
 
 ## Quick Start
 
@@ -41,7 +51,7 @@ For local development, we use **Mailpit** to capture emails without sending real
    ```env
    EMAIL_PROVIDER=resend
    RESEND_API_KEY=re_your_api_key_here
-   SMTP_FROM=noreply@yourdomain.com
+   SMTP_FROM=noreply@theopengrc.com
    ```
 
    **Note**: For the free tier, you can use `onboarding@resend.dev` as the `SMTP_FROM` address initially. To use your own domain, see [Custom Domain Setup](#custom-domain-setup) below.
@@ -103,8 +113,12 @@ v=DMARC1; p=quarantine; rua=mailto:dmarc@yourcompany.com
 2. Click "Verify" in Resend dashboard
 3. Once verified, update your `.env`:
    ```env
-   SMTP_FROM=noreply@yourcompany.com
+   SMTP_FROM=noreply@theopengrc.com
    ```
+
+For this project, prefer a sender such as:
+- `noreply@theopengrc.com`
+- `trust@theopengrc.com`
 
 ## Security Best Practices
 
@@ -113,6 +127,7 @@ v=DMARC1; p=quarantine; rua=mailto:dmarc@yourcompany.com
 - **Use environment variables**: Never hardcode API keys in code
 - **Rotate API keys**: Change your API keys every 90 days
 - **Use different keys**: Separate keys for development and production
+- **Use provider split by environment**: Mailpit in dev, Resend in production
 - **Monitor usage**: Check Resend dashboard regularly for suspicious activity
 - **Validate emails**: The system automatically validates email addresses before sending
 - **Rate limiting**: Built-in rate limiting prevents abuse
@@ -158,6 +173,7 @@ v=DMARC1; p=quarantine; rua=mailto:dmarc@yourcompany.com
 - [ ] Resend account created and verified
 - [ ] API key generated and added to `.env`
 - [ ] `EMAIL_PROVIDER=resend` set in production environment
+- [ ] `EMAIL_PROVIDER=mailpit` remains in local development environments
 - [ ] Custom domain added and verified (optional but recommended)
 - [ ] DNS records (SPF, DKIM, DMARC) configured
 - [ ] `.env` file is NOT committed to version control
@@ -187,4 +203,3 @@ v=DMARC1; p=quarantine; rua=mailto:dmarc@yourcompany.com
 - [Resend API Reference](https://resend.com/docs/api-reference)
 - [Email Deliverability Best Practices](https://resend.com/docs/deliverability)
 - [SPF, DKIM, DMARC Explained](https://resend.com/docs/deliverability/authentication)
-

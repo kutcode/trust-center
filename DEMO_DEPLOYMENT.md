@@ -1,6 +1,6 @@
 # 🚀 Live Demo Deployment Guide
 
-Deploy the Trust Center demo using **Supabase Cloud** (database + auth) and **Railway** (backend + frontend).
+Deploy the Trust Center demo for **The Open GRC** using **Supabase Cloud** (database + auth) and **Railway** (backend + frontend).
 
 ## Architecture
 
@@ -66,9 +66,11 @@ SUPABASE_SERVICE_KEY=eyJ...your-service-key
 DATABASE_URL=postgresql://postgres:YOUR_PASSWORD@db.xxxxx.supabase.co:5432/postgres
 JWT_SECRET=your-supabase-jwt-secret
 
-# Email (mocked in demo mode, but still needed)
+# Email provider strategy:
+# - demo/local: mailpit
+# - production/live users: resend
 EMAIL_PROVIDER=mailpit
-SMTP_FROM=noreply@trustcenter.demo
+SMTP_FROM=noreply@theopengrc.com
 
 # CORS — set after frontend deploys
 FRONTEND_URL=https://your-frontend.up.railway.app
@@ -114,7 +116,7 @@ Redeploy the backend.
 
 In Railway:
 1. Go to your frontend service → Settings → Networking → Custom Domain
-2. Add `demo.trustcenter.dev` (or your choice)
+2. Add `trust.theopengrc.com` (or your preferred subdomain under `theopengrc.com`)
 3. Configure DNS as instructed
 
 ## Verification
