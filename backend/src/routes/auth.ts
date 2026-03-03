@@ -3,13 +3,25 @@ import { createClient } from '@supabase/supabase-js';
 import { supabase } from '../server';
 import { requireAdmin, AuthRequest } from '../middleware/auth';
 import { logActivity } from '../utils/activityLogger';
+import { emailRateLimit } from '../middleware/rateLimit';
 
 const router = express.Router();
 
 // Admin signup (for initial setup)
-router.post('/signup', async (req, res) => {
+router.post('/signup', emailRateLimit, async (req, res) => {
   try {
     const { email, password, full_name } = req.body;
+    const allowAdminSignup = process.env.ALLOW_ADMIN_SIGNUP === 'true';
+    const signupToken = process.env.ADMIN_SIGNUP_TOKEN;
+    const providedSignupToken = (req.headers['x-admin-signup-token'] as string) || req.body?.signup_token;
+
+    if (!allowAdminSignup) {
+      return res.status(403).json({ error: 'Admin signup is disabled' });
+    }
+
+    if (signupToken && providedSignupToken !== signupToken) {
+      return res.status(403).json({ error: 'Invalid signup token' });
+    }
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
@@ -74,7 +86,7 @@ router.post('/signup', async (req, res) => {
 });
 
 // Admin login
-router.post('/login', async (req, res) => {
+router.post('/login', emailRateLimit, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -217,4 +229,3 @@ router.get('/session', requireAdmin, async (req: AuthRequest, res) => {
 });
 
 export default router;
-

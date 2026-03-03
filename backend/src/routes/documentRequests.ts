@@ -7,11 +7,13 @@ import { generateMagicLinkToken, getMagicLinkExpiration } from '../utils/magicLi
 import { sendMagicLinkEmail, sendRejectionEmail } from '../utils/email';
 import { AppError } from '../middleware/errorHandler';
 import { logActivity } from '../utils/activityLogger';
+import { emailRateLimit } from '../middleware/rateLimit';
+import { validateEmailAddress } from '../utils/emailValidation';
 
 const router = express.Router();
 
 // Submit document request (public, no auth)
-router.post('/', async (req, res) => {
+router.post('/', emailRateLimit, async (req, res) => {
   try {
     const { name, email, company, document_ids, reason } = req.body;
 
@@ -19,8 +21,46 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Name, email, company, and at least one document are required' });
     }
 
+    const trimmedName = String(name).trim();
+    const trimmedEmail = String(email).trim().toLowerCase();
+    const trimmedCompany = String(company).trim();
+    const trimmedReason = reason ? String(reason).trim() : null;
+
+    if (trimmedName.length < 2 || trimmedName.length > 120) {
+      return res.status(400).json({ error: 'Name must be between 2 and 120 characters' });
+    }
+
+    if (!validateEmailAddress(trimmedEmail)) {
+      return res.status(400).json({ error: 'Invalid email address' });
+    }
+
+    if (trimmedCompany.length < 2 || trimmedCompany.length > 120) {
+      return res.status(400).json({ error: 'Company must be between 2 and 120 characters' });
+    }
+
+    if (trimmedReason && trimmedReason.length > 2000) {
+      return res.status(400).json({ error: 'Reason must be 2000 characters or less' });
+    }
+
+    if (document_ids.length > 20) {
+      return res.status(400).json({ error: 'A maximum of 20 documents can be requested at once' });
+    }
+
+    const normalizedDocumentIds = Array.from(
+      new Set(
+        document_ids
+          .filter((id: unknown) => typeof id === 'string')
+          .map((id: string) => id.trim())
+          .filter((id: string) => id.length > 0)
+      )
+    );
+
+    if (normalizedDocumentIds.length === 0) {
+      return res.status(400).json({ error: 'At least one valid document ID is required' });
+    }
+
     // Extract email domain
-    const emailDomain = extractEmailDomain(email);
+    const emailDomain = extractEmailDomain(trimmedEmail);
     if (!emailDomain) {
       return res.status(400).json({ error: 'Invalid email address' });
     }
@@ -28,7 +68,7 @@ router.post('/', async (req, res) => {
     // Get or create organization
     let organizationId: string | null = null;
     if (!isPersonalEmailDomain(emailDomain)) {
-      const org = await getOrCreateOrganization(emailDomain, company);
+      const org = await getOrCreateOrganization(emailDomain, trimmedCompany);
       organizationId = org.id;
     }
 
@@ -49,14 +89,14 @@ router.post('/', async (req, res) => {
 
       // Whitelisted organizations: auto-approve ALL documents (including future ones)
       if (accessCheck.autoApproveAll) {
-        approvedDocs = document_ids;
+        approvedDocs = normalizedDocumentIds;
         pendingDocs = [];
       } else if (accessCheck.isArchived) {
         // Archived orgs: all docs go to pending, even previously approved ones
-        pendingDocs = document_ids;
+        pendingDocs = normalizedDocumentIds;
       } else {
         // Conditional organizations: only approve documents in approved_document_ids
-        for (const docId of document_ids) {
+        for (const docId of normalizedDocumentIds) {
           const canApprove = await canAutoApproveDocument(organizationId, docId);
           if (canApprove) {
             approvedDocs.push(docId);
@@ -67,7 +107,7 @@ router.post('/', async (req, res) => {
       }
     } else {
       // Personal email domains: all documents pending
-      pendingDocs = document_ids;
+      pendingDocs = normalizedDocumentIds;
     }
 
     // Handle auto-approved documents
@@ -78,12 +118,12 @@ router.post('/', async (req, res) => {
       const { data: approvedRequest, error: approvedError } = await supabase
         .from('document_requests')
         .insert({
-          requester_name: name,
-          requester_email: email,
-          requester_company: company,
+          requester_name: trimmedName,
+          requester_email: trimmedEmail,
+          requester_company: trimmedCompany,
           organization_id: organizationId,
           document_ids: approvedDocs,
-          request_reason: reason,
+          request_reason: trimmedReason,
           status: 'auto_approved',
           magic_link_token: token,
           magic_link_expires_at: expiration.toISOString(),
@@ -109,8 +149,8 @@ router.post('/', async (req, res) => {
           actionType: 'request_auto_approved',
           entityType: 'request',
           entityId: approvedRequest.id,
-          entityName: `Request from ${name}`,
-          description: `Auto-approved document request for ${email}: ${docTitles}`,
+          entityName: `Request from ${trimmedName}`,
+          description: `Auto-approved document request for ${trimmedEmail}: ${docTitles}`,
           ipAddress: req.ip,
           userAgent: req.headers['user-agent'],
         });
@@ -134,16 +174,16 @@ router.post('/', async (req, res) => {
         const magicLinkUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/access/${token}`;
         try {
           await sendMagicLinkEmail({
-            requesterName: name,
-            requesterEmail: email,
+            requesterName: trimmedName,
+            requesterEmail: trimmedEmail,
             documents: documentsForEmail,
             magicLinkToken: token,
             magicLinkUrl,
             expirationDate: expiration.toLocaleDateString(),
           });
-          console.log(`Auto-approval email with attachments sent to ${email}`);
+          console.log(`Auto-approval email with attachments sent to ${trimmedEmail}`);
         } catch (emailErr: any) {
-          console.error(`Failed to send auto-approval email to ${email}:`, emailErr);
+          console.error(`Failed to send auto-approval email to ${trimmedEmail}:`, emailErr);
           // Continue - don't fail the request if email fails
         }
       }
@@ -154,12 +194,12 @@ router.post('/', async (req, res) => {
       const { data: pendingRequest, error: pendingError } = await supabase
         .from('document_requests')
         .insert({
-          requester_name: name,
-          requester_email: email,
-          requester_company: company,
+          requester_name: trimmedName,
+          requester_email: trimmedEmail,
+          requester_company: trimmedCompany,
           organization_id: organizationId,
           document_ids: pendingDocs,
-          request_reason: reason,
+          request_reason: trimmedReason,
           status: 'pending',
         })
         .select()
@@ -201,4 +241,3 @@ router.get('/history/:email', requireAdmin, async (req, res) => {
 });
 
 export default router;
-
