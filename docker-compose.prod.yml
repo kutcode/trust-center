@@ -1,0 +1,67 @@
+services:
+  # Backend API (production)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: trust-center-backend
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_KEY: ${SERVICE_KEY}
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      UPLOADS_DIR: /app/uploads
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-resend}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-noreply@trustcenter.com}
+      FRONTEND_URL: ${FRONTEND_URL}
+      SALESFORCE_CLIENT_ID: ${SALESFORCE_CLIENT_ID:-}
+      SALESFORCE_CLIENT_SECRET: ${SALESFORCE_CLIENT_SECRET:-}
+      SALESFORCE_REDIRECT_URI: ${SALESFORCE_REDIRECT_URI:-}
+      SALESFORCE_AUTH_BASE_URL: ${SALESFORCE_AUTH_BASE_URL:-https://login.salesforce.com}
+      SALESFORCE_API_VERSION: ${SALESFORCE_API_VERSION:-v59.0}
+      SALESFORCE_STATUS_FIELD: ${SALESFORCE_STATUS_FIELD:-Type}
+      SALESFORCE_ALLOWED_STATUSES: ${SALESFORCE_ALLOWED_STATUSES:-Customer,Active Customer}
+      SALESFORCE_DOMAIN_FIELD: ${SALESFORCE_DOMAIN_FIELD:-Website}
+      DOCUMENT_UPLOADS_ENABLED: ${DOCUMENT_UPLOADS_ENABLED:-true}
+      DOCUMENT_UPLOAD_ADMIN_EMAIL_ALLOWLIST: ${DOCUMENT_UPLOAD_ADMIN_EMAIL_ALLOWLIST:-}
+      DOCUMENT_UPLOADS_PER_MINUTE: ${DOCUMENT_UPLOADS_PER_MINUTE:-20}
+      DOCUMENT_UPLOAD_MAX_MB: ${DOCUMENT_UPLOAD_MAX_MB:-25}
+    volumes:
+      - backend-uploads:/app/uploads
+    restart: unless-stopped
+
+  # Frontend Next.js (production)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${ANON_KEY}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    container_name: trust-center-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${ANON_KEY}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      API_URL: ${API_URL:-http://trust-center-backend:4000}
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  backend-uploads:
