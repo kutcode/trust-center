@@ -1,5 +1,8 @@
 # The Open GRC Trust Center
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
+
 An open-source security trust center platform for **The Open GRC** ecosystem, available under **[theopengrc.com](https://theopengrc.com)**. Built with Next.js 15, Docker, and Supabase, featuring organization-level document approval, magic link access, and comprehensive admin management.
 
 > 🎯 **[Try the Live Demo →](https://demo.trustcenter.dev)**
@@ -177,10 +180,16 @@ The project now includes an admin integration for Salesforce using OAuth 2.0 Con
 ### Sync behavior
 - Pulls `Account` and `Contact` records from Salesforce
 - Maps accounts to Trust Center organizations using related `Contact` email domains (domain-based access)
+- Requires at least one related Contact with a usable business email domain per Account
+- Accounts without related Contact email domains are skipped (they do not update/create organizations)
 - Uses account status field (`SALESFORCE_STATUS_FIELD`, default `Type`)
 - If status is in `SALESFORCE_ALLOWED_STATUSES`, organization is set to `whitelisted`
 - Otherwise organization is set to `no_access`
 - Admin Integrations page shows connected Salesforce user/org identity and sync audit logs for debugging
+
+Important:
+- `Contacts Queried (Org-wide)` is org-wide for the connected user and can be much higher than account count
+- Current access mapping uses Contact email domains, not `Account.Website` fallback
 
 Guides:
 - Customer admin onboarding (short): `docs/SALESFORCE_ONBOARDING_ADMIN.md`
@@ -207,6 +216,37 @@ docker-compose exec supabase-db psql -U postgres -d postgres -f /docker-entrypoi
 ```bash
 docker-compose exec supabase-db psql -U postgres -d postgres
 ```
+
+## Operations & Security Checks
+
+Use the operational scripts for fast validation and incident triage:
+
+```bash
+# End-to-end smoke checks (HTTP + DNS + TLS)
+./scripts/ops-smoke-test.sh
+
+# Container log triage
+./scripts/log-triage.sh --since 30m
+
+# API contract smoke checks (requires hurl)
+./scripts/run-api-smoke.sh
+
+# Backup and restore verification drill
+./scripts/db-backup.sh
+./scripts/db-restore-verify.sh backups/<backup-file>.dump
+
+# Targeted DNS/TCP/HTTP/TLS diagnostics
+./scripts/network-debug.sh localhost 4000 http
+```
+
+Detailed runbook: [docs/OPERATIONS_RUNBOOK.md](docs/OPERATIONS_RUNBOOK.md)
+
+CI security scans (Trivy) run on push/PR via:
+- `.github/workflows/security-scan.yml`
+
+Deployed API smoke tests (Hurl) run via:
+- `.github/workflows/api-smoke-deployed.yml` (manual + scheduled)
+- Configure target with workflow input `api_url` or repo variable/secret `SMOKE_API_URL`
 
 ## API Endpoints
 
@@ -302,13 +342,26 @@ See `deployment/kubernetes/` for Kubernetes manifests (create if needed).
 
 ## License
 
-MIT License - see LICENSE file for details
+This project is licensed under the **[MIT License](LICENSE)** — you're free to use, modify, and distribute it for any purpose.
+
+See the [LICENSE](LICENSE) file for full details.
+
+## Code of Conduct
+
+We follow the [Contributor Covenant](https://www.contributor-covenant.org/) with project-specific coding standards. Please read our **[Code of Conduct](CODE_OF_CONDUCT.md)** before contributing.
+
+Key expectations:
+- Follow TypeScript/React best practices and existing codebase conventions
+- Write clean, secure, and accessible code
+- Keep PRs focused and ensure `npm run build` passes
+- Report security vulnerabilities privately — never in public issues
 
 ## Support
 
 For issues and questions:
-- GitHub Issues: https://github.com/kutcode/trust-center/issues
-- Email: security@example.com
+- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/kutcode/trust-center/issues)
+- 💡 **Feature Requests**: [GitHub Issues](https://github.com/kutcode/trust-center/issues)
+- 📖 **Documentation**: [docs/](docs/)
 
 ## Roadmap
 

@@ -461,6 +461,31 @@ export default function IntegrationsAdminPage() {
 
         {salesforceExpanded && (
           <div id="salesforce-integration-panel" className="border-t border-gray-200 p-6 space-y-6">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h3 className="text-base font-semibold text-blue-900 mb-1">Salesforce Setup Guides</h3>
+              <p className="text-sm text-blue-800">
+                Use these guides for setup and troubleshooting. Accounts will only sync into Trust Center access when they have related Contacts with usable business email domains.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <a
+                  href="https://github.com/kutcode/trust-center/blob/main/docs/SALESFORCE_ONBOARDING_ADMIN.md"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center px-3 py-1.5 rounded-lg bg-white border border-blue-300 text-sm font-medium text-blue-800 hover:bg-blue-100 transition-colors"
+                >
+                  Open Admin Onboarding Guide
+                </a>
+                <a
+                  href="https://github.com/kutcode/trust-center/blob/main/docs/SALESFORCE_SETUP.md"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center px-3 py-1.5 rounded-lg bg-white border border-blue-300 text-sm font-medium text-blue-800 hover:bg-blue-100 transition-colors"
+                >
+                  Open Technical Setup Guide
+                </a>
+              </div>
+            </div>
+
             <div className="bg-white rounded-lg border border-gray-200 p-6">
               <h3 className="text-base font-semibold text-gray-900 mb-2">Salesforce Credentials</h3>
               <p className="text-sm text-gray-600 mb-4">

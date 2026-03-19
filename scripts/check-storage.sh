@@ -1,22 +1,33 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -u
 
-echo "=== Checking Storage Container ==="
-echo ""
-echo "1. Storage container status:"
+TAIL_LINES="${TAIL_LINES:-120}"
+
+if ! command -v docker >/dev/null 2>&1; then
+  echo "docker is required"
+  exit 2
+fi
+
+echo "=== Storage Status ==="
 docker ps -a --filter "name=trust-center-storage" --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"
-echo ""
 
-echo "2. Storage logs (last 100 lines):"
-docker logs trust-center-storage --tail 100 2>&1
-echo ""
+echo
+echo "=== Storage Logs (last $TAIL_LINES lines) ==="
+docker logs trust-center-storage --tail "$TAIL_LINES" 2>&1 || true
 
-echo "3. Testing storage API:"
-curl -s http://localhost:5001/health || echo "Storage API not responding"
-echo ""
+echo
+echo "=== Storage API Probe ==="
+if curl -sS -m 5 http://localhost:5001/status >/dev/null 2>&1; then
+  echo "storage status endpoint: OK"
+elif curl -sS -m 5 http://localhost:5001/health >/dev/null 2>&1; then
+  echo "storage health endpoint: OK"
+else
+  echo "Storage API not responding on /status or /health"
+fi
 
-echo "4. Checking if storage volume exists:"
-docker volume ls | grep storage
-echo ""
+echo
+echo "=== Volume Check ==="
+docker volume ls | grep -E 'supabase-storage-data|storage' || echo "No matching storage volumes"
 
+echo
 echo "=== Done ==="
-

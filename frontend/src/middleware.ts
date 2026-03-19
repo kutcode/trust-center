@@ -1,11 +1,8 @@
-import { NextResponse, type NextRequest } from 'next/server';
+// Middleware intentionally disabled.
+// Admin route protection is handled client-side via AuthContext.
+// If server-side auth checks are needed in the future,
+// implement them here with Supabase SSR session validation.
+//
+// See: https://supabase.com/docs/guides/auth/server-side/nextjs
 
-export async function middleware(request: NextRequest) {
-  // Just pass through - auth is handled client-side
-  return NextResponse.next();
-}
-
-export const config = {
-  matcher: [],  // Disable middleware entirely
-};
-
+export { };

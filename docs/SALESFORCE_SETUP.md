@@ -20,6 +20,46 @@ Important:
 - Access assignment is **domain-based**, not per-user provisioning (yet)
 - Domains are derived from **Contact emails**, not `Account.Website`
 
+## Critical Data Requirement (Most Common Confusion)
+
+The sync **does not grant access from Account records alone**.
+
+For an Account to affect Trust Center access, all of the following must be true:
+- The Account is visible to the connected Salesforce integration user
+- The Account has at least one related Contact (`Contact.AccountId = Account.Id`)
+- That Contact has a non-empty `Email`
+- The Contact email domain is a usable business domain (not filtered as personal, like `gmail.com`)
+
+If an Account has no related Contact email with a usable business domain, the Account is processed but marked:
+- `decision = skipped`
+- note: `No usable domain derived from related contact emails`
+
+This is why teams often see:
+- many `Accounts Processed`
+- but low `Organizations Updated`
+
+because Accounts without usable Contact email domains are skipped.
+
+## Exact Sync Logic (What the Backend Actually Does)
+
+At sync time, the backend performs:
+
+1. Query Accounts:
+   - `SELECT Id, Name, <DomainField>, <StatusField> FROM Account`
+2. Query Contacts (org-wide):
+   - `SELECT Id, AccountId, Email FROM Contact WHERE Email != NULL`
+3. Group Contacts by `AccountId`
+4. For each Account:
+   - collect domains from related `Contact.Email`
+   - if no usable domain is found: skip account
+   - otherwise evaluate Account status against `Allowed Statuses`
+   - update/create Trust Center organization(s) by derived domain
+
+Important implementation note:
+- `Domain Field` (for example `Website`) is stored for reference/debugging
+- Access mapping currently uses **Contact email domains only**
+- `Website` is not used as fallback for granting access
+
 ## Recommended Setup Model
 
 - A Salesforce admin performs one-time app setup
@@ -113,12 +153,19 @@ This is the best way to confirm which org/user your app is actually using.
 
 Create test Salesforce data:
 
-1. Create an `Account`
-   - Name: any customer name
-   - Status field (for example `Type`): one of your allowed statuses (example `Customer - Direct`)
-2. Create at least one related `Contact` on that Account
-   - Email must use the customer domain you want to grant access for
-   - Example: `security@acme.com`
+1. Create `Account A` (should sync to Trust Center):
+   - Name: `Acme Security`
+   - Status field (for example `Type`): an allowed value (example `Customer - Direct`)
+   - Add related Contact:
+     - Name: `Alice Tester`
+     - Email: `alice@acme.com`
+2. Create `Account B` (should be skipped):
+   - Name: `No Contact Corp`
+   - Status field: same allowed value
+   - Do **not** add any related Contact email
+3. Run sync and verify:
+   - `Account A` -> `whitelisted` (or `no_access`, depending on status rules), with domain `acme.com`
+   - `Account B` -> `skipped`, note says no usable Contact email domain
 
 Important:
 - If an Account has no related Contact emails with usable domains, it will be skipped.
@@ -138,6 +185,11 @@ The page shows:
 - `Organizations Updated`: Trust Center domain-level updates
 - `Organizations Blocked`: orgs set to `no_access`
 - `Accounts Skipped (No Domain)`: no usable Contact email domain found
+
+Interpretation:
+- `Contacts Queried (Org-wide)` can be much larger than expected because it is not filtered to one account/list view.
+- `Contacts Matched to Accounts` is the subset tied to queried Accounts.
+- `Accounts Skipped (No Domain)` increases when Accounts do not have related Contacts with usable business email domains.
 
 ### Salesforce Sync Audit
 Per sync run, shows:
@@ -175,6 +227,20 @@ Cause:
 Fix:
 - Apply migrations
 - Restart `supabase-rest` and `backend`
+
+### Account exists but no organization is updated
+
+Usually one of these:
+- no related Contact on that Account
+- related Contact has blank email
+- related Contact email domain is personal (and filtered out)
+- Account is not visible to the connected Salesforce integration user
+
+How to verify in Salesforce quickly:
+- Open the Account
+- Confirm at least one related Contact has `Email` populated
+- Confirm the contact email domain is your customer domain (example `acme.com`)
+- Confirm the same data is visible to the connected user shown in `Connected Salesforce User`
 
 ### Sync count looks wrong (for example, Contacts count higher than expected)
 

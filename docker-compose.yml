@@ -235,7 +235,8 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
-    command: sh -c "rm -rf .next && npm run dev"
+      - frontend-next:/app/.next
+    command: npm run dev
     depends_on:
       - backend
     networks:
@@ -273,6 +274,7 @@ volumes:
   supabase-db-data:
   supabase-storage-data:
   backend-uploads:
+  frontend-next:
 
 networks:
   trust-center-network:

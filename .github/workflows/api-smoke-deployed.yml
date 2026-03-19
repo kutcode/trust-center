@@ -1,0 +1,59 @@
+name: API Smoke (Deployed)
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: "Target API base URL (e.g. https://demo.trustcenter.dev)"
+        required: false
+        type: string
+  schedule:
+    - cron: "0 */6 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Run deployed API smoke suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve target URL
+        id: target
+        shell: bash
+        run: |
+          input_url='${{ github.event.inputs.api_url }}'
+          var_url='${{ vars.SMOKE_API_URL }}'
+          secret_url='${{ secrets.SMOKE_API_URL }}'
+
+          target=""
+          if [[ -n "$input_url" ]]; then
+            target="$input_url"
+          elif [[ -n "$var_url" ]]; then
+            target="$var_url"
+          elif [[ -n "$secret_url" ]]; then
+            target="$secret_url"
+          fi
+
+          if [[ -z "$target" ]]; then
+            echo "No target URL configured."
+            echo "Provide workflow input 'api_url' or set repo variable/secret SMOKE_API_URL."
+            exit 1
+          fi
+
+          echo "Using API URL: $target"
+          echo "url=$target" >> "$GITHUB_OUTPUT"
+
+      - name: Run Hurl smoke suite
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/work" \
+            ghcr.io/orange-opensource/hurl:latest \
+            --test \
+            --variable "api_url=${{ steps.target.outputs.url }}" \
+            /work/scripts/smoke-api.hurl

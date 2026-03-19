@@ -21,6 +21,7 @@ For the full technical guide, use:
 Important:
 - Trust Center access is granted by **customer email domain from Salesforce Contacts**
 - Example: if a Contact email is `security@acme.com`, the Trust Center organization domain becomes `acme.com`
+- If an Account has no related Contact email, that Account will be skipped (no organization update)
 
 ## Step 1: Create the Salesforce App (one-time)
 
@@ -73,10 +74,15 @@ This confirms which Salesforce account/org the Trust Center is using.
 ## Step 4: Test with Real or Test Customers
 
 In Salesforce, create or use customer data:
-1. Create an `Account`
+1. Create `Account A`
 2. Set the Account status field (example `Type`) to one of your allowed values
 3. Add at least one related `Contact` with the customer email domain
    - Example: `alice@customerco.com`
+4. Create `Account B` with the same status, but do not add Contact email
+
+Expected outcome after sync:
+- `Account A` can update/create a Trust Center organization
+- `Account B` is processed but skipped because no usable Contact email domain exists
 
 ## Step 5: Run Sync
 
@@ -109,12 +115,20 @@ You may be looking at a different Salesforce org/user in your browser.
 
 This number can be higher than the number of Accounts you are testing.
 
+Use `Contacts Matched to Accounts` to understand how many contacts were actually tied to the processed Accounts.
+
 ### “Account did not create an organization”
 
 Usually one of these:
 - No related Contact email on the Account
 - Contact email uses a personal domain
 - Account status is not in `Allowed Statuses`
+- Account is not visible to the connected Salesforce integration user
+
+Quick check:
+1. Open that Salesforce Account
+2. Confirm a related Contact exists and has a business email
+3. Confirm that same data is visible to the user shown as `Connected Salesforce User` in Integrations
 
 ## Recommended Ongoing Setup
 
