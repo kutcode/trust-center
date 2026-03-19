@@ -79,23 +79,30 @@ trust-center/
 
 Before submitting a PR:
 
-1. **Rebuild containers** if you changed dependencies:
+1. **Run backend tests:**
+   ```bash
+   cd backend && npm test
+   ```
+
+2. **Rebuild containers** if you changed dependencies:
    ```bash
    docker-compose down
    docker-compose up --build
    ```
 
-2. **Test the flows:**
+3. **Test the flows:**
    - [ ] Public pages load correctly
    - [ ] Admin login works
    - [ ] Your feature works as expected
    - [ ] No console errors in browser
 
-3. **Check for TypeScript errors:**
+4. **Check for TypeScript errors:**
    ```bash
    cd frontend && npm run build
    cd ../backend && npm run build
    ```
+
+5. **Write tests** for new middleware, utilities, or route handlers in `__tests__/` directories.
 
 ## 📝 Submitting a Pull Request
 

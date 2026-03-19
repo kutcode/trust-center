@@ -1,6 +1,8 @@
 # The Open GRC Trust Center
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/kutcode/trust-center/actions/workflows/ci.yml/badge.svg)](https://github.com/kutcode/trust-center/actions/workflows/ci.yml)
+[![Security Scan](https://github.com/kutcode/trust-center/actions/workflows/security-scan.yml/badge.svg)](https://github.com/kutcode/trust-center/actions/workflows/security-scan.yml)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
 
 An open-source security trust center platform for **The Open GRC** ecosystem, available under **[theopengrc.com](https://theopengrc.com)**. Built with Next.js 15, Docker, and Supabase, featuring organization-level document approval, magic link access, and comprehensive admin management.
@@ -29,6 +31,8 @@ An open-source security trust center platform for **The Open GRC** ecosystem, av
 - **Auth**: Supabase Auth (admin-only), Magic links for document access
 - **Storage**: Supabase Storage
 - **Containerization**: Docker + Docker Compose
+- **CI/CD**: GitHub Actions (CI build/lint/test, Trivy security scan, API smoke tests)
+- **Testing**: Jest + Supertest (backend), ESLint (frontend + backend)
 - **Email**: Resend API (production) / Mailpit (development) for secure email delivery with attachments
 
 ## Prerequisites
@@ -118,24 +122,33 @@ The migrations include seed data for:
 
 ```
 trust-center/
-├── docker-compose.yml          # Docker Compose configuration
+├── docker-compose.yml          # Development Docker Compose
+├── docker-compose.prod.yml     # Production Docker Compose
 ├── frontend/                   # Next.js frontend application
 │   ├── src/
 │   │   ├── app/               # App router pages
 │   │   ├── components/        # React components
 │   │   ├── lib/              # Utilities and Supabase clients
 │   │   └── types/             # TypeScript types
+│   ├── Dockerfile             # Production Dockerfile (multi-stage)
 │   └── Dockerfile.dev         # Development Dockerfile
 ├── backend/                    # Express backend API
 │   ├── src/
 │   │   ├── routes/           # API route handlers
-│   │   ├── middleware/       # Auth and error middleware
+│   │   │   └── admin/        # Admin routes (modular)
+│   │   ├── middleware/       # Auth, rate limiting, error handling
+│   │   │   └── __tests__/    # Middleware tests
+│   │   ├── services/         # Email, Salesforce, webhooks
 │   │   └── utils/            # Utility functions
+│   │       └── __tests__/    # Utility tests
+│   ├── Dockerfile             # Production Dockerfile
 │   └── Dockerfile.dev         # Development Dockerfile
-└── supabase/                  # Supabase configuration
-    ├── migrations/            # Database migrations
-    ├── config.toml           # Supabase local config
-    └── kong.yml              # Kong API gateway config
+├── supabase/                  # Supabase configuration
+│   ├── migrations/            # Database migrations
+│   ├── config.toml           # Supabase local config
+│   └── kong.yml              # Kong API gateway config
+├── scripts/                   # Operational scripts
+└── .github/workflows/         # CI/CD pipelines
 ```
 
 ## Environment Variables
@@ -195,6 +208,11 @@ Guides:
 - Customer admin onboarding (short): `docs/SALESFORCE_ONBOARDING_ADMIN.md`
 - Full technical setup + troubleshooting: `docs/SALESFORCE_SETUP.md`
 
+> [!WARNING]
+> The default JWT secret and Supabase keys in `docker-compose.yml` are **development-only demo values**.
+> For production, you **must** set unique secrets via `.env` or a secrets manager.
+> Never use the default keys in any environment accessible from the internet.
+
 ## Development
 
 ### Hot Reload
@@ -216,6 +234,24 @@ docker-compose exec supabase-db psql -U postgres -d postgres -f /docker-entrypoi
 ```bash
 docker-compose exec supabase-db psql -U postgres -d postgres
 ```
+
+### Running Tests
+
+```bash
+# Run backend tests
+cd backend && npm test
+
+# Run tests in watch mode
+cd backend && npm run test:watch
+```
+
+Tests cover: auth middleware, rate limiting, magic link generation, and email validation.
+
+### Rate Limiting
+
+The email rate limiter uses an in-memory store, which is suitable for single-instance deployments.
+For horizontal scaling with multiple backend instances, consider replacing with a Redis-backed store
+(e.g., `express-rate-limit` with `rate-limit-redis`).
 
 ## Operations & Security Checks
 
@@ -317,8 +353,12 @@ See the plan document for complete API documentation.
    - Recommended for this project: `EMAIL_PROVIDER=resend`
    - Keep `EMAIL_PROVIDER=mailpit` in local/dev
 6. **Secrets**: Use secret management (Docker secrets, Kubernetes secrets, etc.)
+7. **Rate Limiting**: For multi-instance deployments, replace in-memory rate limiter with Redis
 
 ### Docker Production Build
+
+The production compose file (`docker-compose.prod.yml`) builds optimized images for both services.
+The frontend uses a multi-stage build (deps → build → standalone Next.js) for minimal image size.
 
 ```bash
 # Build production images
@@ -368,6 +408,7 @@ For issues and questions:
 - [ ] Email template customization
 - [ ] Advanced analytics and reporting
 - [ ] Multi-language support
-- [ ] API rate limiting improvements
-- [ ] Webhook support for integrations
+- [ ] Redis-backed rate limiting for horizontal scaling
+- [ ] OpenAPI/Swagger documentation
 - [ ] Advanced document versioning UI
+- [ ] Frontend test coverage (React Testing Library)
