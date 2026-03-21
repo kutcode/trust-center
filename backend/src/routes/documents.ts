@@ -56,6 +56,31 @@ router.get('/', async (req, res) => {
   }
 });
 
+// ============ EXPIRING DOCUMENTS ============
+
+// Get documents expiring within N days (admin only) - MUST be before /:id route
+router.get('/admin/expiring', requireAdmin, async (req, res) => {
+  try {
+    const days = parseInt(req.query.days as string) || 30;
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + days);
+
+    const { data, error } = await supabase
+      .from('documents')
+      .select('*, document_categories(*)')
+      .eq('is_current_version', true)
+      .eq('status', 'published')
+      .not('expires_at', 'is', null)
+      .lte('expires_at', futureDate.toISOString())
+      .order('expires_at', { ascending: true });
+
+    if (error) throw error;
+    res.json(data || []);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get document by ID (public returns only published, admin can request any)
 router.get('/:id', async (req, res) => {
   try {
@@ -412,6 +437,153 @@ router.get('/:id/versions', requireAdmin, async (req, res) => {
     if (error) throw error;
 
     res.json(data);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Upload new version of a document (admin only)
+router.post('/:id/versions', requireAdmin, enforceDocumentUploadPolicy, upload.single('file'), async (req: AuthRequest, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    validateUploadedFileSignature(req.file);
+
+    const documentId = req.params.id;
+    const { changelog } = req.body;
+
+    // Get the current document
+    const { data: currentDoc, error: fetchError } = await supabase
+      .from('documents')
+      .select('*')
+      .eq('id', documentId)
+      .single();
+
+    if (fetchError || !currentDoc) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    // Save new file
+    const fileExt = req.file.originalname.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const safeOriginalName = sanitizeUploadFileName(req.file.originalname);
+    const folderName = currentDoc.category_id ? `category-${currentDoc.category_id.substring(0, 8)}` : 'uncategorized';
+    const filePath = `${folderName}/${fileName}`;
+    const fullPath = path.join(UPLOADS_DIR, filePath);
+
+    const dirPath = path.dirname(fullPath);
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true });
+    }
+    fs.writeFileSync(fullPath, req.file.buffer);
+
+    const newVersionNumber = (currentDoc.version_number || 1) + 1;
+
+    // Update the document record with new file
+    const { data: updatedDoc, error: updateError } = await supabase
+      .from('documents')
+      .update({
+        file_url: filePath,
+        file_name: safeOriginalName,
+        file_size: req.file.size,
+        file_type: req.file.mimetype,
+        version: `v${newVersionNumber}`,
+        version_number: newVersionNumber,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', documentId)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'update',
+      entityType: 'document',
+      entityId: documentId,
+      entityName: currentDoc.title,
+      oldValue: { version_number: currentDoc.version_number, file_name: currentDoc.file_name },
+      newValue: { version_number: newVersionNumber, file_name: safeOriginalName, changelog },
+      description: `Uploaded new version (v${newVersionNumber}) for document: ${currentDoc.title}`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    res.status(201).json(updatedDoc);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============ DOCUMENT REVIEWS ============
+
+// Get reviews for a document
+router.get('/:id/reviews', requireAdmin, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('document_reviews')
+      .select('*, admin_users(email, full_name)')
+      .eq('document_id', req.params.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    res.json(data || []);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Submit a review
+router.post('/:id/reviews', requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const documentId = req.params.id;
+    const { status, notes, next_review_date } = req.body;
+
+    if (!status || !['approved', 'needs_changes', 'pending'].includes(status)) {
+      return res.status(400).json({ error: 'Valid status (approved/needs_changes/pending) is required' });
+    }
+
+    const { data: review, error } = await supabase
+      .from('document_reviews')
+      .insert({
+        document_id: documentId,
+        reviewer_id: req.admin!.id,
+        status,
+        notes: notes || null,
+        next_review_date: next_review_date || null,
+        reviewed_at: status !== 'pending' ? new Date().toISOString() : null,
+      })
+      .select('*, admin_users(email, full_name)')
+      .single();
+
+    if (error) throw error;
+
+    // Update document's last_reviewed fields if approved
+    if (status === 'approved') {
+      await supabase
+        .from('documents')
+        .update({
+          last_reviewed_at: new Date().toISOString(),
+          last_reviewed_by: req.admin!.id,
+        })
+        .eq('id', documentId);
+    }
+
+    await logActivity({
+      adminId: req.admin!.id,
+      adminEmail: req.admin!.email,
+      actionType: 'create',
+      entityType: 'document_review',
+      entityId: review.id,
+      description: `Submitted ${status} review for document`,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    res.status(201).json(review);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

@@ -261,12 +261,22 @@ function DocumentsPageContent() {
                     <p className="text-gray-600 text-sm mb-3 line-clamp-2">{doc.description}</p>
                   )}
                   <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center text-xs text-gray-500">
-                      <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      Updated {formatDate(doc.updated_at)}
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center text-xs text-gray-500">
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Updated {formatDate(doc.updated_at)}
+                      </div>
+                      {(doc.version || doc.version_number) && (
+                        <span className="px-1.5 py-0.5 text-[10px] font-semibold text-purple-700 bg-purple-50 rounded border border-purple-100">
+                          {doc.version || `v${doc.version_number}`}
+                        </span>
+                      )}
                     </div>
+                    {(doc as any).last_reviewed_at && (
+                      <span className="text-[10px] text-gray-400">Reviewed {formatDate((doc as any).last_reviewed_at)}</span>
+                    )}
                   </div>
                   <Link
                     href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/documents/${doc.id}/download`}

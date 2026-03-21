@@ -200,6 +200,8 @@ function DocumentsAdminPageContent() {
                   <SortableHeader label="Category" active={sortField === categoryAccessor} direction={sortDirection} onClick={() => toggleSort(categoryAccessor)} className="px-6 py-3" />
                   <SortableHeader label="Access Level" active={sortField === 'access_level'} direction={sortDirection} onClick={() => toggleSort('access_level')} className="px-6 py-3" />
                   <SortableHeader label="Status" active={sortField === 'status'} direction={sortDirection} onClick={() => toggleSort('status')} className="px-6 py-3" />
+                  <SortableHeader label="Version" active={sortField === 'version_number'} direction={sortDirection} onClick={() => toggleSort('version_number')} className="px-6 py-3" />
+                  <SortableHeader label="Expires" active={sortField === 'expires_at'} direction={sortDirection} onClick={() => toggleSort('expires_at')} className="px-6 py-3" />
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
@@ -227,6 +229,31 @@ function DocumentsAdminPageContent() {
                         }`}>
                         {doc.status}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {doc.version ? doc.version : `v${doc.version_number || 1}`}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {(doc as any).expires_at ? (
+                        (() => {
+                          const expiresAt = new Date((doc as any).expires_at);
+                          const now = new Date();
+                          const daysUntil = Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                          const isExpired = daysUntil <= 0;
+                          const isExpiringSoon = daysUntil > 0 && daysUntil <= 30;
+                          return (
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              isExpired ? 'bg-red-100 text-red-800' :
+                              isExpiringSoon ? 'bg-orange-100 text-orange-800' :
+                              'bg-gray-100 text-gray-600'
+                            }`}>
+                              {isExpired ? 'Expired' : isExpiringSoon ? `${daysUntil}d left` : expiresAt.toLocaleDateString()}
+                            </span>
+                          );
+                        })()
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <Link href={`/admin/documents/${doc.id}`} className="text-blue-600 hover:text-blue-800 font-medium mr-4">
