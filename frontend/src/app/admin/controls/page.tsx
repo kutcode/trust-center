@@ -23,6 +23,25 @@ interface Control {
     title: string;
     description?: string;
     sort_order: number;
+    control_framework_mappings?: ControlFrameworkMapping[];
+}
+
+interface Framework {
+    id: string;
+    name: string;
+    description?: string;
+    version?: string;
+    url?: string;
+    icon?: string;
+    sort_order: number;
+}
+
+interface ControlFrameworkMapping {
+    id: string;
+    control_id: string;
+    framework_id: string;
+    reference_code?: string;
+    frameworks?: Framework;
 }
 
 const EMOJI_OPTIONS = ['🔒', '🛡️', '👥', '🔑', '📋', '🖥️', '☁️', '📡', '🔍', '📊', '⚡', '🏢', '🔐', '📱', '🌐'];
@@ -33,16 +52,24 @@ export default function AdminControlsPage() {
     const [loading, setLoading] = useState(true);
     const [token, setToken] = useState<string | null>(null);
 
+    const [frameworks, setFrameworks] = useState<Framework[]>([]);
+
     const [showCategoryModal, setShowCategoryModal] = useState(false);
     const [showControlModal, setShowControlModal] = useState(false);
+    const [showFrameworkModal, setShowFrameworkModal] = useState(false);
     const [editingCategory, setEditingCategory] = useState<ControlCategory | null>(null);
     const [editingControl, setEditingControl] = useState<Control | null>(null);
+    const [editingFramework, setEditingFramework] = useState<Framework | null>(null);
 
     const [categoryForm, setCategoryForm] = useState({ name: '', description: '', icon: '🔒', banner_image: '' });
     const [controlForm, setControlForm] = useState({ title: '', description: '', category_id: '' });
+    const [frameworkForm, setFrameworkForm] = useState({ name: '', description: '', version: '', url: '', icon: '' });
+    const [controlMappings, setControlMappings] = useState<{ framework_id: string; reference_code: string }[]>([]);
+    const [showFrameworksManager, setShowFrameworksManager] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState<
         | { type: 'category'; id: string; label: string }
         | { type: 'control'; id: string; label: string }
+        | { type: 'framework'; id: string; label: string }
         | null
     >(null);
     const [deleting, setDeleting] = useState(false);
@@ -85,12 +112,14 @@ export default function AdminControlsPage() {
         if (session) {
             setToken(session.access_token);
             try {
-                const [cats, ctrls] = await Promise.all([
+                const [cats, ctrls, fws] = await Promise.all([
                     apiRequestWithAuth<ControlCategory[]>('/api/admin/control-categories', session.access_token),
                     apiRequestWithAuth<Control[]>('/api/admin/controls', session.access_token),
+                    apiRequestWithAuth<Framework[]>('/api/admin/frameworks', session.access_token),
                 ]);
                 setCategories([...cats].sort((a, b) => a.sort_order - b.sort_order));
                 setControls(ctrls);
+                setFrameworks(fws);
             } catch (error) {
                 console.error('Failed to load data:', error);
             }
@@ -212,21 +241,30 @@ export default function AdminControlsPage() {
             }
             const freshToken = await getToken();
             if (!freshToken) throw new Error('Not authenticated');
+            let controlId: string;
             if (editingControl) {
                 await apiRequestWithAuth(`/api/admin/controls/${editingControl.id}`, freshToken, {
                     method: 'PATCH',
                     body: JSON.stringify(controlForm),
                 });
+                controlId = editingControl.id;
                 toast.success('Control updated');
             } else {
-                await apiRequestWithAuth('/api/admin/controls', freshToken, {
+                const created = await apiRequestWithAuth<any>('/api/admin/controls', freshToken, {
                     method: 'POST',
                     body: JSON.stringify(controlForm),
                 });
+                controlId = created.id;
                 toast.success('Control created');
             }
+            // Save framework mappings
+            await apiRequestWithAuth(`/api/admin/controls/${controlId}/frameworks`, freshToken, {
+                method: 'PUT',
+                body: JSON.stringify({ mappings: controlMappings }),
+            });
             setShowControlModal(false);
             setControlForm({ title: '', description: '', category_id: '' });
+            setControlMappings([]);
             setEditingControl(null);
             clearControlErrors();
             loadData();
@@ -251,6 +289,67 @@ export default function AdminControlsPage() {
         }
     }
 
+    // Framework CRUD
+    async function saveFramework() {
+        try {
+            if (!frameworkForm.name.trim()) {
+                toast.error('Framework name is required');
+                return;
+            }
+            const freshToken = await getToken();
+            if (!freshToken) throw new Error('Not authenticated');
+            if (editingFramework) {
+                await apiRequestWithAuth(`/api/admin/frameworks/${editingFramework.id}`, freshToken, {
+                    method: 'PATCH',
+                    body: JSON.stringify(frameworkForm),
+                });
+                toast.success('Framework updated');
+            } else {
+                await apiRequestWithAuth('/api/admin/frameworks', freshToken, {
+                    method: 'POST',
+                    body: JSON.stringify(frameworkForm),
+                });
+                toast.success('Framework created');
+            }
+            setShowFrameworkModal(false);
+            setFrameworkForm({ name: '', description: '', version: '', url: '', icon: '' });
+            setEditingFramework(null);
+            loadData();
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to save framework');
+        }
+    }
+
+    async function deleteFramework(id: string) {
+        try {
+            setDeleting(true);
+            const freshToken = await getToken();
+            if (!freshToken) throw new Error('Not authenticated');
+            await apiRequestWithAuth(`/api/admin/frameworks/${id}`, freshToken, { method: 'DELETE' });
+            toast.success('Framework deleted');
+            setDeleteConfirm(null);
+            loadData();
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to delete framework');
+        } finally {
+            setDeleting(false);
+        }
+    }
+
+    function addMappingRow() {
+        setControlMappings([...controlMappings, { framework_id: '', reference_code: '' }]);
+    }
+
+    function removeMappingRow(index: number) {
+        setControlMappings(controlMappings.filter((_, i) => i !== index));
+    }
+
+    function updateMappingRow(index: number, field: 'framework_id' | 'reference_code', value: string) {
+        const updated = [...controlMappings];
+        updated[index] = { ...updated[index], [field]: value };
+        setControlMappings(updated);
+    }
+
     if (loading) {
         return (
             <div className="flex items-center justify-center py-12">
@@ -268,11 +367,13 @@ export default function AdminControlsPage() {
                     if (!deleteConfirm) return;
                     if (deleteConfirm.type === 'category') {
                         void deleteCategory(deleteConfirm.id);
+                    } else if (deleteConfirm.type === 'framework') {
+                        void deleteFramework(deleteConfirm.id);
                     } else {
                         void deleteControl(deleteConfirm.id);
                     }
                 }}
-                title={deleteConfirm?.type === 'category' ? 'Delete Category' : 'Delete Control'}
+                title={deleteConfirm?.type === 'category' ? 'Delete Category' : deleteConfirm?.type === 'framework' ? 'Delete Framework' : 'Delete Control'}
                 message={
                     deleteConfirm?.type === 'category'
                         ? `Delete "${deleteConfirm.label}"? All controls in it will also be deleted.`
@@ -286,20 +387,31 @@ export default function AdminControlsPage() {
                     <h1 className="text-2xl font-bold text-gray-900">Security Controls</h1>
                     <p className="text-gray-500 text-sm mt-1">Drag categories or controls to reorder them</p>
                 </div>
-                <button
-                    onClick={() => {
-                        setCategoryForm({ name: '', description: '', icon: '🔒', banner_image: '' });
-                        setEditingCategory(null);
-                        clearCategoryErrors();
-                        setShowCategoryModal(true);
-                    }}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-                >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Add Category
-                </button>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setShowFrameworksManager(true)}
+                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
+                    >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                        Manage Frameworks ({frameworks.length})
+                    </button>
+                    <button
+                        onClick={() => {
+                            setCategoryForm({ name: '', description: '', icon: '🔒', banner_image: '' });
+                            setEditingCategory(null);
+                            clearCategoryErrors();
+                            setShowCategoryModal(true);
+                        }}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                    >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add Category
+                    </button>
+                </div>
             </div>
 
             {categories.length === 0 ? (
@@ -450,6 +562,12 @@ export default function AdminControlsPage() {
                                                                                                         description: control.description || '',
                                                                                                         category_id: control.category_id,
                                                                                                     });
+                                                                                                    // Load existing mappings
+                                                                                                    const existingMappings = (control.control_framework_mappings || []).map(m => ({
+                                                                                                        framework_id: m.framework_id,
+                                                                                                        reference_code: m.reference_code || '',
+                                                                                                    }));
+                                                                                                    setControlMappings(existingMappings);
                                                                                                     setEditingControl(control);
                                                                                                     clearControlErrors();
                                                                                                     setShowControlModal(true);
@@ -566,58 +684,260 @@ export default function AdminControlsPage() {
             }
 
             {/* Control Modal */}
-            {
-                showControlModal && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                        <div className="bg-white rounded-xl p-6 w-full max-w-lg shadow-xl">
-                            <h3 className="text-lg font-semibold mb-4">
-                                {editingControl ? 'Edit Control' : 'Add Control'}
-                            </h3>
-                            <div className="space-y-4">
-                                <FormField label="Title" required error={controlErrors.title}>
-                                    <input
-                                        type="text"
-                                        value={controlForm.title}
-                                        onChange={(e) => {
-                                            setControlForm({ ...controlForm, title: e.target.value });
-                                            clearControlFieldError('title');
-                                        }}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        placeholder="e.g., SOC 2 Type II Report"
-                                    />
-                                </FormField>
-                                <FormField label="Description">
-                                    <textarea
-                                        value={controlForm.description}
-                                        onChange={(e) => setControlForm({ ...controlForm, description: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        rows={4}
-                                        placeholder="Describe this security control in detail..."
-                                    />
-                                </FormField>
-                            </div>
-                            <div className="flex justify-end gap-3 mt-6">
-                                <button
-                                    onClick={() => {
-                                        clearControlErrors();
-                                        setShowControlModal(false);
+            {showControlModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-xl max-h-[90vh] overflow-y-auto">
+                        <h3 className="text-lg font-semibold mb-4">
+                            {editingControl ? 'Edit Control' : 'Add Control'}
+                        </h3>
+                        <div className="space-y-4">
+                            <FormField label="Title" required error={controlErrors.title}>
+                                <input
+                                    type="text"
+                                    value={controlForm.title}
+                                    onChange={(e) => {
+                                        setControlForm({ ...controlForm, title: e.target.value });
+                                        clearControlFieldError('title');
                                     }}
-                                    className="px-4 py-2 text-gray-600 hover:text-gray-800"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={saveControl}
-                                    disabled={!controlForm.title.trim()}
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                                >
-                                    {editingControl ? 'Save Changes' : 'Add Control'}
-                                </button>
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    placeholder="e.g., SOC 2 Type II Report"
+                                />
+                            </FormField>
+                            <FormField label="Description">
+                                <textarea
+                                    value={controlForm.description}
+                                    onChange={(e) => setControlForm({ ...controlForm, description: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    rows={4}
+                                    placeholder="Describe this security control in detail..."
+                                />
+                            </FormField>
+
+                            {/* Framework Mappings */}
+                            <div>
+                                <div className="flex items-center justify-between mb-2">
+                                    <label className="block text-sm font-medium text-gray-700">Framework Mappings</label>
+                                    <button
+                                        type="button"
+                                        onClick={addMappingRow}
+                                        disabled={frameworks.length === 0}
+                                        className="text-sm text-blue-600 hover:text-blue-700 font-medium disabled:text-gray-400"
+                                    >
+                                        + Add Framework
+                                    </button>
+                                </div>
+                                {frameworks.length === 0 && (
+                                    <p className="text-sm text-gray-400 italic">No frameworks created yet. Use "Manage Frameworks" to create some first.</p>
+                                )}
+                                {controlMappings.length > 0 && (
+                                    <div className="space-y-2">
+                                        {controlMappings.map((mapping, idx) => (
+                                            <div key={idx} className="flex items-center gap-2">
+                                                <select
+                                                    value={mapping.framework_id}
+                                                    onChange={(e) => updateMappingRow(idx, 'framework_id', e.target.value)}
+                                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                >
+                                                    <option value="">Select framework...</option>
+                                                    {frameworks.map(fw => (
+                                                        <option key={fw.id} value={fw.id}>{fw.name}{fw.version ? ` (${fw.version})` : ''}</option>
+                                                    ))}
+                                                </select>
+                                                <input
+                                                    type="text"
+                                                    value={mapping.reference_code}
+                                                    onChange={(e) => updateMappingRow(idx, 'reference_code', e.target.value)}
+                                                    className="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                    placeholder="e.g. CC6.1"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeMappingRow(idx)}
+                                                    className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </div>
+                        <div className="flex justify-end gap-3 mt-6">
+                            <button
+                                onClick={() => {
+                                    clearControlErrors();
+                                    setControlMappings([]);
+                                    setShowControlModal(false);
+                                }}
+                                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={saveControl}
+                                disabled={!controlForm.title.trim()}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                            >
+                                {editingControl ? 'Save Changes' : 'Add Control'}
+                            </button>
+                        </div>
                     </div>
-                )
-            }
+                </div>
+            )}
+
+            {/* Frameworks Manager Modal */}
+            {showFrameworksManager && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl p-6 w-full max-w-2xl shadow-xl max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-semibold">Manage Frameworks</h3>
+                            <button
+                                onClick={() => {
+                                    setFrameworkForm({ name: '', description: '', version: '', url: '', icon: '' });
+                                    setEditingFramework(null);
+                                    setShowFrameworkModal(true);
+                                }}
+                                className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-1"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                                Add Framework
+                            </button>
+                        </div>
+                        {frameworks.length === 0 ? (
+                            <div className="text-center py-8 text-gray-500">
+                                <p>No frameworks yet. Add SOC 2, ISO 27001, NIST, etc.</p>
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-gray-100">
+                                {frameworks.map(fw => (
+                                    <div key={fw.id} className="py-3 flex items-center justify-between">
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                {fw.icon && <span className="text-lg">{fw.icon}</span>}
+                                                <span className="font-medium text-gray-900">{fw.name}</span>
+                                                {fw.version && <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">{fw.version}</span>}
+                                            </div>
+                                            {fw.description && <p className="text-sm text-gray-500 mt-0.5">{fw.description}</p>}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => {
+                                                    setFrameworkForm({
+                                                        name: fw.name,
+                                                        description: fw.description || '',
+                                                        version: fw.version || '',
+                                                        url: fw.url || '',
+                                                        icon: fw.icon || '',
+                                                    });
+                                                    setEditingFramework(fw);
+                                                    setShowFrameworkModal(true);
+                                                }}
+                                                className="text-sm text-gray-500 hover:text-gray-700"
+                                            >
+                                                Edit
+                                            </button>
+                                            <button
+                                                onClick={() => setDeleteConfirm({ type: 'framework', id: fw.id, label: fw.name })}
+                                                className="text-sm text-red-500 hover:text-red-700"
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        <div className="flex justify-end mt-6">
+                            <button
+                                onClick={() => setShowFrameworksManager(false)}
+                                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Framework Create/Edit Modal */}
+            {showFrameworkModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
+                    <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
+                        <h3 className="text-lg font-semibold mb-4">
+                            {editingFramework ? 'Edit Framework' : 'Add Framework'}
+                        </h3>
+                        <div className="space-y-4">
+                            <FormField label="Name" required>
+                                <input
+                                    type="text"
+                                    value={frameworkForm.name}
+                                    onChange={(e) => setFrameworkForm({ ...frameworkForm, name: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    placeholder="e.g., SOC 2 Type II"
+                                />
+                            </FormField>
+                            <FormField label="Version">
+                                <input
+                                    type="text"
+                                    value={frameworkForm.version}
+                                    onChange={(e) => setFrameworkForm({ ...frameworkForm, version: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    placeholder="e.g., 2024"
+                                />
+                            </FormField>
+                            <FormField label="Description">
+                                <textarea
+                                    value={frameworkForm.description}
+                                    onChange={(e) => setFrameworkForm({ ...frameworkForm, description: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    rows={2}
+                                    placeholder="Brief description..."
+                                />
+                            </FormField>
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField label="Icon (emoji)">
+                                    <input
+                                        type="text"
+                                        value={frameworkForm.icon}
+                                        onChange={(e) => setFrameworkForm({ ...frameworkForm, icon: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        placeholder="🛡️"
+                                    />
+                                </FormField>
+                                <FormField label="URL">
+                                    <input
+                                        type="text"
+                                        value={frameworkForm.url}
+                                        onChange={(e) => setFrameworkForm({ ...frameworkForm, url: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        placeholder="https://..."
+                                    />
+                                </FormField>
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-3 mt-6">
+                            <button
+                                onClick={() => setShowFrameworkModal(false)}
+                                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={saveFramework}
+                                disabled={!frameworkForm.name.trim()}
+                                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                            >
+                                {editingFramework ? 'Save Changes' : 'Create Framework'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 }

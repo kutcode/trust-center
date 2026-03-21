@@ -24,7 +24,7 @@ router.get('/controls', async (req, res) => {
     try {
         const { data, error } = await supabase
             .from('controls')
-            .select('*, control_categories(*)')
+            .select('*, control_categories(*), control_framework_mappings(*, frameworks(*))')
             .order('sort_order', { ascending: true });
 
         if (error) throw error;

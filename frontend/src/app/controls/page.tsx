@@ -13,12 +13,26 @@ interface ControlCategory {
     sort_order: number;
 }
 
+interface Framework {
+    id: string;
+    name: string;
+    version?: string;
+    icon?: string;
+}
+
+interface ControlFrameworkMapping {
+    framework_id: string;
+    reference_code?: string;
+    frameworks?: Framework;
+}
+
 interface Control {
     id: string;
     category_id: string;
     title: string;
     description?: string;
     sort_order: number;
+    control_framework_mappings?: ControlFrameworkMapping[];
 }
 
 export default function ControlsPage() {
@@ -26,19 +40,23 @@ export default function ControlsPage() {
     const [controls, setControls] = useState<Control[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeCategory, setActiveCategory] = useState<string | null>(null);
+    const [frameworks, setFrameworks] = useState<Framework[]>([]);
+    const [selectedFramework, setSelectedFramework] = useState<string>('all');
     const [copiedId, setCopiedId] = useState<string | null>(null);
     const sectionRefs = useRef<Map<string, HTMLElement>>(new Map());
 
     useEffect(() => {
         async function loadData() {
             try {
-                const [cats, ctrls] = await Promise.all([
+                const [cats, ctrls, fws] = await Promise.all([
                     apiRequest<ControlCategory[]>('/api/control-categories'),
                     apiRequest<Control[]>('/api/controls'),
+                    apiRequest<Framework[]>('/api/frameworks'),
                 ]);
                 const sortedCats = [...cats].sort((a, b) => a.sort_order - b.sort_order);
                 setCategories(sortedCats);
                 setControls(ctrls);
+                setFrameworks(fws);
                 if (sortedCats.length > 0) {
                     setActiveCategory(sortedCats[0].id);
                 }
@@ -142,6 +160,21 @@ export default function ControlsPage() {
                         Our comprehensive security controls ensure your data is protected at every level.
                         These controls demonstrate our commitment to security and compliance.
                     </p>
+                    {frameworks.length > 0 && (
+                        <div className="mt-4 flex items-center gap-3">
+                            <label className="text-sm font-medium text-gray-500">Filter by Framework:</label>
+                            <select
+                                value={selectedFramework}
+                                onChange={(e) => setSelectedFramework(e.target.value)}
+                                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                            >
+                                <option value="all">All Frameworks</option>
+                                {frameworks.map(fw => (
+                                    <option key={fw.id} value={fw.id}>{fw.icon ? `${fw.icon} ` : ''}{fw.name}{fw.version ? ` (${fw.version})` : ''}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -177,9 +210,19 @@ export default function ControlsPage() {
                         {/* Main Content Area */}
                         <main className="flex-1 space-y-8">
                             {categories.map((category, catIndex) => {
-                                const categoryControls = controls
+                                let categoryControls = controls
                                     .filter((c) => c.category_id === category.id)
                                     .sort((a, b) => a.sort_order - b.sort_order);
+
+                                // Apply framework filter
+                                if (selectedFramework !== 'all') {
+                                    categoryControls = categoryControls.filter(c =>
+                                        c.control_framework_mappings?.some(m => m.framework_id === selectedFramework)
+                                    );
+                                }
+
+                                // Hide empty categories when filtering
+                                if (selectedFramework !== 'all' && categoryControls.length === 0) return null;
 
                                 return (
                                     <section
@@ -267,11 +310,27 @@ export default function ControlsPage() {
                                                                 <h3 className="text-base font-semibold text-gray-900">
                                                                     {control.title}
                                                                 </h3>
-                                                                {control.description && (
-                                                                    <p className="text-gray-600 text-sm mt-1 leading-relaxed">
-                                                                        {control.description}
-                                                                    </p>
-                                                                )}
+                                                                    {control.description && (
+                                                                        <p className="text-gray-600 text-sm mt-1 leading-relaxed">
+                                                                            {control.description}
+                                                                        </p>
+                                                                    )}
+                                                                    {control.control_framework_mappings && control.control_framework_mappings.length > 0 && (
+                                                                        <div className="flex flex-wrap gap-1.5 mt-2">
+                                                                            {control.control_framework_mappings.map((mapping, idx) => (
+                                                                                <span
+                                                                                    key={idx}
+                                                                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-100"
+                                                                                >
+                                                                                    {mapping.frameworks?.icon && <span>{mapping.frameworks.icon}</span>}
+                                                                                    {mapping.frameworks?.name || 'Unknown'}
+                                                                                    {mapping.reference_code && (
+                                                                                        <span className="text-blue-500 font-semibold">{mapping.reference_code}</span>
+                                                                                    )}
+                                                                                </span>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
                                                             </div>
 
                                                             {/* Copy Control Link Button */}

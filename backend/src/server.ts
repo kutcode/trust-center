@@ -141,6 +141,7 @@ import contactRoutes from './routes/contact';
 import settingsRoutes from './routes/settings';
 import accessRoutes from './routes/access';
 import controlsRoutes from './routes/controls';
+import frameworksRoutes from './routes/frameworks';
 import adminRoutes from './routes/admin';
 import salesforceRoutes from './routes/salesforce';
 
@@ -156,6 +157,7 @@ app.use('/api/contact', contactRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/access', accessRoutes);
 app.use('/api', controlsRoutes);
+app.use('/api', frameworksRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin/integrations/salesforce', salesforceRoutes);
 
