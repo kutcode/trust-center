@@ -13,6 +13,9 @@ on:
 permissions:
   contents: read
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
   smoke:
     name: Run deployed API smoke suite
@@ -21,7 +24,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Resolve target URL
         id: target
@@ -41,15 +44,26 @@ jobs:
           fi
 
           if [[ -z "$target" ]]; then
-            echo "No target URL configured."
-            echo "Provide workflow input 'api_url' or set repo variable/secret SMOKE_API_URL."
+            if [[ "${{ github.event_name }}" == "schedule" ]]; then
+              echo "::notice::No target URL configured. Skipping scheduled smoke run."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "::error::No target URL configured."
+            echo "::error::Provide workflow input 'api_url' or set repo variable/secret SMOKE_API_URL."
             exit 1
           fi
 
           echo "Using API URL: $target"
           echo "url=$target" >> "$GITHUB_OUTPUT"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Skip notice
+        if: steps.target.outputs.skip == 'true'
+        run: echo "Scheduled smoke run skipped due to missing SMOKE_API_URL."
 
       - name: Run Hurl smoke suite
+        if: steps.target.outputs.skip != 'true'
         run: |
           docker run --rm \
             -v "${{ github.workspace }}:/work" \
