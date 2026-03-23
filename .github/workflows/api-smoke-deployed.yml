@@ -49,9 +49,16 @@ jobs:
               echo "skip=true" >> "$GITHUB_OUTPUT"
               exit 0
             fi
-            echo "::error::No target URL configured."
-            echo "::error::Provide workflow input 'api_url' or set repo variable/secret SMOKE_API_URL."
-            exit 1
+
+            if [[ "${{ vars.SMOKE_STRICT }}" == "true" ]]; then
+              echo "::error::No target URL configured."
+              echo "::error::Provide workflow input 'api_url' or set repo variable/secret SMOKE_API_URL."
+              exit 1
+            fi
+
+            echo "::notice::No target URL configured for manual run. Skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
           echo "Using API URL: $target"
