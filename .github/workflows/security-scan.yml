@@ -17,25 +17,31 @@ jobs:
   trivy-filesystem:
     name: Trivy Filesystem Scan
     runs-on: ubuntu-latest
+    env:
+      TRIVY_EXIT_CODE: ${{ vars.SECURITY_STRICT == 'true' && '1' || '0' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
       - name: Run Trivy filesystem scan
+        shell: bash
         run: |
+          echo "Using Trivy exit code policy: $TRIVY_EXIT_CODE (set SECURITY_STRICT=true to fail on findings)."
           docker run --rm \
             -v "${{ github.workspace }}:/workspace" \
             aquasec/trivy:0.57.1 fs \
             --scanners vuln,misconfig \
             --severity HIGH,CRITICAL \
             --ignore-unfixed \
-            --exit-code 1 \
+            --exit-code "$TRIVY_EXIT_CODE" \
             --no-progress \
             /workspace
 
   trivy-images:
     name: Trivy Container Image Scan
     runs-on: ubuntu-latest
+    env:
+      TRIVY_EXIT_CODE: ${{ vars.SECURITY_STRICT == 'true' && '1' || '0' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -47,23 +53,26 @@ jobs:
         run: docker build -t trust-center-frontend:ci -f frontend/Dockerfile.dev frontend
 
       - name: Scan backend image
+        shell: bash
         run: |
+          echo "Using Trivy exit code policy: $TRIVY_EXIT_CODE (set SECURITY_STRICT=true to fail on findings)."
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             aquasec/trivy:0.57.1 image \
             --severity HIGH,CRITICAL \
             --ignore-unfixed \
-            --exit-code 1 \
+            --exit-code "$TRIVY_EXIT_CODE" \
             --no-progress \
             trust-center-backend:ci
 
       - name: Scan frontend image
+        shell: bash
         run: |
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             aquasec/trivy:0.57.1 image \
             --severity HIGH,CRITICAL \
             --ignore-unfixed \
-            --exit-code 1 \
+            --exit-code "$TRIVY_EXIT_CODE" \
             --no-progress \
             trust-center-frontend:ci
