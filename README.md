@@ -19,6 +19,10 @@ An open-source security trust center platform for **The Open GRC** ecosystem, av
 - **Organization Whitelisting**: Track approved documents per organization for granular access control
 - **Auto-Approval**: Organizations with previously approved documents get instant access
 - **Admin Console**: Full-featured admin panel for document management, request approval, and customization
+- **Support Tickets** *(optional)*: Built-in contact/support ticket system with message threads, status and priority management — toggleable per trust center
+- **Document Expiry Tracking**: Set expiration dates on documents with dashboard widget showing upcoming expirations, color-coded badges, and date picker in editor
+- **Admin Email Notifications**: Configurable email alerts when new document requests or support tickets are submitted
+- **Feature Toggles**: Enable/disable support tickets and admin notifications from Settings → Features
 - **Salesforce Integration (OAuth)**: Connect Salesforce and sync customer/account status to automatically manage organization access
 - **Trust Center Customization**: Customize branding, colors, hero section, and content
 - **Multi-Layer Security**: Role-based access control with database, API, frontend, and storage protection
@@ -136,10 +140,12 @@ trust-center/
 │   ├── src/
 │   │   ├── routes/           # API route handlers
 │   │   │   └── admin/        # Admin routes (modular)
-│   │   ├── middleware/       # Auth, rate limiting, error handling
+│   │   ├── middleware/       # Auth, rate limiting, validation
 │   │   │   └── __tests__/    # Middleware tests
+│   │   ├── schemas/          # Zod validation schemas (auth, document)
+│   │   │   └── __tests__/    # Schema tests
 │   │   ├── services/         # Email, Salesforce, webhooks
-│   │   └── utils/            # Utility functions
+│   │   └── utils/            # Utility functions (safePath, adminNotifications)
 │   │       └── __tests__/    # Utility tests
 │   ├── Dockerfile             # Production Dockerfile
 │   └── Dockerfile.dev         # Development Dockerfile
@@ -245,7 +251,7 @@ cd backend && npm test
 cd backend && npm run test:watch
 ```
 
-Tests cover: auth middleware, rate limiting, magic link generation, and email validation.
+Tests cover: auth middleware, rate limiting, magic link generation, email validation, Zod schema validation (auth + document schemas), input validation middleware, and path traversal prevention.
 
 ### Rate Limiting
 
@@ -339,6 +345,12 @@ See the plan document for complete API documentation.
 - **4-Layer Protection**: Database RLS, API middleware, Frontend routes, Storage policies
 - **Admin-Only Operations**: All admin actions require JWT authentication
 - **Magic Link Security**: 256-bit random tokens, time-limited, email-verified
+- **Input Validation**: Zod schema validation on all mutation routes (auth, documents)
+- **Path Traversal Prevention**: `resolveUploadPath()` ensures file operations stay within the uploads directory
+- **XSS Prevention**: DOMPurify for rendered HTML content, `escapeHtml()` for email templates
+- **Error Leakage Prevention**: Generic 500 responses — internal error details never exposed to clients
+- **Docker Hardening**: Non-root container user, environment variable validation at startup
+- **Database Indexes**: Optimized indexes on frequently queried columns for performance
 - **Audit Logging**: All admin actions tracked for compliance
 
 ## Deployment
@@ -412,3 +424,5 @@ For issues and questions:
 - [ ] OpenAPI/Swagger documentation
 - [ ] Advanced document versioning UI
 - [ ] Frontend test coverage (React Testing Library)
+- [ ] Document expiry alerts (email reminders before documents expire)
+- [ ] Public-facing FAQ/knowledge base
