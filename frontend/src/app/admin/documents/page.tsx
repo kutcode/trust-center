@@ -234,9 +234,9 @@ function DocumentsAdminPageContent() {
                       {doc.version ? doc.version : `v${doc.version_number || 1}`}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      {(doc as any).expires_at ? (
+                      {doc.expires_at ? (
                         (() => {
-                          const expiresAt = new Date((doc as any).expires_at);
+                          const expiresAt = new Date(doc.expires_at);
                           const now = new Date();
                           const daysUntil = Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
                           const isExpired = daysUntil <= 0;

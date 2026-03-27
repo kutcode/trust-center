@@ -9,6 +9,7 @@ import { AppError } from '../middleware/errorHandler';
 import { logActivity } from '../utils/activityLogger';
 import { emailRateLimit } from '../middleware/rateLimit';
 import { validateEmailAddress } from '../utils/emailValidation';
+import { notifyAdminsOfNewRequest } from '../utils/adminNotifications';
 
 const router = express.Router();
 
@@ -209,6 +210,14 @@ router.post('/', emailRateLimit, async (req, res) => {
 
       // Dispatch webhook for pending request
       dispatchWebhook('request.created', pendingRequest);
+
+      // Notify admins of new pending request
+      notifyAdminsOfNewRequest({
+        requester_name: trimmedName,
+        requester_email: trimmedEmail,
+        requester_company: trimmedCompany,
+        document_count: pendingDocs.length,
+      }).catch(err => console.error('Failed to send admin notification:', err));
     }
 
     res.json({
@@ -219,7 +228,8 @@ router.post('/', emailRateLimit, async (req, res) => {
         : 'Your request has been submitted and is under review.',
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -236,7 +246,8 @@ router.get('/history/:email', requireAdmin, async (req, res) => {
 
     res.json(data);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

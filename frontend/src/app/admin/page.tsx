@@ -13,6 +13,12 @@ interface Stats {
   totalDocuments: number;
 }
 
+interface ExpiringDocument {
+  id: string;
+  title: string;
+  expires_at: string;
+}
+
 export default function AdminDashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -23,6 +29,8 @@ export default function AdminDashboard() {
     openTickets: 0,
     totalDocuments: 0,
   });
+  const [ticketsEnabled, setTicketsEnabled] = useState(true);
+  const [expiringDocs, setExpiringDocs] = useState<ExpiringDocument[]>([]);
 
   async function loadStats(token: string) {
     try {
@@ -58,8 +66,29 @@ export default function AdminDashboard() {
 
       setUser(adminUser);
 
-      // Load stats from API
+      // Load stats, settings, and expiring docs
       await loadStats(session.access_token);
+
+      // Load feature flags
+      const { data: settingsData } = await supabase
+        .from('trust_center_settings')
+        .select('support_tickets_enabled')
+        .limit(1)
+        .single();
+      if (settingsData?.support_tickets_enabled !== undefined) {
+        setTicketsEnabled(settingsData.support_tickets_enabled);
+      }
+
+      // Load expiring documents
+      try {
+        const expiring = await apiRequestWithAuth<ExpiringDocument[]>(
+          '/api/documents/admin/expiring?days=30',
+          session.access_token
+        );
+        setExpiringDocs(expiring || []);
+      } catch {
+        // Non-critical
+      }
 
       setLoading(false);
     }
@@ -148,23 +177,25 @@ export default function AdminDashboard() {
           <p className="text-sm text-gray-500">Organizations</p>
         </Link>
 
-        <Link
-          href="/admin/tickets"
-          className="bg-white rounded-lg border border-gray-200 p-5 hover:border-blue-300 hover:shadow-sm transition-all group"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+        {ticketsEnabled && (
+          <Link
+            href="/admin/tickets"
+            className="bg-white rounded-lg border border-gray-200 p-5 hover:border-blue-300 hover:shadow-sm transition-all group"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                </svg>
+              </div>
+              <svg className="w-4 h-4 text-gray-400 group-hover:text-blue-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </div>
-            <svg className="w-4 h-4 text-gray-400 group-hover:text-blue-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </div>
-          <p className="text-2xl font-bold text-gray-900">{stats.openTickets}</p>
-          <p className="text-sm text-gray-500">Open Tickets</p>
-        </Link>
+            <p className="text-2xl font-bold text-gray-900">{stats.openTickets}</p>
+            <p className="text-sm text-gray-500">Open Tickets</p>
+          </Link>
+        )}
 
         <Link
           href="/admin/documents"
@@ -204,20 +235,22 @@ export default function AdminDashboard() {
             </div>
           </Link>
 
-          <Link
-            href="/admin/tickets"
-            className="flex items-center gap-3 px-4 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-all group"
-          >
-            <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
-              <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-              </svg>
-            </div>
-            <div>
-              <p className="font-medium text-gray-900 text-sm">Support Tickets</p>
-              <p className="text-xs text-gray-500">View conversations</p>
-            </div>
-          </Link>
+          {ticketsEnabled && (
+            <Link
+              href="/admin/tickets"
+              className="flex items-center gap-3 px-4 py-3 rounded-lg border border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-all group"
+            >
+              <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-medium text-gray-900 text-sm">Support Tickets</p>
+                <p className="text-xs text-gray-500">View conversations</p>
+              </div>
+            </Link>
+          )}
 
           <Link
             href="/admin/settings"
@@ -236,6 +269,46 @@ export default function AdminDashboard() {
           </Link>
         </div>
       </div>
+
+      {/* Expiring Documents */}
+      {expiringDocs.length > 0 && (
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            <h2 className="text-lg font-semibold text-gray-900">Documents Expiring Soon</h2>
+          </div>
+          <div className="space-y-2">
+            {expiringDocs.map((doc) => {
+              const expiresAt = new Date(doc.expires_at);
+              const now = new Date();
+              const daysLeft = Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+              const isExpired = daysLeft <= 0;
+              const isUrgent = daysLeft <= 7;
+
+              return (
+                <Link
+                  key={doc.id}
+                  href={`/admin/documents/${doc.id}`}
+                  className="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors"
+                >
+                  <span className="text-sm font-medium text-gray-900">{doc.title}</span>
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                    isExpired
+                      ? 'bg-red-100 text-red-800'
+                      : isUrgent
+                        ? 'bg-orange-100 text-orange-800'
+                        : 'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {isExpired ? 'Expired' : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left`}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

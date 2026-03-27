@@ -14,6 +14,7 @@ const DEFAULT_NAV_ITEMS = [
   { key: 'certifications', label: 'Certifications', icon: 'badge' },
   { key: 'security-updates', label: 'Security Updates', icon: 'bell' },
   { key: 'requests', label: 'Requests', icon: 'clipboard' },
+  { key: 'tickets', label: 'Support Tickets', icon: 'chat' },
   { key: 'organizations', label: 'Organizations', icon: 'building' },
   { key: 'users', label: 'Users', icon: 'users' },
   { key: 'activity', label: 'Activity Logs', icon: 'log' },
@@ -59,7 +60,7 @@ export default function SettingsAdminPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [token, setToken] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'general' | 'navigation' | 'branding' | 'footer'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'navigation' | 'branding' | 'footer' | 'features'>('general');
 
   // Navigation ordering state
   const [navOrder, setNavOrder] = useState<string[]>(NAV_DEFAULT_KEYS);
@@ -235,6 +236,7 @@ export default function SettingsAdminPage() {
             { id: 'navigation', label: 'Navigation' },
             { id: 'branding', label: 'Branding & Colors' },
             { id: 'footer', label: 'Footer & Links' },
+            { id: 'features', label: 'Features' },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -683,6 +685,68 @@ export default function SettingsAdminPage() {
                   </p>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Features Tab */}
+          {activeTab === 'features' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">Feature Toggles</h3>
+                <p className="text-sm text-gray-500 mb-4">Enable or disable optional features for your Trust Center.</p>
+              </div>
+
+              <div className="space-y-4">
+                <label className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                  <div>
+                    <p className="font-medium text-gray-900">Support Tickets</p>
+                    <p className="text-sm text-gray-500">Enable the support ticket panel for managing contact form submissions with conversations.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={settings.support_tickets_enabled ?? true}
+                    onChange={(e) => setSettings({ ...settings, support_tickets_enabled: e.target.checked })}
+                    className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 ml-4 flex-shrink-0"
+                  />
+                </label>
+
+                <label className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                  <div>
+                    <p className="font-medium text-gray-900">Email Notifications for New Requests</p>
+                    <p className="text-sm text-gray-500">Receive email alerts when new document requests are submitted.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={settings.notify_on_new_request ?? true}
+                    onChange={(e) => setSettings({ ...settings, notify_on_new_request: e.target.checked })}
+                    className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 ml-4 flex-shrink-0"
+                  />
+                </label>
+              </div>
+
+              {(settings.notify_on_new_request ?? true) && (
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-gray-700">
+                    Notification Email Addresses
+                  </label>
+                  <input
+                    type="text"
+                    value={(settings.notification_emails || []).join(', ')}
+                    onChange={(e) => {
+                      const emails = e.target.value
+                        .split(',')
+                        .map(s => s.trim())
+                        .filter(s => s.length > 0);
+                      setSettings({ ...settings, notification_emails: emails });
+                    }}
+                    placeholder="admin@company.com, security@company.com"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Comma-separated list of email addresses. Falls back to the support email if empty.
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
