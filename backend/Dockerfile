@@ -18,6 +18,11 @@ RUN mkdir -p /app/uploads/documents
 # Make startup script executable
 RUN chmod +x /app/scripts/start.sh
 
+# Run as non-root user
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 node
+RUN chown -R node:nodejs /app
+USER node
+
 # Expose port
 EXPOSE 4000
 

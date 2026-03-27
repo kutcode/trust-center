@@ -15,7 +15,8 @@ router.get('/frameworks', async (req, res) => {
         res.json(data || []);
     } catch (error: any) {
         console.error('Get frameworks error:', error);
-        res.status(500).json({ error: error.message });
+        console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
     }
 });
 

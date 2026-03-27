@@ -1,7 +1,16 @@
 import fs from 'fs';
-import path from 'path';
 import { sendEmail, EmailAttachment } from '../services/emailService';
 import { validateEmailAddress, sanitizeEmailForLogging } from './emailValidation';
+import { resolveUploadPath } from './safePath';
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 export interface MagicLinkEmailData {
   requesterName: string;
@@ -26,7 +35,6 @@ export const sendMagicLinkEmail = async (data: MagicLinkEmailData): Promise<void
     throw new Error(`Invalid email address format: ${sanitized}`);
   }
 
-  const UPLOADS_DIR = process.env.UPLOADS_DIR || '/app/uploads';
   const API_URL = process.env.FRONTEND_URL || 'http://localhost:4000';
   const attachments: EmailAttachment[] = [];
   const attachmentErrors: string[] = [];
@@ -35,15 +43,7 @@ export const sendMagicLinkEmail = async (data: MagicLinkEmailData): Promise<void
   for (const doc of data.documents) {
     if (doc.filePath && doc.fileName) {
       try {
-        const fullPath = path.isAbsolute(doc.filePath)
-          ? doc.filePath
-          : path.join(UPLOADS_DIR, doc.filePath);
-
-        // Security: Prevent path traversal
-        if (fullPath.includes('..')) {
-          attachmentErrors.push(`${doc.fileName}: Invalid path`);
-          continue;
-        }
+        const fullPath = resolveUploadPath(doc.filePath);
 
         // Check if file exists
         if (!fs.existsSync(fullPath)) {
@@ -84,8 +84,8 @@ export const sendMagicLinkEmail = async (data: MagicLinkEmailData): Promise<void
     return `
       <tr>
         <td style="padding: 12px; border-bottom: 1px solid #eee;">
-          <strong>${doc.title}</strong>
-          ${doc.fileName ? `<br><small style="color: #666;">${doc.fileName}</small>` : ''}
+          <strong>${escapeHtml(doc.title)}</strong>
+          ${doc.fileName ? `<br><small style="color: #666;">${escapeHtml(doc.fileName)}</small>` : ''}
         </td>
         <td style="padding: 12px; border-bottom: 1px solid #eee; text-align: right;">
           <a href="${downloadUrl}" style="display: inline-block; padding: 8px 16px; background-color: #28a745; color: #fff; text-decoration: none; border-radius: 4px; font-size: 14px;">Download</a>
@@ -110,7 +110,7 @@ export const sendMagicLinkEmail = async (data: MagicLinkEmailData): Promise<void
     <body>
       <div class="container">
         <h2>Your Document Request Has Been Approved</h2>
-        <p>Hi ${data.requesterName},</p>
+        <p>Hi ${escapeHtml(data.requesterName)},</p>
         <p>Your request has been approved. Click the download buttons below to get your documents:</p>
         ${attachmentInfo}
         ${attachmentWarning}
@@ -174,9 +174,9 @@ export const sendRejectionEmail = async (
     <body>
       <div class="container">
         <h2>Document Request Status Update</h2>
-        <p>Hi ${requesterName},</p>
+        <p>Hi ${escapeHtml(requesterName)},</p>
         <p>We regret to inform you that your document request has been denied.</p>
-        ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
+        ${reason ? `<p><strong>Reason:</strong> ${escapeHtml(reason)}</p>` : ''}
         <p>If you have any questions, please contact our support team.</p>
       </div>
     </body>

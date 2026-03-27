@@ -6,6 +6,9 @@ import { logActivity } from '../utils/activityLogger';
 import fs from 'fs';
 import path from 'path';
 import { enforceDocumentUploadPolicy } from '../middleware/documentUploadSecurity';
+import { resolveUploadPath } from '../utils/safePath';
+import { validate } from '../middleware/validate';
+import { updateDocumentSchema, submitReviewSchema } from '../schemas/document';
 
 // Local file storage configuration
 const UPLOADS_DIR = process.env.UPLOADS_DIR || '/app/uploads';
@@ -21,10 +24,47 @@ function getSafeDownloadFileName(value: string): string {
   return sanitizeUploadFileName(value).replace(/"/g, '');
 }
 
+async function canIncludeAllDocumentStatuses(req: express.Request): Promise<boolean> {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return false;
+  }
+
+  const token = authHeader.slice('Bearer '.length).trim();
+  if (!token) {
+    return false;
+  }
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+  if (authError || !user) {
+    return false;
+  }
+
+  const { data: adminUser, error: adminError } = await supabase
+    .from('admin_users')
+    .select('id')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (adminError || !adminUser) {
+    return false;
+  }
+
+  return true;
+}
+
 // Get all documents (public endpoint returns only published, admin can request all)
 router.get('/', async (req, res) => {
   try {
     const { category_id, access_level, include_all_status } = req.query;
+    const includeAllStatus = include_all_status === 'true';
+
+    if (includeAllStatus) {
+      const isAdmin = await canIncludeAllDocumentStatuses(req);
+      if (!isAdmin) {
+        return res.status(403).json({ error: 'Forbidden: Admin access required' });
+      }
+    }
 
     let query = supabase
       .from('documents')
@@ -34,7 +74,7 @@ router.get('/', async (req, res) => {
 
     // For admin panel: include_all_status=true returns all documents
     // For public: only return published documents
-    if (include_all_status !== 'true') {
+    if (!includeAllStatus) {
       query = query.eq('status', 'published');
     }
 
@@ -52,7 +92,8 @@ router.get('/', async (req, res) => {
 
     res.json(data);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -77,7 +118,8 @@ router.get('/admin/expiring', requireAdmin, async (req, res) => {
     if (error) throw error;
     res.json(data || []);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -85,6 +127,14 @@ router.get('/admin/expiring', requireAdmin, async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { include_all_status } = req.query;
+    const includeAllStatus = include_all_status === 'true';
+
+    if (includeAllStatus) {
+      const isAdmin = await canIncludeAllDocumentStatuses(req);
+      if (!isAdmin) {
+        return res.status(403).json({ error: 'Forbidden: Admin access required' });
+      }
+    }
 
     let query = supabase
       .from('documents')
@@ -93,7 +143,7 @@ router.get('/:id', async (req, res) => {
 
     // For admin panel: include_all_status=true returns any document
     // For public: only return published documents
-    if (include_all_status !== 'true') {
+    if (!includeAllStatus) {
       query = query.eq('status', 'published');
     }
 
@@ -106,7 +156,8 @@ router.get('/:id', async (req, res) => {
 
     res.json(data);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -127,7 +178,7 @@ router.get('/:id/download', async (req, res) => {
     // Public documents can be downloaded directly
     if (document.access_level === 'public') {
       // Serve from local storage
-      const filePath = path.join(UPLOADS_DIR, document.file_url);
+      const filePath = resolveUploadPath(document.file_url);
 
       if (!fs.existsSync(filePath)) {
         return res.status(404).json({ error: 'File not found on server' });
@@ -142,7 +193,8 @@ router.get('/:id/download', async (req, res) => {
     // Restricted documents require magic link validation (handled in access route)
     return res.status(403).json({ error: 'Access denied. Please use your magic link.' });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -166,7 +218,7 @@ router.post('/', requireAdmin, enforceDocumentUploadPolicy, upload.single('file'
     const safeOriginalName = sanitizeUploadFileName(req.file.originalname);
     const folderName = category_id ? `category-${category_id.substring(0, 8)}` : 'uncategorized';
     const filePath = `${folderName}/${fileName}`;
-    const fullPath = path.join(UPLOADS_DIR, filePath);
+    const fullPath = resolveUploadPath(filePath);
 
     console.log('Saving file to:', fullPath);
     console.log('File size:', req.file.size, 'bytes');
@@ -236,12 +288,13 @@ router.post('/', requireAdmin, enforceDocumentUploadPolicy, upload.single('file'
 
     res.status(201).json(document);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 // Update document (admin only)
-router.patch('/:id', requireAdmin, async (req: AuthRequest, res) => {
+router.patch('/:id', requireAdmin, validate(updateDocumentSchema), async (req: AuthRequest, res) => {
   try {
     // Get old document data for logging
     const { data: oldDoc } = await supabase
@@ -279,7 +332,8 @@ router.patch('/:id', requireAdmin, async (req: AuthRequest, res) => {
 
     res.json(data);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -307,7 +361,7 @@ router.put('/:id/replace', requireAdmin, enforceDocumentUploadPolicy, upload.sin
 
     // Delete old file from storage
     if (existingDoc.file_url) {
-      const oldFilePath = path.join(UPLOADS_DIR, existingDoc.file_url);
+      const oldFilePath = resolveUploadPath(existingDoc.file_url);
       if (fs.existsSync(oldFilePath)) {
         fs.unlinkSync(oldFilePath);
         console.log('Deleted old file:', oldFilePath);
@@ -322,7 +376,7 @@ router.put('/:id/replace', requireAdmin, enforceDocumentUploadPolicy, upload.sin
       ? `category-${(category_id || existingDoc.category_id).substring(0, 8)}`
       : 'uncategorized';
     const filePath = `${folderName}/${fileName}`;
-    const fullPath = path.join(UPLOADS_DIR, filePath);
+    const fullPath = resolveUploadPath(filePath);
 
     console.log('Saving replacement file to:', fullPath);
 
@@ -376,7 +430,8 @@ router.put('/:id/replace', requireAdmin, enforceDocumentUploadPolicy, upload.sin
     res.json(updatedDoc);
   } catch (error: any) {
     console.error('File replacement error:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -391,7 +446,7 @@ router.delete('/:id', requireAdmin, async (req: AuthRequest, res) => {
 
     if (document && document.file_url) {
       // Delete file from local storage
-      const filePath = path.join(UPLOADS_DIR, document.file_url);
+      const filePath = resolveUploadPath(document.file_url);
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
         console.log('Deleted file:', filePath);
@@ -421,7 +476,8 @@ router.delete('/:id', requireAdmin, async (req: AuthRequest, res) => {
 
     res.json({ message: 'Document archived successfully' });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -438,7 +494,8 @@ router.get('/:id/versions', requireAdmin, async (req, res) => {
 
     res.json(data);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -470,7 +527,7 @@ router.post('/:id/versions', requireAdmin, enforceDocumentUploadPolicy, upload.s
     const safeOriginalName = sanitizeUploadFileName(req.file.originalname);
     const folderName = currentDoc.category_id ? `category-${currentDoc.category_id.substring(0, 8)}` : 'uncategorized';
     const filePath = `${folderName}/${fileName}`;
-    const fullPath = path.join(UPLOADS_DIR, filePath);
+    const fullPath = resolveUploadPath(filePath);
 
     const dirPath = path.dirname(fullPath);
     if (!fs.existsSync(dirPath)) {
@@ -514,7 +571,8 @@ router.post('/:id/versions', requireAdmin, enforceDocumentUploadPolicy, upload.s
 
     res.status(201).json(updatedDoc);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -532,19 +590,16 @@ router.get('/:id/reviews', requireAdmin, async (req, res) => {
     if (error) throw error;
     res.json(data || []);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 // Submit a review
-router.post('/:id/reviews', requireAdmin, async (req: AuthRequest, res) => {
+router.post('/:id/reviews', requireAdmin, validate(submitReviewSchema), async (req: AuthRequest, res) => {
   try {
     const documentId = req.params.id;
     const { status, notes, next_review_date } = req.body;
-
-    if (!status || !['approved', 'needs_changes', 'pending'].includes(status)) {
-      return res.status(400).json({ error: 'Valid status (approved/needs_changes/pending) is required' });
-    }
 
     const { data: review, error } = await supabase
       .from('document_reviews')
@@ -585,7 +640,8 @@ router.post('/:id/reviews', requireAdmin, async (req: AuthRequest, res) => {
 
     res.status(201).json(review);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

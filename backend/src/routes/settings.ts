@@ -30,7 +30,8 @@ router.get('/', async (req, res) => {
       nda_url: data?.nda_url || DEFAULT_NDA_URL,
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

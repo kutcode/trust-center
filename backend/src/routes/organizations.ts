@@ -26,7 +26,8 @@ router.get('/', requireAdmin, async (req, res) => {
 
     res.json(data);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -43,7 +44,8 @@ router.get('/:id', requireAdmin, async (req, res) => {
 
     res.json(data);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -81,7 +83,8 @@ router.patch('/:id', requireAdmin, async (req, res) => {
 
     res.json(data);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -117,7 +120,8 @@ router.patch('/:id/status', requireAdmin, async (req, res) => {
 
     res.json(data);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -144,7 +148,8 @@ router.delete('/:id', requireAdmin, async (req, res) => {
       organization: data
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

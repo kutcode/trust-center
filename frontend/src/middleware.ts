@@ -1,18 +1,47 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
 
-// Middleware intentionally passes all requests through.
-// Admin route protection is handled client-side via AuthContext.
-// If server-side auth checks are needed in the future,
-// implement them here with Supabase SSR session validation.
-//
-// See: https://supabase.com/docs/guides/auth/server-side/nextjs
+export async function middleware(request: NextRequest) {
+  // Only protect admin routes (except the login page itself)
+  if (!request.nextUrl.pathname.startsWith('/admin')) {
+    return NextResponse.next();
+  }
 
-export function middleware(request: NextRequest) {
-  return NextResponse.next();
+  // Allow the login page through
+  if (request.nextUrl.pathname === '/admin/login') {
+    return NextResponse.next();
+  }
+
+  const response = NextResponse.next();
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options);
+          });
+        },
+      },
+    }
+  );
+
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    const loginUrl = new URL('/admin/login', request.url);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  return response;
 }
 
-// No routes are matched — middleware is effectively disabled.
 export const config = {
-  matcher: [],
+  matcher: ['/admin/:path*'],
 };
