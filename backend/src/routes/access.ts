@@ -1,10 +1,8 @@
 import express from 'express';
 import { supabase } from '../server';
 import fs from 'fs';
-import path from 'path';
 import { logActivity } from '../utils/activityLogger';
-
-const UPLOADS_DIR = process.env.UPLOADS_DIR || '/app/uploads';
+import { resolveUploadPath } from '../utils/safePath';
 
 const router = express.Router();
 
@@ -65,7 +63,8 @@ router.get('/:token', async (req, res) => {
     });
   } catch (error: any) {
     console.error('Access route error:', error.message);
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -112,8 +111,7 @@ router.get('/:token/download/:document_id', async (req, res) => {
     // agreed to NDA terms when submitting the document request form
 
     // Serve from local storage (consistent with documents.ts)
-    // Adjust path if file_url is relative
-    const filePath = path.join(UPLOADS_DIR, document.file_url);
+    const filePath = resolveUploadPath(document.file_url);
 
     if (!fs.existsSync(filePath)) {
       // In demo mode, generate a placeholder file since Railway's filesystem is ephemeral
@@ -161,7 +159,8 @@ Thank you for testing the Trust Center!
 
     return res.sendFile(filePath);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -202,7 +201,8 @@ router.post('/:token/accept-nda', async (req, res) => {
     res.json({ message: 'NDA Accepted successfully' });
 
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

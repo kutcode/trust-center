@@ -6,8 +6,19 @@ import { requireAdmin } from './middleware/auth';
 
 dotenv.config();
 
+// Validate required environment variables in production
+if (process.env.NODE_ENV === 'production') {
+  const required = ['SUPABASE_URL', 'SUPABASE_SERVICE_KEY', 'FRONTEND_URL'];
+  const missing = required.filter(k => !process.env[k]);
+  if (missing.length) {
+    console.error(`Fatal: missing required env vars: ${missing.join(', ')}`);
+    process.exit(1);
+  }
+}
+
 const app = express();
 const PORT = process.env.PORT || 4000;
+app.disable('x-powered-by');
 
 // Initialize Supabase client with service role key
 const supabaseUrl = process.env.SUPABASE_URL || 'http://supabase-kong:8000';
@@ -30,6 +41,18 @@ console.log('Using service key:', !!supabaseServiceKey);
 
 // Middleware
 const isDemoEnv = process.env.DEMO_MODE === 'true';
+app.use((_req, res, next) => {
+  // Baseline hardening headers. Keep CSP out here to avoid breaking existing frontend behavior.
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  if (process.env.NODE_ENV === 'production') {
+    res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+  }
+  next();
+});
+
 app.use(cors({
   origin: isDemoEnv ? true : (process.env.FRONTEND_URL || 'http://localhost:3000'),
   credentials: true,
