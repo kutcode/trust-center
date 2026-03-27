@@ -3,9 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
-
-export default function DemoBanner() {
+export default function DemoBanner({ isDemoMode = false }: { isDemoMode?: boolean }) {
     const pathname = usePathname();
 
     if (!isDemoMode) return null;
