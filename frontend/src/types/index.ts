@@ -14,6 +14,8 @@ export interface Document {
   updated_at: string;
   document_categories?: DocumentCategory;
   requires_nda: boolean;
+  expires_at?: string;
+  review_cycle_days?: number;
 }
 
 export interface DocumentCategory {
@@ -97,6 +99,9 @@ export interface TrustCenterSettings {
   footer_links?: Array<{ label: string; url: string }>;
   nda_url?: string;
   admin_nav_order?: string[];  // Custom order for admin sidebar navigation items
+  support_tickets_enabled?: boolean;
+  notify_on_new_request?: boolean;
+  notification_emails?: string[];
 }
 
 export interface KnowledgeBaseItem {
@@ -107,6 +112,32 @@ export interface KnowledgeBaseItem {
   is_public: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface ContactSubmission {
+  id: string;
+  name: string;
+  email: string;
+  organization?: string;
+  subject: string;
+  message: string;
+  status: 'new' | 'in_progress' | 'resolved';
+  priority: 'low' | 'normal' | 'high' | 'critical';
+  message_count?: number;
+  assigned_to?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TicketMessage {
+  id: string;
+  ticket_id: string;
+  sender_type: 'admin' | 'user';
+  sender_id?: string;
+  sender_name: string;
+  message: string;
+  created_at: string;
+  sender?: { id: string; email: string; full_name?: string };
 }
 
 export interface Webhook {

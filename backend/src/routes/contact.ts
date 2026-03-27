@@ -2,6 +2,7 @@ import express from 'express';
 import { supabase } from '../server';
 import { emailRateLimit } from '../middleware/rateLimit';
 import { validateEmailAddress } from '../utils/emailValidation';
+import { notifyAdminsOfNewTicket } from '../utils/adminNotifications';
 
 const router = express.Router();
 
@@ -55,9 +56,18 @@ router.post('/', emailRateLimit, async (req, res) => {
 
     if (error) throw error;
 
+    // Notify admins of new support ticket (if tickets enabled)
+    notifyAdminsOfNewTicket({
+      name: trimmedName,
+      email: trimmedEmail,
+      organization: trimmedOrganization,
+      subject: trimmedSubject,
+    }).catch(err => console.error('Failed to send ticket notification:', err));
+
     res.status(201).json({ success: true, message: 'Contact form submitted successfully' });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

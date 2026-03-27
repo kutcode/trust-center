@@ -18,6 +18,7 @@ export default function UploadDocumentPage() {
     category_id: '',
     access_level: 'restricted' as 'public' | 'restricted',
     requires_nda: false,
+    expires_at: '',
   });
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
@@ -71,6 +72,9 @@ export default function UploadDocumentPage() {
       formDataToSend.append('category_id', formData.category_id);
       formDataToSend.append('access_level', formData.access_level);
       formDataToSend.append('requires_nda', String(formData.requires_nda));
+      if (formData.expires_at) {
+        formDataToSend.append('expires_at', formData.expires_at);
+      }
 
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
       console.log('Uploading to:', `${apiUrl}/api/documents`);
@@ -215,6 +219,20 @@ export default function UploadDocumentPage() {
               <option value="public">Public (anyone can download)</option>
               <option value="restricted">Restricted (requires approval)</option>
             </select>
+          </FormField>
+
+          <FormField
+            label="Expiry Date"
+            htmlFor="expires_at"
+            helpText="Optional. Documents past their expiry date will be flagged for review."
+          >
+            <input
+              type="date"
+              id="expires_at"
+              value={formData.expires_at}
+              onChange={(e) => setFormData({ ...formData, expires_at: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white"
+            />
           </FormField>
 
           <div className="flex gap-4">
