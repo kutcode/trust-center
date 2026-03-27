@@ -14,7 +14,8 @@ export async function middleware(request: NextRequest) {
   }
 
   // If Supabase env vars are not configured, fall through to client-side auth
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  // Prefer SUPABASE_URL (Docker-internal) over NEXT_PUBLIC_SUPABASE_URL (browser-facing localhost)
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!supabaseUrl || !supabaseAnonKey) {
     return NextResponse.next();
