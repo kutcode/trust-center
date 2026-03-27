@@ -206,7 +206,7 @@ router.post('/', requireAdmin, enforceDocumentUploadPolicy, upload.single('file'
     }
     validateUploadedFileSignature(req.file);
 
-    const { title, description, category_id, access_level, version, replaces_document_id, requires_nda } = req.body;
+    const { title, description, category_id, access_level, version, replaces_document_id, requires_nda, expires_at } = req.body;
 
     if (!title || !access_level) {
       return res.status(400).json({ error: 'Title and access_level are required' });
@@ -266,6 +266,7 @@ router.post('/', requireAdmin, enforceDocumentUploadPolicy, upload.single('file'
         published_at: new Date().toISOString(),
         uploaded_by: req.admin!.id,
         requires_nda: requires_nda === 'true' || requires_nda === true,
+        ...(expires_at ? { expires_at: new Date(expires_at).toISOString() } : {}),
       })
       .select()
       .single();
@@ -346,7 +347,7 @@ router.put('/:id/replace', requireAdmin, enforceDocumentUploadPolicy, upload.sin
     validateUploadedFileSignature(req.file);
 
     const { id } = req.params;
-    const { title, description, category_id, access_level, status, requires_nda } = req.body;
+    const { title, description, category_id, access_level, status, requires_nda, expires_at } = req.body;
 
     // Get the existing document
     const { data: existingDoc, error: fetchError } = await supabase
@@ -400,6 +401,7 @@ router.put('/:id/replace', requireAdmin, enforceDocumentUploadPolicy, upload.sin
         access_level: access_level || existingDoc.access_level,
         status: status || existingDoc.status,
         requires_nda: requires_nda === 'true' || requires_nda === true,
+        ...(expires_at ? { expires_at: new Date(expires_at).toISOString() } : {}),
         file_url: filePath,
         file_name: safeOriginalName,
         file_size: req.file.size,
