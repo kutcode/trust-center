@@ -13,6 +13,7 @@ export default function DemoBanner({ isDemoMode = false }: { isDemoMode?: boolea
     return (
         <>
             <div
+                data-demo-banner="true"
                 className={`fixed top-0 left-0 right-0 z-[9999] text-center py-1.5 sm:py-2 px-4 text-xs sm:text-sm font-medium ${isAdmin
                     ? 'bg-amber-500 text-amber-950'
                     : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'

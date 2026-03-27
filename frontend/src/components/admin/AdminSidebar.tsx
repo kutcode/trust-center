@@ -296,7 +296,11 @@ export default function AdminSidebar() {
         return pathname.startsWith(href);
     };
 
-    const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+    const [isDemoMode, setIsDemoMode] = useState(false);
+    useEffect(() => {
+        // Detect demo mode by checking if the DemoBanner rendered a spacer
+        setIsDemoMode(document.querySelector('[data-demo-banner]') !== null);
+    }, []);
 
     return (
         <aside

@@ -19,9 +19,10 @@ interface HeaderClientProps {
     companyName: string;
     primaryColor: string;
     logoUrl?: string;
+    isDemoMode?: boolean;
 }
 
-export default function HeaderClient({ companyName, primaryColor, logoUrl }: HeaderClientProps) {
+export default function HeaderClient({ companyName, primaryColor, logoUrl, isDemoMode = false }: HeaderClientProps) {
     const router = useRouter();
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -195,7 +196,7 @@ export default function HeaderClient({ companyName, primaryColor, logoUrl }: Hea
         router.push(result.url);
     };
 
-    const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+    // isDemoMode is passed as prop from server component
 
     const navLinks = [
         { href: '/documents', label: 'Documents' },

@@ -9,6 +9,7 @@ export default async function Header() {
       companyName={settings?.company_name || 'Trust Center'}
       primaryColor={settings?.primary_color || '#111827'}
       logoUrl={settings?.company_logo_url}
+      isDemoMode={process.env.NEXT_PUBLIC_DEMO_MODE === 'true'}
     />
   );
 }
