@@ -1,3 +1,4 @@
+import DOMPurify from 'isomorphic-dompurify';
 import { apiRequest } from '@/lib/api';
 import { SecurityUpdate } from '@/types';
 import Breadcrumbs from '@/components/ui/Breadcrumbs';
@@ -73,7 +74,7 @@ export default async function SecurityUpdatesPage() {
                 )}
                 <div
                   className="prose max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-a:text-blue-600"
-                  dangerouslySetInnerHTML={{ __html: update.content }}
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(update.content) }}
                 />
               </article>
             ))}

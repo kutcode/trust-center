@@ -44,7 +44,8 @@ router.get('/status', requireAdmin, async (req: AuthRequest, res) => {
         : null,
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -55,7 +56,8 @@ router.get('/connect-url', requireAdmin, async (req: AuthRequest, res) => {
     const authorizeUrl = await getSalesforceAuthorizeUrl(state, pkce);
     res.json({ authorizeUrl, state });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -64,7 +66,8 @@ router.get('/config', requireAdmin, async (req: AuthRequest, res) => {
     const config = await getSalesforceAdminConfig();
     res.json(config);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -148,7 +151,8 @@ router.post('/sync', requireAdmin, async (req: AuthRequest, res) => {
     const result = await syncOrganizationsFromSalesforce();
     res.json({ success: true, ...result });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -157,7 +161,8 @@ router.post('/disconnect', requireAdmin, async (req: AuthRequest, res) => {
     await disconnectSalesforceConnection();
     res.json({ success: true });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

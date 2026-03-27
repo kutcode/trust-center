@@ -25,7 +25,8 @@ router.get('/', async (req, res) => {
 
     res.json(data);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -56,7 +57,8 @@ router.post('/', requireAdmin, async (req: AuthRequest, res) => {
 
     res.status(201).json(data);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -79,7 +81,8 @@ router.patch('/reorder', requireAdmin, async (req: AuthRequest, res) => {
 
     res.json({ message: 'Reordered successfully' });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -121,7 +124,8 @@ router.patch('/:id', requireAdmin, async (req: AuthRequest, res) => {
 
     res.json(data);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -158,7 +162,8 @@ router.delete('/:id', requireAdmin, async (req: AuthRequest, res) => {
 
     res.json({ message: 'Certification deleted successfully' });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

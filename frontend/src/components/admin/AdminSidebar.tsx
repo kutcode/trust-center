@@ -26,6 +26,7 @@ export default function AdminSidebar() {
     const [lastActivity, setLastActivity] = useState(Date.now());
     const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
     const [navOrder, setNavOrder] = useState<string[]>([]);
+    const [ticketsEnabled, setTicketsEnabled] = useState(true);
 
     useEffect(() => {
         async function loadUserAndSettings() {
@@ -43,15 +44,18 @@ export default function AdminSidebar() {
                     setUser(adminUser);
                 }
 
-                // Load nav order from settings
+                // Load nav order and feature flags from settings
                 const { data: settings } = await supabase
                     .from('trust_center_settings')
-                    .select('admin_nav_order')
+                    .select('admin_nav_order, support_tickets_enabled')
                     .limit(1)
                     .single();
 
                 if (settings?.admin_nav_order && settings.admin_nav_order.length > 0) {
                     setNavOrder(settings.admin_nav_order);
+                }
+                if (settings?.support_tickets_enabled !== undefined) {
+                    setTicketsEnabled(settings.support_tickets_enabled);
                 }
             }
         }
@@ -192,6 +196,16 @@ export default function AdminSidebar() {
             ),
         },
         {
+            key: 'tickets',
+            href: '/admin/tickets',
+            label: 'Support Tickets',
+            icon: (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                </svg>
+            ),
+        },
+        {
             key: 'organizations',
             href: '/admin/organizations',
             label: 'Organizations',
@@ -244,14 +258,20 @@ export default function AdminSidebar() {
         },
     ];
 
-    // Sort nav items based on custom order from settings
+    // Sort nav items based on custom order from settings, and filter by feature flags
     const navItems = useMemo(() => {
+        // Filter out disabled features
+        const filteredItems = navItemsBase.filter(item => {
+            if (item.key === 'tickets' && !ticketsEnabled) return false;
+            return true;
+        });
+
         if (navOrder.length === 0) {
-            return navItemsBase;
+            return filteredItems;
         }
 
         // Create a map for quick lookup
-        const itemMap = new Map(navItemsBase.map(item => [item.key, item]));
+        const itemMap = new Map(filteredItems.map(item => [item.key, item]));
 
         // Build sorted array based on navOrder
         const sorted: NavItem[] = [];
@@ -269,7 +289,7 @@ export default function AdminSidebar() {
         }
 
         return sorted;
-    }, [navOrder]);
+    }, [navOrder, ticketsEnabled]);
 
     const isActive = (href: string) => {
         if (href === '/admin') return pathname === '/admin';

@@ -34,22 +34,23 @@ router.get('/', requireAdmin, async (req, res) => {
       throw error;
     }
 
-    // Fetch document details for each request separately
-    const requestsWithDocs = await Promise.all(
-      (data || []).map(async (request) => {
-        let documents: { id: string; title: string }[] = [];
+    // Batch-fetch all referenced documents in a single query
+    const allDocIds = [...new Set((data || []).flatMap(r => r.document_ids || []))];
+    let docMap = new Map<string, { id: string; title: string }>();
+    if (allDocIds.length > 0) {
+      const { data: allDocs } = await supabase
+        .from('documents')
+        .select('id, title')
+        .in('id', allDocIds);
+      docMap = new Map((allDocs || []).map(d => [d.id, d]));
+    }
 
-        if (request.document_ids && request.document_ids.length > 0) {
-          const { data: docs } = await supabase
-            .from('documents')
-            .select('id, title')
-            .in('id', request.document_ids);
-          documents = docs || [];
-        }
-
-        return { ...request, documents };
-      })
-    );
+    const requestsWithDocs = (data || []).map(request => ({
+      ...request,
+      documents: (request.document_ids || [])
+        .map((id: string) => docMap.get(id))
+        .filter(Boolean),
+    }));
 
     res.json(requestsWithDocs);
   } catch (error: any) {

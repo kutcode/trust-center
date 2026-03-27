@@ -4,11 +4,13 @@ import { supabase } from '../server';
 import { requireAdmin, AuthRequest } from '../middleware/auth';
 import { logActivity } from '../utils/activityLogger';
 import { emailRateLimit } from '../middleware/rateLimit';
+import { validate } from '../middleware/validate';
+import { loginSchema, signupSchema } from '../schemas/auth';
 
 const router = express.Router();
 
 // Admin signup (for initial setup)
-router.post('/signup', emailRateLimit, async (req, res) => {
+router.post('/signup', emailRateLimit, validate(signupSchema), async (req, res) => {
   try {
     const { email, password, full_name } = req.body;
     const allowAdminSignup = process.env.ALLOW_ADMIN_SIGNUP === 'true';
@@ -81,12 +83,13 @@ router.post('/signup', emailRateLimit, async (req, res) => {
       message: 'Admin user created successfully',
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 // Admin login
-router.post('/login', emailRateLimit, async (req, res) => {
+router.post('/login', emailRateLimit, validate(loginSchema), async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -173,7 +176,8 @@ router.post('/login', emailRateLimit, async (req, res) => {
       session: data.session,
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -194,7 +198,8 @@ router.post('/logout', requireAdmin, async (req: AuthRequest, res) => {
     await supabase.auth.signOut();
     res.json({ message: 'Logged out successfully' });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -215,7 +220,8 @@ router.post('/logout/auto', requireAdmin, async (req: AuthRequest, res) => {
     await supabase.auth.signOut();
     res.json({ message: 'Auto-logged out due to inactivity' });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -224,7 +230,8 @@ router.get('/session', requireAdmin, async (req: AuthRequest, res) => {
   try {
     res.json({ authenticated: true, admin: req.admin });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error('Route error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

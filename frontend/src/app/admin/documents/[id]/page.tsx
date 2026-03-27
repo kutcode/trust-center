@@ -31,6 +31,7 @@ export default function EditDocumentPage() {
     access_level: 'restricted',
     status: 'published',
     requires_nda: false,
+    expires_at: '',
   });
 
   useEffect(() => {
@@ -67,6 +68,7 @@ export default function EditDocumentPage() {
           access_level: doc.access_level || 'restricted',
           status: doc.status || 'published',
           requires_nda: doc.requires_nda || false,
+          expires_at: doc.expires_at ? doc.expires_at.split('T')[0] : '',
         });
 
         // Load categories
@@ -136,6 +138,9 @@ export default function EditDocumentPage() {
         formDataToSend.append('access_level', formData.access_level);
         formDataToSend.append('status', formData.status);
         formDataToSend.append('requires_nda', String(formData.requires_nda));
+        if (formData.expires_at) {
+          formDataToSend.append('expires_at', formData.expires_at);
+        }
 
         const response = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/documents/${documentId}/replace`,
@@ -395,6 +400,23 @@ export default function EditDocumentPage() {
               <option value="draft">Draft</option>
               <option value="archived">Archived</option>
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Expiry Date
+            </label>
+            <input
+              type="date"
+              value={formData.expires_at}
+              onChange={(e) =>
+                setFormData({ ...formData, expires_at: e.target.value })
+              }
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-900 bg-white focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Optional. Documents past their expiry date will be flagged for review.
+            </p>
           </div>
 
           <div className="flex gap-4">
