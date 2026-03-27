@@ -35,7 +35,7 @@ export default function RootLayout({
         >
           Skip to main content
         </a>
-        <DemoBanner isDemoMode={process.env.NEXT_PUBLIC_DEMO_MODE === 'true'} />
+        <DemoBanner isDemoMode={process.env.NEXT_PUBLIC_DEMO_MODE === 'true' || process.env.DEMO_MODE === 'true'} />
         <ConditionalLayout header={<Header />} footer={<Footer />}>
           {children}
           <ToastProvider />
