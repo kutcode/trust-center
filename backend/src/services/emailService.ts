@@ -5,7 +5,7 @@
 
 import { Resend } from 'resend';
 import sgMail from '@sendgrid/mail';
-import nodemailer from 'nodemailer';
+import nodemailer, { type Transporter } from 'nodemailer';
 import fs from 'fs';
 import path from 'path';
 import { validateEmailAddress, sanitizeEmailForLogging, isBlockedDomain } from '../utils/emailValidation';
@@ -33,10 +33,10 @@ const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024; // 20MB
 let resendClient: Resend | null = null;
 
 // Mailpit transporter (lazy initialization)
-let mailpitTransporter: nodemailer.Transporter | null = null;
+let mailpitTransporter: Transporter | null = null;
 
 // SMTP transporter (lazy initialization)
-let smtpTransporter: nodemailer.Transporter | null = null;
+let smtpTransporter: Transporter | null = null;
 
 // SendGrid initialization flag
 let sendgridInitialized = false;
@@ -83,7 +83,7 @@ function getResendClient(): Resend {
 /**
  * Initializes Mailpit transporter for development
  */
-function getMailpitTransporter(): nodemailer.Transporter {
+function getMailpitTransporter(): Transporter {
   if (!mailpitTransporter) {
     mailpitTransporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || 'mailpit',
@@ -97,7 +97,7 @@ function getMailpitTransporter(): nodemailer.Transporter {
 /**
  * Initializes SMTP transporter for real email delivery
  */
-function getSMTPTransporter(): nodemailer.Transporter {
+function getSMTPTransporter(): Transporter {
   if (!smtpTransporter) {
     const smtpUser = process.env.SMTP_USER;
     const smtpPass = process.env.SMTP_PASSWORD;
